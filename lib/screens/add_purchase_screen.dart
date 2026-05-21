@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/steam_purchase.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
-  const AddPurchaseScreen({super.key});
+  final SteamPurchase? initialPurchase;
+
+  const AddPurchaseScreen({super.key, this.initialPurchase});
+
+  bool get isEditing => initialPurchase != null;
 
   @override
   State<AddPurchaseScreen> createState() => _AddPurchaseScreenState();
@@ -18,6 +22,30 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _noteController = TextEditingController();
 
   DateTime _purchaseDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initialPurchase = widget.initialPurchase;
+
+    if (initialPurchase == null) {
+      return;
+    }
+
+    _purchaseDate = initialPurchase.purchaseDate;
+    _gameNameController.text = initialPurchase.gameName;
+    _priceController.text = initialPurchase.price.toStringAsFixed(2);
+
+    if (initialPurchase.originalPrice != null) {
+      _originalPriceController.text = initialPurchase.originalPrice!
+          .toStringAsFixed(2);
+    }
+
+    if (initialPurchase.note != null) {
+      _noteController.text = initialPurchase.note!;
+    }
+  }
 
   @override
   void dispose() {
@@ -64,7 +92,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return;
     }
 
+    final initialPurchase = widget.initialPurchase;
+
     final purchase = SteamPurchase(
+      id: initialPurchase?.id,
       purchaseDate: _purchaseDate,
       gameName: _gameNameController.text.trim(),
       price: _parseRequiredDouble(_priceController.text),
@@ -86,7 +117,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kauf hinzufügen'),
+        title: Text(widget.isEditing ? 'Kauf bearbeiten' : 'Kauf hinzufügen'),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -138,8 +169,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                             return 'Bitte Kaufpreis eingeben';
                           }
 
-                          final parsedValue =
-                              double.tryParse(value.trim().replaceAll(',', '.'));
+                          final parsedValue = double.tryParse(
+                            value.trim().replaceAll(',', '.'),
+                          );
 
                           if (parsedValue == null) {
                             return 'Bitte gültige Zahl eingeben';
@@ -169,8 +201,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                             return null;
                           }
 
-                          final parsedValue =
-                              double.tryParse(value.trim().replaceAll(',', '.'));
+                          final parsedValue = double.tryParse(
+                            value.trim().replaceAll(',', '.'),
+                          );
 
                           if (parsedValue == null) {
                             return 'Bitte gültige Zahl eingeben';
@@ -197,7 +230,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                       FilledButton.icon(
                         onPressed: _savePurchase,
                         icon: const Icon(Icons.save),
-                        label: const Text('Speichern'),
+                        label: Text(
+                          widget.isEditing
+                              ? 'Änderungen speichern'
+                              : 'Speichern',
+                        ),
                       ),
                     ],
                   ),

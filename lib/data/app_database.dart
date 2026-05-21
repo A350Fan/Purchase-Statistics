@@ -25,11 +25,7 @@ class AppDatabase {
     final databasePath = await getDatabasesPath();
     final path = join(databasePath, 'steam_stats.db');
 
-    return openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDatabase,
-    );
+    return openDatabase(path, version: 1, onCreate: _createDatabase);
   }
 
   static Future<void> _createDatabase(Database db, int version) async {

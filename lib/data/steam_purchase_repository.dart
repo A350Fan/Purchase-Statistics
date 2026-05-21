@@ -9,10 +9,7 @@ class SteamPurchaseRepository {
   Future<List<SteamPurchase>> getAllPurchases() async {
     final db = await AppDatabase.instance;
 
-    final maps = await db.query(
-      _tableName,
-      orderBy: 'purchase_date DESC',
-    );
+    final maps = await db.query(_tableName, orderBy: 'purchase_date DESC');
 
     return maps.map(SteamPurchase.fromMap).toList();
   }
@@ -29,14 +26,25 @@ class SteamPurchaseRepository {
     return purchase.copyWith(id: id);
   }
 
+  Future<void> updatePurchase(SteamPurchase purchase) async {
+    if (purchase.id == null) {
+      throw ArgumentError('Cannot update purchase without id.');
+    }
+
+    final db = await AppDatabase.instance;
+
+    await db.update(
+      _tableName,
+      purchase.toMap(),
+      where: 'id = ?',
+      whereArgs: [purchase.id],
+    );
+  }
+
   Future<void> deletePurchase(int id) async {
     final db = await AppDatabase.instance;
 
-    await db.delete(
-      _tableName,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete(_tableName, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> clear() async {

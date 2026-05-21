@@ -40,9 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openAddPurchaseScreen() async {
     final newPurchase = await Navigator.of(context).push<SteamPurchase>(
-      MaterialPageRoute(
-        builder: (context) => const AddPurchaseScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const AddPurchaseScreen()),
     );
 
     if (newPurchase == null) {
@@ -50,6 +48,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     await _repository.addPurchase(newPurchase);
+    await _loadPurchases();
+  }
+
+  Future<void> _openEditPurchaseScreen(SteamPurchase purchase) async {
+    final editedPurchase = await Navigator.of(context).push<SteamPurchase>(
+      MaterialPageRoute(
+        builder: (context) => AddPurchaseScreen(initialPurchase: purchase),
+      ),
+    );
+
+    if (editedPurchase == null) {
+      return;
+    }
+
+    await _repository.updatePurchase(editedPurchase);
     await _loadPurchases();
   }
 
@@ -73,9 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final stats = SteamStatistics(_purchases);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Steam Stats'),
-      ),
+      appBar: AppBar(title: const Text('Steam Stats')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddPurchaseScreen,
         icon: const Icon(Icons.add),
@@ -84,9 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth > 700;
@@ -146,6 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                   return Card(
                                     child: ListTile(
+                                      onTap: () =>
+                                          _openEditPurchaseScreen(purchase),
                                       title: Text(purchase.gameName),
                                       subtitle: Text(
                                         discountText == null
@@ -159,6 +170,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                             '${purchase.price.toStringAsFixed(2)} €',
                                           ),
                                           const SizedBox(width: 8),
+                                          IconButton(
+                                            tooltip: 'Bearbeiten',
+                                            onPressed: () =>
+                                                _openEditPurchaseScreen(
+                                                  purchase,
+                                                ),
+                                            icon: const Icon(Icons.edit),
+                                          ),
                                           IconButton(
                                             tooltip: 'Löschen',
                                             onPressed: () =>
