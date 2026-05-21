@@ -3,38 +3,72 @@ import 'package:flutter/material.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 import '../widgets/stat_card.dart';
+import 'add_purchase_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  List<SteamPurchase> get testPurchases => [
-        SteamPurchase(
-          purchaseDate: DateTime(2024, 11, 29),
-          gameName: 'Cyberpunk 2077',
-          price: 29.99,
-          originalPrice: 59.99,
-        ),
-        SteamPurchase(
-          purchaseDate: DateTime(2025, 6, 27),
-          gameName: 'Assetto Corsa Competizione',
-          price: 11.99,
-          originalPrice: 39.99,
-        ),
-        SteamPurchase(
-          purchaseDate: DateTime(2025, 12, 22),
-          gameName: 'Horizon Zero Dawn Remastered',
-          price: 9.99,
-          originalPrice: 49.99,
-        ),
-      ];
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final List<SteamPurchase> _purchases = [
+    SteamPurchase(
+      purchaseDate: DateTime(2024, 11, 29),
+      gameName: 'Cyberpunk 2077',
+      price: 29.99,
+      originalPrice: 59.99,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2025, 6, 27),
+      gameName: 'Assetto Corsa Competizione',
+      price: 11.99,
+      originalPrice: 39.99,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2025, 12, 22),
+      gameName: 'Horizon Zero Dawn Remastered',
+      price: 9.99,
+      originalPrice: 49.99,
+    ),
+  ];
+
+  Future<void> _openAddPurchaseScreen() async {
+    final newPurchase = await Navigator.of(context).push<SteamPurchase>(
+      MaterialPageRoute(
+        builder: (context) => const AddPurchaseScreen(),
+      ),
+    );
+
+    if (newPurchase == null) {
+      return;
+    }
+
+    setState(() {
+      _purchases.add(newPurchase);
+      _purchases.sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
+    });
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final stats = SteamStatistics(testPurchases);
+    final stats = SteamStatistics(_purchases);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Steam Stats'),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddPurchaseScreen,
+        icon: const Icon(Icons.add),
+        label: const Text('Kauf'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -81,15 +115,21 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: testPurchases.length,
+                    itemCount: _purchases.length,
                     itemBuilder: (context, index) {
-                      final purchase = testPurchases[index];
+                      final purchase = _purchases[index];
+
+                      final discountText = purchase.discount == null
+                          ? null
+                          : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
 
                       return Card(
                         child: ListTile(
                           title: Text(purchase.gameName),
                           subtitle: Text(
-                            '${purchase.purchaseDate.day}.${purchase.purchaseDate.month}.${purchase.purchaseDate.year}',
+                            discountText == null
+                                ? _formatDate(purchase.purchaseDate)
+                                : '${_formatDate(purchase.purchaseDate)} · $discountText',
                           ),
                           trailing: Text(
                             '${purchase.price.toStringAsFixed(2)} €',
