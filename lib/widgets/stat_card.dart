@@ -4,11 +4,7 @@ class StatCard extends StatelessWidget {
   final String title;
   final String value;
 
-  const StatCard({
-    super.key,
-    required this.title,
-    required this.value,
-  });
+  const StatCard({super.key, required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -19,15 +15,9 @@ class StatCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
+            Text(title, style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall),
           ],
         ),
       ),
