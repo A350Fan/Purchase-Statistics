@@ -1,0 +1,47 @@
+import 'package:sqflite/sqflite.dart';
+
+import '../models/steam_purchase.dart';
+import 'app_database.dart';
+
+class SteamPurchaseRepository {
+  static const String _tableName = 'steam_purchases';
+
+  Future<List<SteamPurchase>> getAllPurchases() async {
+    final db = await AppDatabase.instance;
+
+    final maps = await db.query(
+      _tableName,
+      orderBy: 'purchase_date DESC',
+    );
+
+    return maps.map(SteamPurchase.fromMap).toList();
+  }
+
+  Future<SteamPurchase> addPurchase(SteamPurchase purchase) async {
+    final db = await AppDatabase.instance;
+
+    final id = await db.insert(
+      _tableName,
+      purchase.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    return purchase.copyWith(id: id);
+  }
+
+  Future<void> deletePurchase(int id) async {
+    final db = await AppDatabase.instance;
+
+    await db.delete(
+      _tableName,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> clear() async {
+    final db = await AppDatabase.instance;
+
+    await db.delete(_tableName);
+  }
+}
