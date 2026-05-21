@@ -28,4 +28,46 @@ class SteamPurchase {
 
     return 1 - (price / originalPrice!);
   }
+
+  SteamPurchase copyWith({
+    int? id,
+    DateTime? purchaseDate,
+    String? gameName,
+    double? price,
+    double? originalPrice,
+    String? note,
+  }) {
+    return SteamPurchase(
+      id: id ?? this.id,
+      purchaseDate: purchaseDate ?? this.purchaseDate,
+      gameName: gameName ?? this.gameName,
+      price: price ?? this.price,
+      originalPrice: originalPrice ?? this.originalPrice,
+      note: note ?? this.note,
+    );
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'id': id,
+      'purchase_date': purchaseDate.toIso8601String(),
+      'game_name': gameName,
+      'price': price,
+      'original_price': originalPrice,
+      'note': note,
+    };
+  }
+
+  factory SteamPurchase.fromMap(Map<String, Object?> map) {
+    return SteamPurchase(
+      id: map['id'] as int?,
+      purchaseDate: DateTime.parse(map['purchase_date'] as String),
+      gameName: map['game_name'] as String,
+      price: (map['price'] as num).toDouble(),
+      originalPrice: map['original_price'] == null
+          ? null
+          : (map['original_price'] as num).toDouble(),
+      note: map['note'] as String?,
+    );
+  }
 }
