@@ -4,6 +4,7 @@ class SteamPurchase {
   final String gameName;
   final double price;
   final double? originalPrice;
+  final double? playtimeHours;
   final String? note;
 
   const SteamPurchase({
@@ -12,6 +13,7 @@ class SteamPurchase {
     required this.gameName,
     required this.price,
     this.originalPrice,
+    this.playtimeHours,
     this.note,
   });
 
@@ -29,12 +31,23 @@ class SteamPurchase {
     return 1 - (price / originalPrice!);
   }
 
+  double? get pricePerHour {
+    final hours = playtimeHours;
+
+    if (hours == null || hours <= 0) {
+      return null;
+    }
+
+    return price / hours;
+  }
+
   SteamPurchase copyWith({
     int? id,
     DateTime? purchaseDate,
     String? gameName,
     double? price,
     double? originalPrice,
+    double? playtimeHours,
     String? note,
   }) {
     return SteamPurchase(
@@ -43,6 +56,7 @@ class SteamPurchase {
       gameName: gameName ?? this.gameName,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
+      playtimeHours: playtimeHours ?? this.playtimeHours,
       note: note ?? this.note,
     );
   }
@@ -54,6 +68,7 @@ class SteamPurchase {
       'game_name': gameName,
       'price': price,
       'original_price': originalPrice,
+      'playtime_hours': playtimeHours,
       'note': note,
     };
   }
@@ -67,6 +82,9 @@ class SteamPurchase {
       originalPrice: map['original_price'] == null
           ? null
           : (map['original_price'] as num).toDouble(),
+      playtimeHours: map['playtime_hours'] == null
+          ? null
+          : (map['playtime_hours'] as num).toDouble(),
       note: map['note'] as String?,
     );
   }

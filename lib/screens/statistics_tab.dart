@@ -127,14 +127,15 @@ class _StatisticsTabState extends State<StatisticsTab> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: 650,
+                width: 760,
                 child: Table(
                   columnWidths: const {
                     0: FixedColumnWidth(80),
                     1: FixedColumnWidth(130),
                     2: FixedColumnWidth(120),
                     3: FixedColumnWidth(140),
-                    4: FixedColumnWidth(120),
+                    4: FixedColumnWidth(140),
+                    5: FixedColumnWidth(110),
                   },
                   children: [
                     TableRow(
@@ -143,6 +144,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                         _headerCell(context, 'Ausgaben'),
                         _headerCell(context, 'Ø Rabatt'),
                         _headerCell(context, 'Kumulativ'),
+                        _headerCell(context, 'Spielzeit'),
                         _headerCell(context, '€/h'),
                       ],
                     ),
@@ -174,7 +176,12 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            'N/V',
+                            _formatHours(row.playtimeHours, zeroAsDash: true),
+                            alignment: Alignment.centerRight,
+                          ),
+                          _tableCell(
+                            context,
+                            _formatPricePerHour(row.pricePerHour),
                             alignment: Alignment.centerRight,
                           ),
                         ],
@@ -201,6 +208,16 @@ class _StatisticsTabState extends State<StatisticsTab> {
               context,
               'Summe UVP',
               _formatCurrency(summary.totalOriginalPrice),
+            ),
+            _summaryRow(
+              context,
+              'Spielzeit',
+              _formatHours(summary.totalPlaytimeHours, zeroAsDash: true),
+            ),
+            _summaryRow(
+              context,
+              'Ø €/h',
+              _formatPricePerHour(summary.pricePerHour),
             ),
           ],
         ),
@@ -255,13 +272,15 @@ class _StatisticsTabState extends State<StatisticsTab> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: 470,
+                width: 680,
                 child: Table(
                   columnWidths: const {
                     0: FixedColumnWidth(90),
                     1: FixedColumnWidth(130),
                     2: FixedColumnWidth(110),
                     3: FixedColumnWidth(140),
+                    4: FixedColumnWidth(110),
+                    5: FixedColumnWidth(100),
                   },
                   children: [
                     TableRow(
@@ -270,6 +289,8 @@ class _StatisticsTabState extends State<StatisticsTab> {
                         _headerCell(context, 'Ausgaben'),
                         _headerCell(context, 'Ø Rabatt'),
                         _headerCell(context, 'Kumulativ'),
+                        _headerCell(context, 'Spielzeit'),
+                        _headerCell(context, '€/h'),
                       ],
                     ),
                     ...rows.map((row) {
@@ -305,6 +326,16 @@ class _StatisticsTabState extends State<StatisticsTab> {
                             ),
                             alignment: Alignment.centerRight,
                           ),
+                          _tableCell(
+                            context,
+                            _formatHours(row.playtimeHours, zeroAsDash: true),
+                            alignment: Alignment.centerRight,
+                          ),
+                          _tableCell(
+                            context,
+                            _formatPricePerHour(row.pricePerHour),
+                            alignment: Alignment.centerRight,
+                          ),
                         ],
                       );
                     }),
@@ -324,6 +355,16 @@ class _StatisticsTabState extends State<StatisticsTab> {
               context,
               summary.isProjected ? 'Summe*' : 'Summe',
               _formatCurrency(summary.projectedSpending),
+            ),
+            _summaryRow(
+              context,
+              'Spielzeit',
+              _formatHours(summary.totalPlaytimeHours, zeroAsDash: true),
+            ),
+            _summaryRow(
+              context,
+              'Ø €/h',
+              _formatPricePerHour(summary.pricePerHour),
             ),
             if (summary.isProjected)
               _summaryRow(
@@ -442,6 +483,27 @@ class _StatisticsTabState extends State<StatisticsTab> {
     }
 
     return '${(value * 100).round()}%';
+  }
+
+  String _formatHours(double value, {bool zeroAsDash = false}) {
+    if (zeroAsDash && value <= 0) {
+      return '- h';
+    }
+
+    final hasFraction = value != value.roundToDouble();
+    final formattedValue = value
+        .toStringAsFixed(hasFraction ? 1 : 0)
+        .replaceAll('.', ',');
+
+    return '$formattedValue h';
+  }
+
+  String _formatPricePerHour(double? value) {
+    if (value == null) {
+      return 'N/V';
+    }
+
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';
   }
 
   Color? _spendingColor(double value, double maxSpending) {

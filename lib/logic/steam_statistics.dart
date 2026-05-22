@@ -5,12 +5,16 @@ class AnnualStatistics {
   final double spending;
   final double? averageDiscount;
   final double cumulativeSpending;
+  final double playtimeHours;
+  final double? pricePerHour;
 
   const AnnualStatistics({
     required this.year,
     required this.spending,
     required this.averageDiscount,
     required this.cumulativeSpending,
+    required this.playtimeHours,
+    required this.pricePerHour,
   });
 }
 
@@ -18,13 +22,17 @@ class AnnualStatisticsSummary {
   final double averageSpending;
   final double totalSpending;
   final double totalOriginalPrice;
+  final double totalPlaytimeHours;
   final double? averageDiscount;
+  final double? pricePerHour;
 
   const AnnualStatisticsSummary({
     required this.averageSpending,
     required this.totalSpending,
     required this.totalOriginalPrice,
+    required this.totalPlaytimeHours,
     required this.averageDiscount,
+    required this.pricePerHour,
   });
 }
 
@@ -33,12 +41,16 @@ class QuarterlyStatistics {
   final double spending;
   final double? averageDiscount;
   final double cumulativeSpending;
+  final double playtimeHours;
+  final double? pricePerHour;
 
   const QuarterlyStatistics({
     required this.quarter,
     required this.spending,
     required this.averageDiscount,
     required this.cumulativeSpending,
+    required this.playtimeHours,
+    required this.pricePerHour,
   });
 }
 
@@ -48,6 +60,8 @@ class QuarterlyStatisticsSummary {
   final double projectedSpending;
   final double averageQuarterSpending;
   final double? averageDiscount;
+  final double totalPlaytimeHours;
+  final double? pricePerHour;
   final bool isProjected;
 
   const QuarterlyStatisticsSummary({
@@ -56,6 +70,8 @@ class QuarterlyStatisticsSummary {
     required this.projectedSpending,
     required this.averageQuarterSpending,
     required this.averageDiscount,
+    required this.totalPlaytimeHours,
+    required this.pricePerHour,
     required this.isProjected,
   });
 }
@@ -82,6 +98,34 @@ class SteamStatistics {
       0.0,
       (sum, purchase) => sum + (purchase.originalPrice ?? purchase.price),
     );
+  }
+
+  double get totalPlaytimeHours {
+    return purchases.fold(0.0, (sum, purchase) {
+      if (!_hasPlaytime(purchase)) {
+        return sum;
+      }
+
+      return sum + purchase.playtimeHours!;
+    });
+  }
+
+  double get totalSpentWithPlaytime {
+    return purchases.fold(0.0, (sum, purchase) {
+      if (!_hasPlaytime(purchase)) {
+        return sum;
+      }
+
+      return sum + purchase.price;
+    });
+  }
+
+  double? get pricePerHour {
+    if (totalPlaytimeHours <= 0) {
+      return null;
+    }
+
+    return totalSpentWithPlaytime / totalPlaytimeHours;
   }
 
   double get totalSavings {
@@ -185,7 +229,9 @@ class SteamStatistics {
           : totalSpent / yearsWithData.length,
       totalSpending: totalSpent,
       totalOriginalPrice: totalOriginalPrice,
+      totalPlaytimeHours: totalPlaytimeHours,
       averageDiscount: averageDiscount,
+      pricePerHour: pricePerHour,
     );
   }
 
@@ -260,6 +306,54 @@ class SteamStatistics {
     return result;
   }
 
+  Map<int, double> get playtimeByYear {
+    final result = <int, double>{};
+
+    for (final purchase in purchases) {
+      if (!_hasPlaytime(purchase)) {
+        continue;
+      }
+
+      result[purchase.year] =
+          (result[purchase.year] ?? 0.0) + purchase.playtimeHours!;
+    }
+
+    return result;
+  }
+
+  Map<int, double> get spendingWithPlaytimeByYear {
+    final result = <int, double>{};
+
+    for (final purchase in purchases) {
+      if (!_hasPlaytime(purchase)) {
+        continue;
+      }
+
+      result[purchase.year] = (result[purchase.year] ?? 0.0) + purchase.price;
+    }
+
+    return result;
+  }
+
+  Map<int, double?> get pricePerHourByYear {
+    final result = <int, double?>{};
+    final yearlyPlaytime = playtimeByYear;
+    final yearlyTrackedSpending = spendingWithPlaytimeByYear;
+
+    for (final year in years) {
+      final playtime = yearlyPlaytime[year] ?? 0.0;
+
+      if (playtime <= 0) {
+        result[year] = null;
+        continue;
+      }
+
+      result[year] = (yearlyTrackedSpending[year] ?? 0.0) / playtime;
+    }
+
+    return result;
+  }
+
   Map<int, double?> get averageDiscountByYear {
     final discountsByYear = <int, List<double>>{};
 
@@ -295,6 +389,8 @@ class SteamStatistics {
     final rows = <AnnualStatistics>[];
     final yearlySpending = spendingByYear;
     final yearlyDiscount = averageDiscountByYear;
+    final yearlyPlaytime = playtimeByYear;
+    final yearlyPricePerHour = pricePerHourByYear;
     var cumulativeSpending = 0.0;
 
     for (final year in years) {
@@ -307,6 +403,8 @@ class SteamStatistics {
           spending: spending,
           averageDiscount: yearlyDiscount[year],
           cumulativeSpending: cumulativeSpending,
+          playtimeHours: yearlyPlaytime[year] ?? 0.0,
+          pricePerHour: yearlyPricePerHour[year],
         ),
       );
     }
@@ -363,10 +461,64 @@ class SteamStatistics {
     });
   }
 
+  Map<int, double> playtimeByQuarterForYear(int year) {
+    final result = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0};
+
+    for (final purchase in purchases.where(
+      (purchase) => purchase.year == year,
+    )) {
+      if (!_hasPlaytime(purchase)) {
+        continue;
+      }
+
+      result[purchase.quarter] =
+          result[purchase.quarter]! + purchase.playtimeHours!;
+    }
+
+    return result;
+  }
+
+  Map<int, double> spendingWithPlaytimeByQuarterForYear(int year) {
+    final result = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0};
+
+    for (final purchase in purchases.where(
+      (purchase) => purchase.year == year,
+    )) {
+      if (!_hasPlaytime(purchase)) {
+        continue;
+      }
+
+      result[purchase.quarter] = result[purchase.quarter]! + purchase.price;
+    }
+
+    return result;
+  }
+
+  Map<int, double?> pricePerHourByQuarterForYear(int year) {
+    final result = <int, double?>{};
+    final quarterPlaytime = playtimeByQuarterForYear(year);
+    final quarterTrackedSpending = spendingWithPlaytimeByQuarterForYear(year);
+
+    for (var quarter = 1; quarter <= 4; quarter++) {
+      final playtime = quarterPlaytime[quarter] ?? 0.0;
+
+      if (playtime <= 0) {
+        result[quarter] = null;
+        continue;
+      }
+
+      result[quarter] = (quarterTrackedSpending[quarter] ?? 0.0) / playtime;
+    }
+
+    return result;
+  }
+
   List<QuarterlyStatistics> quarterlyStatisticsForYear(int year) {
     final rows = <QuarterlyStatistics>[];
     final quarterSpending = spendingByQuarterForYear(year);
     final quarterDiscount = averageDiscountByQuarterForYear(year);
+    final quarterPlaytime = playtimeByQuarterForYear(year);
+    final quarterPricePerHour = pricePerHourByQuarterForYear(year);
     var cumulativeSpending = 0.0;
 
     for (var quarter = 1; quarter <= 4; quarter++) {
@@ -379,6 +531,8 @@ class SteamStatistics {
           spending: spending,
           averageDiscount: quarterDiscount[quarter],
           cumulativeSpending: cumulativeSpending,
+          playtimeHours: quarterPlaytime[quarter] ?? 0.0,
+          pricePerHour: quarterPricePerHour[quarter],
         ),
       );
     }
@@ -399,6 +553,8 @@ class SteamStatistics {
         .map((purchase) => purchase.discount)
         .whereType<double>()
         .toList();
+    final yearlyPlaytime = playtimeByYear[year] ?? 0.0;
+    final yearlyTrackedSpending = spendingWithPlaytimeByYear[year] ?? 0.0;
 
     return QuarterlyStatisticsSummary(
       year: year,
@@ -409,6 +565,10 @@ class SteamStatistics {
           ? null
           : discounts.fold(0.0, (sum, discount) => sum + discount) /
                 discounts.length,
+      totalPlaytimeHours: yearlyPlaytime,
+      pricePerHour: yearlyPlaytime <= 0
+          ? null
+          : yearlyTrackedSpending / yearlyPlaytime,
       isProjected: isProjected,
     );
   }
@@ -429,5 +589,11 @@ class SteamStatistics {
 
   int _daysInYear(int year) {
     return DateTime.utc(year + 1).difference(DateTime.utc(year)).inDays;
+  }
+
+  bool _hasPlaytime(SteamPurchase purchase) {
+    final playtimeHours = purchase.playtimeHours;
+
+    return playtimeHours != null && playtimeHours > 0;
   }
 }

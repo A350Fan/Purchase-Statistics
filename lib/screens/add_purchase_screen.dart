@@ -19,6 +19,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _gameNameController = TextEditingController();
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
+  final _playtimeHoursController = TextEditingController();
   final _noteController = TextEditingController();
 
   DateTime _purchaseDate = DateTime.now();
@@ -42,6 +43,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           .toStringAsFixed(2);
     }
 
+    if (initialPurchase.playtimeHours != null) {
+      _playtimeHoursController.text = initialPurchase.playtimeHours!
+          .toStringAsFixed(1);
+    }
+
     if (initialPurchase.note != null) {
       _noteController.text = initialPurchase.note!;
     }
@@ -52,6 +58,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _gameNameController.dispose();
     _priceController.dispose();
     _originalPriceController.dispose();
+    _playtimeHoursController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -100,6 +107,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       gameName: _gameNameController.text.trim(),
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
+      playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
       note: _noteController.text.trim().isEmpty
           ? null
           : _noteController.text.trim(),
@@ -115,125 +123,186 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         '${_purchaseDate.month.toString().padLeft(2, '0')}.'
         '${_purchaseDate.year}';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'Kauf bearbeiten' : 'Kauf hinzufügen'),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.isEditing ? 'Kauf bearbeiten' : 'Kauf hinzufügen'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.receipt_long), text: 'Kaufdaten'),
+              Tab(icon: Icon(Icons.timer), text: 'Spielzeit'),
+            ],
+          ),
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Card(
                 child: Form(
                   key: _formKey,
-                  child: ListView(
+                  child: Column(
                     children: [
-                      TextFormField(
-                        controller: _gameNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Spielname',
-                          border: OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Bitte Spielname eingeben';
-                          }
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            ListView(
+                              padding: const EdgeInsets.all(16),
+                              children: [
+                                TextFormField(
+                                  controller: _gameNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Spielname',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  textInputAction: TextInputAction.next,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bitte Spielname eingeben';
+                                    }
 
-                          return null;
-                        },
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: _pickPurchaseDate,
+                                  icon: const Icon(Icons.calendar_month),
+                                  label: Text('Kaufdatum: $formattedDate'),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _priceController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Kaufpreis',
+                                    suffixText: '€',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textInputAction: TextInputAction.next,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bitte Kaufpreis eingeben';
+                                    }
+
+                                    final parsedValue = double.tryParse(
+                                      value.trim().replaceAll(',', '.'),
+                                    );
+
+                                    if (parsedValue == null) {
+                                      return 'Bitte gültige Zahl eingeben';
+                                    }
+
+                                    if (parsedValue < 0) {
+                                      return 'Preis darf nicht negativ sein';
+                                    }
+
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _originalPriceController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Originalpreis optional',
+                                    suffixText: '€',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textInputAction: TextInputAction.next,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return null;
+                                    }
+
+                                    final parsedValue = double.tryParse(
+                                      value.trim().replaceAll(',', '.'),
+                                    );
+
+                                    if (parsedValue == null) {
+                                      return 'Bitte gültige Zahl eingeben';
+                                    }
+
+                                    if (parsedValue <= 0) {
+                                      return 'Originalpreis muss größer als 0 sein';
+                                    }
+
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _noteController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Notiz optional',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  minLines: 2,
+                                  maxLines: 4,
+                                ),
+                              ],
+                            ),
+                            ListView(
+                              padding: const EdgeInsets.all(16),
+                              children: [
+                                TextFormField(
+                                  controller: _playtimeHoursController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Spielzeit optional',
+                                    suffixText: 'h',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textInputAction: TextInputAction.done,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return null;
+                                    }
+
+                                    final parsedValue = double.tryParse(
+                                      value.trim().replaceAll(',', '.'),
+                                    );
+
+                                    if (parsedValue == null) {
+                                      return 'Bitte gültige Zahl eingeben';
+                                    }
+
+                                    if (parsedValue < 0) {
+                                      return 'Spielzeit darf nicht negativ sein';
+                                    }
+
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: _pickPurchaseDate,
-                        icon: const Icon(Icons.calendar_month),
-                        label: Text('Kaufdatum: $formattedDate'),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _priceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Kaufpreis',
-                          suffixText: '€',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Bitte Kaufpreis eingeben';
-                          }
-
-                          final parsedValue = double.tryParse(
-                            value.trim().replaceAll(',', '.'),
-                          );
-
-                          if (parsedValue == null) {
-                            return 'Bitte gültige Zahl eingeben';
-                          }
-
-                          if (parsedValue < 0) {
-                            return 'Preis darf nicht negativ sein';
-                          }
-
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _originalPriceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Originalpreis optional',
-                          suffixText: '€',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return null;
-                          }
-
-                          final parsedValue = double.tryParse(
-                            value.trim().replaceAll(',', '.'),
-                          );
-
-                          if (parsedValue == null) {
-                            return 'Bitte gültige Zahl eingeben';
-                          }
-
-                          if (parsedValue <= 0) {
-                            return 'Originalpreis muss größer als 0 sein';
-                          }
-
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _noteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Notiz optional',
-                          border: OutlineInputBorder(),
-                        ),
-                        minLines: 2,
-                        maxLines: 4,
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: _savePurchase,
-                        icon: const Icon(Icons.save),
-                        label: Text(
-                          widget.isEditing
-                              ? 'Änderungen speichern'
-                              : 'Speichern',
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _savePurchase,
+                            icon: const Icon(Icons.save),
+                            label: Text(
+                              widget.isEditing
+                                  ? 'Änderungen speichern'
+                                  : 'Speichern',
+                            ),
+                          ),
                         ),
                       ),
                     ],

@@ -16,6 +16,10 @@ enum PurchaseSortOption {
   nameZA,
   discountHighestFirst,
   discountLowestFirst,
+  playtimeHighestFirst,
+  playtimeLowestFirst,
+  pricePerHourLowestFirst,
+  pricePerHourHighestFirst,
 }
 
 class HomeScreen extends StatefulWidget {
@@ -83,6 +87,30 @@ class _HomeScreenState extends State<HomeScreen> {
           final discountA = a.discount ?? 101;
           final discountB = b.discount ?? 101;
           return discountA.compareTo(discountB);
+
+        case PurchaseSortOption.playtimeHighestFirst:
+          final playtimeA = a.playtimeHours ?? -1;
+          final playtimeB = b.playtimeHours ?? -1;
+          return playtimeB.compareTo(playtimeA);
+
+        case PurchaseSortOption.playtimeLowestFirst:
+          final playtimeA = (a.playtimeHours ?? 0) > 0
+              ? a.playtimeHours!
+              : double.infinity;
+          final playtimeB = (b.playtimeHours ?? 0) > 0
+              ? b.playtimeHours!
+              : double.infinity;
+          return playtimeA.compareTo(playtimeB);
+
+        case PurchaseSortOption.pricePerHourLowestFirst:
+          final pricePerHourA = a.pricePerHour ?? double.infinity;
+          final pricePerHourB = b.pricePerHour ?? double.infinity;
+          return pricePerHourA.compareTo(pricePerHourB);
+
+        case PurchaseSortOption.pricePerHourHighestFirst:
+          final pricePerHourA = a.pricePerHour ?? -1;
+          final pricePerHourB = b.pricePerHour ?? -1;
+          return pricePerHourB.compareTo(pricePerHourA);
       }
     });
 
@@ -114,6 +142,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
       case PurchaseSortOption.discountLowestFirst:
         return 'Rabatt: niedrigste zuerst';
+
+      case PurchaseSortOption.playtimeHighestFirst:
+        return 'Spielzeit: höchste zuerst';
+
+      case PurchaseSortOption.playtimeLowestFirst:
+        return 'Spielzeit: niedrigste zuerst';
+
+      case PurchaseSortOption.pricePerHourLowestFirst:
+        return '€/h: niedrigste zuerst';
+
+      case PurchaseSortOption.pricePerHourHighestFirst:
+        return '€/h: höchste zuerst';
     }
   }
 
@@ -196,6 +236,32 @@ class _HomeScreenState extends State<HomeScreen> {
         '${date.year}';
   }
 
+  String? _formatPlaytime(double? hours) {
+    if (hours == null || hours <= 0) {
+      return null;
+    }
+
+    return '${_formatDecimal(hours)} h';
+  }
+
+  String _formatTotalPlaytime(double hours) {
+    if (hours <= 0) {
+      return '-';
+    }
+
+    return '${_formatDecimal(hours)} h';
+  }
+
+  String _formatPricePerHour(double value) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';
+  }
+
+  String _formatDecimal(double value) {
+    final hasFraction = value != value.roundToDouble();
+
+    return value.toStringAsFixed(hasFraction ? 1 : 0).replaceAll('.', ',');
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = SteamStatistics(_purchases);
@@ -236,6 +302,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth > 700;
+                        final dashboardColumnCount = constraints.maxWidth > 1200
+                            ? 5
+                            : isWide
+                            ? 3
+                            : 2;
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,10 +318,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 16),
                             GridView.count(
                               shrinkWrap: true,
-                              crossAxisCount: isWide ? 3 : 1,
+                              crossAxisCount: dashboardColumnCount,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              childAspectRatio: isWide ? 2.4 : 4,
+                              childAspectRatio: isWide ? 2.4 : 1.9,
                               children: [
                                 StatCard(
                                   title: 'Spiele',
@@ -266,6 +337,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                   value: stats.averageDiscount == null
                                       ? '-'
                                       : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
+                                ),
+                                StatCard(
+                                  title: 'Spielzeit',
+                                  value: _formatTotalPlaytime(
+                                    stats.totalPlaytimeHours,
+                                  ),
+                                ),
+                                StatCard(
+                                  title: 'Ø €/h',
+                                  value: stats.pricePerHour == null
+                                      ? '-'
+                                      : _formatPricePerHour(
+                                          stats.pricePerHour!,
+                                        ),
                                 ),
                               ],
                             ),
@@ -318,6 +403,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                             purchase.discount == null
                                             ? null
                                             : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
+                                        final playtimeText = _formatPlaytime(
+                                          purchase.playtimeHours,
+                                        );
+                                        final pricePerHourText =
+                                            purchase.pricePerHour == null
+                                            ? null
+                                            : _formatPricePerHour(
+                                                purchase.pricePerHour!,
+                                              );
+                                        final detailParts = [
+                                          _formatDate(purchase.purchaseDate),
+                                          ?discountText,
+                                          ?playtimeText,
+                                          ?pricePerHourText,
+                                        ];
 
                                         return Card(
                                           child: ListTile(
@@ -327,11 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                             title: Text(purchase.gameName),
                                             subtitle: Text(
-                                              discountText == null
-                                                  ? _formatDate(
-                                                      purchase.purchaseDate,
-                                                    )
-                                                  : '${_formatDate(purchase.purchaseDate)} · $discountText',
+                                              detailParts.join(' · '),
                                             ),
                                             trailing: Row(
                                               mainAxisSize: MainAxisSize.min,

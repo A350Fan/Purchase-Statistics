@@ -11,6 +11,7 @@ void main() {
           gameName: 'Discounted game',
           price: 10,
           originalPrice: 20,
+          playtimeHours: 2,
         ),
         SteamPurchase(
           purchaseDate: DateTime(2024, 7, 3),
@@ -27,11 +28,14 @@ void main() {
       expect(rows[0].spending, 40);
       expect(rows[0].averageDiscount, closeTo(0.5, 0.0001));
       expect(rows[0].cumulativeSpending, 40);
+      expect(rows[0].playtimeHours, 2);
+      expect(rows[0].pricePerHour, 5);
 
       expect(rows[1].year, 2025);
       expect(rows[1].spending, 0);
       expect(rows[1].averageDiscount, isNull);
       expect(rows[1].cumulativeSpending, 40);
+      expect(rows[1].pricePerHour, isNull);
 
       expect(rows[2].year, 2026);
       expect(rows[2].spending, 0);
@@ -39,6 +43,8 @@ void main() {
 
       expect(stats.annualSummary.averageSpending, closeTo(40 / 3, 0.0001));
       expect(stats.annualSummary.totalOriginalPrice, 50);
+      expect(stats.annualSummary.totalPlaytimeHours, 2);
+      expect(stats.annualSummary.pricePerHour, 5);
     });
 
     test('builds quarterly rows and projects the current year', () {
@@ -48,11 +54,13 @@ void main() {
           gameName: 'Q1 game',
           price: 25,
           originalPrice: 100,
+          playtimeHours: 5,
         ),
         SteamPurchase(
           purchaseDate: DateTime(2026, 4, 1),
           gameName: 'Q2 game',
           price: 75,
+          playtimeHours: 15,
         ),
       ], currentDate: DateTime(2026, 5, 22));
 
@@ -62,11 +70,15 @@ void main() {
       expect(rows[0].spending, 25);
       expect(rows[0].averageDiscount, closeTo(0.75, 0.0001));
       expect(rows[0].cumulativeSpending, 25);
+      expect(rows[0].playtimeHours, 5);
+      expect(rows[0].pricePerHour, 5);
 
       expect(rows[1].quarter, 2);
       expect(rows[1].spending, 75);
       expect(rows[1].averageDiscount, isNull);
       expect(rows[1].cumulativeSpending, 100);
+      expect(rows[1].playtimeHours, 15);
+      expect(rows[1].pricePerHour, 5);
 
       expect(rows[2].spending, 0);
       expect(rows[2].cumulativeSpending, 100);
@@ -84,6 +96,8 @@ void main() {
         closeTo(projectedSpending / 4, 0.0001),
       );
       expect(summary.averageDiscount, closeTo(0.75, 0.0001));
+      expect(summary.totalPlaytimeHours, 20);
+      expect(summary.pricePerHour, 5);
     });
   });
 }

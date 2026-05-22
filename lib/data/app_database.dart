@@ -24,7 +24,12 @@ class AppDatabase {
     final databasePath = await getDatabasesPath();
     final path = join(databasePath, 'steam_stats.db');
 
-    return openDatabase(path, version: 1, onCreate: _createDatabase);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
+    );
   }
 
   static Future<void> _createDatabase(Database db, int version) async {
@@ -35,8 +40,21 @@ class AppDatabase {
         game_name TEXT NOT NULL,
         price REAL NOT NULL,
         original_price REAL,
+        playtime_hours REAL,
         note TEXT
       )
     ''');
+  }
+
+  static Future<void> _upgradeDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN playtime_hours REAL',
+      );
+    }
   }
 }
