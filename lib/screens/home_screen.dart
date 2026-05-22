@@ -66,6 +66,34 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadPurchases();
   }
 
+  Future<void> _confirmDeletePurchase(SteamPurchase purchase) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Kauf löschen?'),
+          content: Text('Möchtest du "${purchase.gameName}" wirklich löschen?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Löschen'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    await _deletePurchase(purchase);
+  }
+
   Future<void> _deletePurchase(SteamPurchase purchase) async {
     if (purchase.id == null) {
       return;
@@ -73,6 +101,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await _repository.deletePurchase(purchase.id!);
     await _loadPurchases();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${purchase.gameName}" wurde gelöscht.')),
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -181,7 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           IconButton(
                                             tooltip: 'Löschen',
                                             onPressed: () =>
-                                                _deletePurchase(purchase),
+                                                _confirmDeletePurchase(
+                                                  purchase,
+                                                ),
                                             icon: const Icon(Icons.delete),
                                           ),
                                         ],
