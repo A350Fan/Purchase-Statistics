@@ -78,6 +78,26 @@ class _ChartsTabState extends State<ChartsTab> {
           );
         }).toList(),
       ),
+      _ChartMetric(
+        title: 'Gesamtausgaben',
+        points: annualRows.map((row) {
+          return _ChartPoint(
+            xLabel: row.year.toString(),
+            value: row.cumulativeSpending,
+            valueLabel: _formatCurrency(row.cumulativeSpending),
+          );
+        }).toList(),
+      ),
+      _ChartMetric(
+        title: 'Gesamtausgaben im gewählten Jahr',
+        points: quarterRows.map((row) {
+          return _ChartPoint(
+            xLabel: row.quarter.toString(),
+            value: row.cumulativeSpending,
+            valueLabel: _formatCurrency(row.cumulativeSpending),
+          );
+        }).toList(),
+      ),
     ];
 
     return LayoutBuilder(

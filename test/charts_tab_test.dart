@@ -41,6 +41,8 @@ void main() {
     expect(find.text('AUSGABEN PRO QUARTAL'), findsOneWidget);
     expect(find.text('RABATT PRO JAHR'), findsOneWidget);
     expect(find.text('RABATT PRO QUARTAL'), findsOneWidget);
+    expect(find.text('GESAMTAUSGABEN'), findsOneWidget);
+    expect(find.text('GESAMTAUSGABEN IM GEWÄHLTEN JAHR'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
