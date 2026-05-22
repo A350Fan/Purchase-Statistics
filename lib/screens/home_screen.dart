@@ -385,6 +385,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';
   }
 
+  String _formatCurrency(double value) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  }
+
   String _formatDecimal(double value) {
     final hasFraction = value != value.roundToDouble();
 
@@ -399,6 +403,175 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildPurchaseCard(SteamPurchase purchase) {
+    final discountText = purchase.discount == null
+        ? null
+        : '${(purchase.discount! * 100).toStringAsFixed(1)} %';
+    final playtimeText = _formatPlaytime(purchase.playtimeHours);
+    final pricePerHourText = purchase.pricePerHour == null
+        ? null
+        : _formatPricePerHour(purchase.pricePerHour!);
+
+    final dataItems = [
+      _buildPurchaseDataItem('Preis', _formatCurrency(purchase.price)),
+      if (discountText != null) _buildPurchaseDataItem('Rabatt', discountText),
+      if (playtimeText != null)
+        _buildPurchaseDataItem('Spielzeit', playtimeText),
+      if (pricePerHourText != null)
+        _buildPurchaseDataItem('Kosten', pricePerHourText),
+    ];
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        onTap: () => _openEditPurchaseScreen(purchase),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 760;
+              final titleSection = _buildPurchaseTitleSection(purchase);
+              final dataSection = _buildPurchaseDataSection(
+                dataItems,
+                alignment: isCompact ? WrapAlignment.start : WrapAlignment.end,
+              );
+              final actions = _buildPurchaseActions(purchase);
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: titleSection),
+                        const SizedBox(width: 8),
+                        actions,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    dataSection,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(flex: 3, child: titleSection),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 5, child: dataSection),
+                  const SizedBox(width: 8),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPurchaseTitleSection(SteamPurchase purchase) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          purchase.displayName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${purchase.purchaseType.label} · ${_formatDate(purchase.purchaseDate)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPurchaseDataSection(
+    List<Widget> items, {
+    required WrapAlignment alignment,
+  }) {
+    return Wrap(
+      alignment: alignment,
+      runAlignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: items,
+    );
+  }
+
+  Widget _buildPurchaseDataItem(String label, String value) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 86),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withAlpha(18),
+          colorScheme.surface,
+        ),
+        border: Border.all(color: colorScheme.outline.withAlpha(38)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPurchaseActions(SteamPurchase purchase) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Bearbeiten',
+          onPressed: () => _openEditPurchaseScreen(purchase),
+          icon: const Icon(Icons.edit),
+        ),
+        IconButton(
+          tooltip: 'Löschen',
+          onPressed: () => _confirmDeletePurchase(purchase),
+          icon: const Icon(Icons.delete),
+        ),
+      ],
+    );
   }
 
   @override
@@ -575,68 +748,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: sortedPurchases.length,
                                 itemBuilder: (context, index) {
                                   final purchase = sortedPurchases[index];
-
-                                  final discountText = purchase.discount == null
-                                      ? null
-                                      : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
-                                  final playtimeText = _formatPlaytime(
-                                    purchase.playtimeHours,
-                                  );
-                                  final pricePerHourText =
-                                      purchase.pricePerHour == null
-                                      ? null
-                                      : _formatPricePerHour(
-                                          purchase.pricePerHour!,
-                                        );
-                                  final detailParts = [
-                                    purchase.purchaseType.label,
-                                    _formatDate(purchase.purchaseDate),
-                                    ?discountText,
-                                    ?playtimeText,
-                                    ?pricePerHourText,
-                                  ];
-
-                                  return Card(
-                                    child: ListTile(
-                                      onTap: () =>
-                                          _openEditPurchaseScreen(purchase),
-                                      title: Text(
-                                        purchase.displayName,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      subtitle: Text(
-                                        detailParts.join(' · '),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            '${purchase.price.toStringAsFixed(2)} €',
-                                          ),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            tooltip: 'Bearbeiten',
-                                            onPressed: () =>
-                                                _openEditPurchaseScreen(
-                                                  purchase,
-                                                ),
-                                            icon: const Icon(Icons.edit),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Löschen',
-                                            onPressed: () =>
-                                                _confirmDeletePurchase(
-                                                  purchase,
-                                                ),
-                                            icon: const Icon(Icons.delete),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
+                                  return _buildPurchaseCard(purchase);
                                 },
                               ),
                             const SliverToBoxAdapter(
