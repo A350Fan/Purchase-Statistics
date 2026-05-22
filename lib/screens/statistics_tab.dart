@@ -40,7 +40,12 @@ class _StatisticsTabState extends State<StatisticsTab> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 1000;
+        const annualCardWidth = 830.0;
+        const cardSpacing = 16.0;
+        const quarterCardMinWidth = 720.0;
+        final isWide =
+            constraints.maxWidth >=
+            annualCardWidth + cardSpacing + quarterCardMinWidth;
         final annualCard = _buildAnnualCard(
           context,
           annualRows,
@@ -68,9 +73,9 @@ class _StatisticsTabState extends State<StatisticsTab> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: annualCard),
-                  const SizedBox(width: 16),
-                  SizedBox(width: 520, child: quarterCard),
+                  SizedBox(width: annualCardWidth, child: annualCard),
+                  const SizedBox(width: cardSpacing),
+                  Expanded(child: quarterCard),
                 ],
               )
             else ...[
