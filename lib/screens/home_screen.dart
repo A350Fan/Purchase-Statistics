@@ -209,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         dialogTitle: 'Steam-Käufe importieren',
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -279,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final sortedPurchases = _getSortedPurchases(SteamStatistics(_purchases));
       final csv = SteamPurchaseCsv.encode(sortedPurchases);
       final fileName = 'steam_purchases_${_formatFileDate(DateTime.now())}.csv';
-      final path = await FilePicker.saveFile(
+      final path = await FilePicker.platform.saveFile(
         dialogTitle: 'Steam-Käufe exportieren',
         fileName: fileName,
         type: FileType.custom,
