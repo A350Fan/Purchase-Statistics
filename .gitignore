@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Lokale App-Datenbanken / private Testdaten
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+*.xlsx
