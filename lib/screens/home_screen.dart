@@ -5,6 +5,7 @@ import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
+import 'statistics_tab.dart';
 
 enum PurchaseSortOption {
   dateNewestFirst,
@@ -200,140 +201,181 @@ class _HomeScreenState extends State<HomeScreen> {
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Steam Stats')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddPurchaseScreen,
-        icon: const Icon(Icons.add),
-        label: const Text('Kauf'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _isLoading
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Steam Stats'),
+
+          // Die TabBar hängt direkt unter der AppBar.
+          // Tab 1 bleibt deine bisherige Übersicht.
+          // Tab 2 bekommt die neue grafische Statistik.
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.dashboard), text: 'Übersicht'),
+              Tab(icon: Icon(Icons.bar_chart), text: 'Statistik'),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _openAddPurchaseScreen,
+          icon: const Icon(Icons.add),
+          label: const Text('Kauf'),
+        ),
+
+        // Loading bleibt global, damit beide Tabs erst angezeigt werden,
+        // wenn die Käufe aus der Datenbank geladen wurden.
+        body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 700;
+            : TabBarView(
+                children: [
+                  // TAB 1: Deine bisherige Startseite.
+                  // Hier bleibt Dashboard + sortierbare Kaufliste komplett erhalten.
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth > 700;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dashboard',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: isWide ? 3 : 1,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: isWide ? 2.4 : 4,
-                        children: [
-                          StatCard(
-                            title: 'Spiele',
-                            value: stats.totalGames.toString(),
-                          ),
-                          StatCard(
-                            title: 'Gesamtausgaben',
-                            value: '${stats.totalSpent.toStringAsFixed(2)} €',
-                          ),
-                          StatCard(
-                            title: 'Ø Rabatt',
-                            value: stats.averageDiscount == null
-                                ? '-'
-                                : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Text(
-                            'Käufe',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const Spacer(),
-                          DropdownButton<PurchaseSortOption>(
-                            value: _sortOption,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-
-                              setState(() {
-                                _sortOption = value;
-                              });
-                            },
-                            items: PurchaseSortOption.values.map((option) {
-                              return DropdownMenuItem(
-                                value: option,
-                                child: Text(_getSortLabel(option)),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: _purchases.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.',
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Dashboard',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            GridView.count(
+                              shrinkWrap: true,
+                              crossAxisCount: isWide ? 3 : 1,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: isWide ? 2.4 : 4,
+                              children: [
+                                StatCard(
+                                  title: 'Spiele',
+                                  value: stats.totalGames.toString(),
                                 ),
-                              )
-                            : ListView.builder(
-                                itemCount: sortedPurchases.length,
-                                itemBuilder: (context, index) {
-                                  final purchase = sortedPurchases[index];
+                                StatCard(
+                                  title: 'Gesamtausgaben',
+                                  value:
+                                      '${stats.totalSpent.toStringAsFixed(2)} €',
+                                ),
+                                StatCard(
+                                  title: 'Ø Rabatt',
+                                  value: stats.averageDiscount == null
+                                      ? '-'
+                                      : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                Text(
+                                  'Käufe',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                ),
+                                const Spacer(),
+                                DropdownButton<PurchaseSortOption>(
+                                  value: _sortOption,
+                                  onChanged: (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
 
-                                  final discountText = purchase.discount == null
-                                      ? null
-                                      : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
-
-                                  return Card(
-                                    child: ListTile(
-                                      onTap: () =>
-                                          _openEditPurchaseScreen(purchase),
-                                      title: Text(purchase.gameName),
-                                      subtitle: Text(
-                                        discountText == null
-                                            ? _formatDate(purchase.purchaseDate)
-                                            : '${_formatDate(purchase.purchaseDate)} · $discountText',
+                                    setState(() {
+                                      _sortOption = value;
+                                    });
+                                  },
+                                  items: PurchaseSortOption.values.map((
+                                    option,
+                                  ) {
+                                    return DropdownMenuItem(
+                                      value: option,
+                                      child: Text(_getSortLabel(option)),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: _purchases.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.',
                                       ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            '${purchase.price.toStringAsFixed(2)} €',
-                                          ),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            tooltip: 'Bearbeiten',
-                                            onPressed: () =>
+                                    )
+                                  : ListView.builder(
+                                      itemCount: sortedPurchases.length,
+                                      itemBuilder: (context, index) {
+                                        final purchase = sortedPurchases[index];
+
+                                        final discountText =
+                                            purchase.discount == null
+                                            ? null
+                                            : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
+
+                                        return Card(
+                                          child: ListTile(
+                                            onTap: () =>
                                                 _openEditPurchaseScreen(
                                                   purchase,
                                                 ),
-                                            icon: const Icon(Icons.edit),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Löschen',
-                                            onPressed: () =>
-                                                _confirmDeletePurchase(
-                                                  purchase,
+                                            title: Text(purchase.gameName),
+                                            subtitle: Text(
+                                              discountText == null
+                                                  ? _formatDate(
+                                                      purchase.purchaseDate,
+                                                    )
+                                                  : '${_formatDate(purchase.purchaseDate)} · $discountText',
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  '${purchase.price.toStringAsFixed(2)} €',
                                                 ),
-                                            icon: const Icon(Icons.delete),
+                                                const SizedBox(width: 8),
+                                                IconButton(
+                                                  tooltip: 'Bearbeiten',
+                                                  onPressed: () =>
+                                                      _openEditPurchaseScreen(
+                                                        purchase,
+                                                      ),
+                                                  icon: const Icon(Icons.edit),
+                                                ),
+                                                IconButton(
+                                                  tooltip: 'Löschen',
+                                                  onPressed: () =>
+                                                      _confirmDeletePurchase(
+                                                        purchase,
+                                                      ),
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ],
-                                      ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  );
-                },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                  // TAB 2: Neue grafische Statistik.
+                  // Dieser Screen bekommt dieselben Käufe wie die Übersicht,
+                  // berechnet daraus aber eigene Balken/Charts.
+                  StatisticsTab(purchases: _purchases),
+                ],
               ),
       ),
     );
