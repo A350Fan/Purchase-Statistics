@@ -6,6 +6,17 @@ import '../models/steam_purchase.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 
+enum PurchaseSortOption {
+  dateNewestFirst,
+  dateOldestFirst,
+  priceHighestFirst,
+  priceLowestFirst,
+  nameAZ,
+  nameZA,
+  discountHighestFirst,
+  discountLowestFirst,
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
+  PurchaseSortOption _sortOption = PurchaseSortOption.dateNewestFirst;
 
   @override
   void initState() {
@@ -36,6 +48,72 @@ class _HomeScreenState extends State<HomeScreen> {
       _purchases = purchases;
       _isLoading = false;
     });
+  }
+
+  List<SteamPurchase> _getSortedPurchases() {
+    final sortedPurchases = [..._purchases];
+
+    sortedPurchases.sort((a, b) {
+      switch (_sortOption) {
+        case PurchaseSortOption.dateNewestFirst:
+          return b.purchaseDate.compareTo(a.purchaseDate);
+
+        case PurchaseSortOption.dateOldestFirst:
+          return a.purchaseDate.compareTo(b.purchaseDate);
+
+        case PurchaseSortOption.priceHighestFirst:
+          return b.price.compareTo(a.price);
+
+        case PurchaseSortOption.priceLowestFirst:
+          return a.price.compareTo(b.price);
+
+        case PurchaseSortOption.nameAZ:
+          return a.gameName.toLowerCase().compareTo(b.gameName.toLowerCase());
+
+        case PurchaseSortOption.nameZA:
+          return b.gameName.toLowerCase().compareTo(a.gameName.toLowerCase());
+
+        case PurchaseSortOption.discountHighestFirst:
+          final discountA = a.discount ?? -1;
+          final discountB = b.discount ?? -1;
+          return discountB.compareTo(discountA);
+
+        case PurchaseSortOption.discountLowestFirst:
+          final discountA = a.discount ?? 101;
+          final discountB = b.discount ?? 101;
+          return discountA.compareTo(discountB);
+      }
+    });
+
+    return sortedPurchases;
+  }
+
+  String _getSortLabel(PurchaseSortOption option) {
+    switch (option) {
+      case PurchaseSortOption.dateNewestFirst:
+        return 'Datum: neueste zuerst';
+
+      case PurchaseSortOption.dateOldestFirst:
+        return 'Datum: älteste zuerst';
+
+      case PurchaseSortOption.priceHighestFirst:
+        return 'Preis: höchste zuerst';
+
+      case PurchaseSortOption.priceLowestFirst:
+        return 'Preis: niedrigste zuerst';
+
+      case PurchaseSortOption.nameAZ:
+        return 'Name: A-Z';
+
+      case PurchaseSortOption.nameZA:
+        return 'Name: Z-A';
+
+      case PurchaseSortOption.discountHighestFirst:
+        return 'Rabatt: höchste zuerst';
+
+      case PurchaseSortOption.discountLowestFirst:
+        return 'Rabatt: niedrigste zuerst';
+    }
   }
 
   Future<void> _openAddPurchaseScreen() async {
@@ -120,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final stats = SteamStatistics(_purchases);
+    final sortedPurchases = _getSortedPurchases();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Steam Stats')),
@@ -168,9 +247,32 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      Text(
-                        'Käufe',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                      Row(
+                        children: [
+                          Text(
+                            'Käufe',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const Spacer(),
+                          DropdownButton<PurchaseSortOption>(
+                            value: _sortOption,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+
+                              setState(() {
+                                _sortOption = value;
+                              });
+                            },
+                            items: PurchaseSortOption.values.map((option) {
+                              return DropdownMenuItem(
+                                value: option,
+                                child: Text(_getSortLabel(option)),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Expanded(
@@ -181,9 +283,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               )
                             : ListView.builder(
-                                itemCount: _purchases.length,
+                                itemCount: sortedPurchases.length,
                                 itemBuilder: (context, index) {
-                                  final purchase = _purchases[index];
+                                  final purchase = sortedPurchases[index];
 
                                   final discountText = purchase.discount == null
                                       ? null
