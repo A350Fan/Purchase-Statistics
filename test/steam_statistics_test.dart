@@ -26,6 +26,50 @@ void main() {
       expect(stats.totalSpent, 30);
     });
 
+    test('adds linked dlc prices to game price per hour', () {
+      final baseGame = SteamPurchase(
+        purchaseDate: DateTime(2026, 5, 1),
+        gameName: 'Base Game',
+        price: 20,
+        playtimeHours: 10,
+      );
+      final linkedDlc = SteamPurchase(
+        purchaseDate: DateTime(2026, 5, 2),
+        purchaseType: SteamPurchaseType.dlc,
+        gameName: ' base game ',
+        dlcName: 'Expansion',
+        price: 5,
+      );
+      final unrelatedDlc = SteamPurchase(
+        purchaseDate: DateTime(2026, 5, 3),
+        purchaseType: SteamPurchaseType.dlc,
+        gameName: 'Other Game',
+        dlcName: 'Soundtrack',
+        price: 7,
+      );
+      final stats = SteamStatistics([
+        baseGame,
+        linkedDlc,
+        unrelatedDlc,
+      ], currentDate: DateTime(2026, 5, 22));
+
+      expect(stats.priceIncludingLinkedDlcsForPurchase(baseGame), 25);
+      expect(stats.pricePerHourForPurchase(baseGame), 2.5);
+      expect(stats.pricePerHourForPurchase(linkedDlc), isNull);
+      expect(stats.totalSpentWithPlaytime, 25);
+      expect(stats.pricePerHour, 2.5);
+
+      final annualRow = stats.annualStatistics.single;
+      expect(annualRow.spending, 32);
+      expect(annualRow.playtimeHours, 10);
+      expect(annualRow.pricePerHour, 2.5);
+
+      final quarterRows = stats.quarterlyStatisticsForYear(2026);
+      expect(quarterRows[1].spending, 32);
+      expect(quarterRows[1].playtimeHours, 10);
+      expect(quarterRows[1].pricePerHour, 2.5);
+    });
+
     test('builds annual rows with cumulative spending and known discounts', () {
       final stats = SteamStatistics([
         SteamPurchase(

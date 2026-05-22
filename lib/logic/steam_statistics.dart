@@ -79,6 +79,10 @@ class QuarterlyStatisticsSummary {
 class SteamStatistics {
   final List<SteamPurchase> purchases;
   final DateTime currentDate;
+  late final Set<String> _gameNamesWithTrackedPlaytime =
+      _buildGameNamesWithTrackedPlaytime();
+  late final Map<String, double> _dlcSpendingByGameName =
+      _buildDlcSpendingByGameName();
 
   SteamStatistics(this.purchases, {DateTime? currentDate})
     : currentDate = currentDate == null
@@ -124,7 +128,7 @@ class SteamStatistics {
 
   double get totalSpentWithPlaytime {
     return purchases.fold(0.0, (sum, purchase) {
-      if (!_hasPlaytime(purchase)) {
+      if (!_countsTowardsPricePerHourSpending(purchase)) {
         return sum;
       }
 
@@ -138,6 +142,25 @@ class SteamStatistics {
     }
 
     return totalSpentWithPlaytime / totalPlaytimeHours;
+  }
+
+  double priceIncludingLinkedDlcsForPurchase(SteamPurchase purchase) {
+    if (purchase.purchaseType != SteamPurchaseType.game) {
+      return purchase.price;
+    }
+
+    return purchase.price +
+        (_dlcSpendingByGameName[_gameNameKey(purchase.gameName)] ?? 0.0);
+  }
+
+  double? pricePerHourForPurchase(SteamPurchase purchase) {
+    final hours = purchase.playtimeHours;
+
+    if (hours == null || hours <= 0) {
+      return null;
+    }
+
+    return priceIncludingLinkedDlcsForPurchase(purchase) / hours;
   }
 
   double get totalSavings {
@@ -337,7 +360,7 @@ class SteamStatistics {
     final result = <int, double>{};
 
     for (final purchase in purchases) {
-      if (!_hasPlaytime(purchase)) {
+      if (!_countsTowardsPricePerHourSpending(purchase)) {
         continue;
       }
 
@@ -496,7 +519,7 @@ class SteamStatistics {
     for (final purchase in purchases.where(
       (purchase) => purchase.year == year,
     )) {
-      if (!_hasPlaytime(purchase)) {
+      if (!_countsTowardsPricePerHourSpending(purchase)) {
         continue;
       }
 
@@ -607,5 +630,46 @@ class SteamStatistics {
     final playtimeHours = purchase.playtimeHours;
 
     return playtimeHours != null && playtimeHours > 0;
+  }
+
+  bool _countsTowardsPricePerHourSpending(SteamPurchase purchase) {
+    if (_hasPlaytime(purchase)) {
+      return true;
+    }
+
+    if (purchase.purchaseType != SteamPurchaseType.dlc) {
+      return false;
+    }
+
+    return _gameNamesWithTrackedPlaytime.contains(
+      _gameNameKey(purchase.gameName),
+    );
+  }
+
+  Set<String> _buildGameNamesWithTrackedPlaytime() {
+    return purchases
+        .where((purchase) {
+          return purchase.purchaseType == SteamPurchaseType.game &&
+              _hasPlaytime(purchase);
+        })
+        .map((purchase) => _gameNameKey(purchase.gameName))
+        .toSet();
+  }
+
+  Map<String, double> _buildDlcSpendingByGameName() {
+    final result = <String, double>{};
+
+    for (final purchase in purchases.where(
+      (purchase) => purchase.purchaseType == SteamPurchaseType.dlc,
+    )) {
+      final gameNameKey = _gameNameKey(purchase.gameName);
+      result[gameNameKey] = (result[gameNameKey] ?? 0.0) + purchase.price;
+    }
+
+    return result;
+  }
+
+  String _gameNameKey(String gameName) {
+    return gameName.trim().toLowerCase();
   }
 }

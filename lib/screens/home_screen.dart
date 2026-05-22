@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  List<SteamPurchase> _getSortedPurchases() {
+  List<SteamPurchase> _getSortedPurchases(SteamStatistics stats) {
     final sortedPurchases = [..._purchases];
 
     sortedPurchases.sort((a, b) {
@@ -115,13 +115,15 @@ class _HomeScreenState extends State<HomeScreen> {
           return playtimeA.compareTo(playtimeB);
 
         case PurchaseSortOption.pricePerHourLowestFirst:
-          final pricePerHourA = a.pricePerHour ?? double.infinity;
-          final pricePerHourB = b.pricePerHour ?? double.infinity;
+          final pricePerHourA =
+              stats.pricePerHourForPurchase(a) ?? double.infinity;
+          final pricePerHourB =
+              stats.pricePerHourForPurchase(b) ?? double.infinity;
           return pricePerHourA.compareTo(pricePerHourB);
 
         case PurchaseSortOption.pricePerHourHighestFirst:
-          final pricePerHourA = a.pricePerHour ?? -1;
-          final pricePerHourB = b.pricePerHour ?? -1;
+          final pricePerHourA = stats.pricePerHourForPurchase(a) ?? -1;
+          final pricePerHourB = stats.pricePerHourForPurchase(b) ?? -1;
           return pricePerHourB.compareTo(pricePerHourA);
       }
     });
@@ -274,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final sortedPurchases = _getSortedPurchases();
+      final sortedPurchases = _getSortedPurchases(SteamStatistics(_purchases));
       final csv = SteamPurchaseCsv.encode(sortedPurchases);
       final fileName = 'steam_purchases_${_formatFileDate(DateTime.now())}.csv';
       final path = await FilePicker.saveFile(
@@ -405,14 +407,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Widget _buildPurchaseCard(SteamPurchase purchase) {
+  Widget _buildPurchaseCard(SteamPurchase purchase, SteamStatistics stats) {
     final discountText = purchase.discount == null
         ? null
         : '${(purchase.discount! * 100).toStringAsFixed(1)} %';
     final playtimeText = _formatPlaytime(purchase.playtimeHours);
-    final pricePerHourText = purchase.pricePerHour == null
+    final pricePerHour = stats.pricePerHourForPurchase(purchase);
+    final pricePerHourText = pricePerHour == null
         ? null
-        : _formatPricePerHour(purchase.pricePerHour!);
+        : _formatPricePerHour(pricePerHour);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -619,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final stats = SteamStatistics(_purchases);
-    final sortedPurchases = _getSortedPurchases();
+    final sortedPurchases = _getSortedPurchases(stats);
 
     return DefaultTabController(
       length: 3,
@@ -790,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: sortedPurchases.length,
                                 itemBuilder: (context, index) {
                                   final purchase = sortedPurchases[index];
-                                  return _buildPurchaseCard(purchase);
+                                  return _buildPurchaseCard(purchase, stats);
                                 },
                               ),
                             const SliverToBoxAdapter(
