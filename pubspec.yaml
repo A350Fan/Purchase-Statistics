@@ -42,6 +42,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # Generiert automatisch App-Icons für die gewünschten Plattformen.
+  # Wird nur während der Entwicklung gebraucht, deshalb dev_dependencies.
+  flutter_launcher_icons: ^0.14.4
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -90,3 +94,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Konfiguration für flutter_launcher_icons.
+# Das Package nimmt assets/icon/app_icon.png und generiert daraus
+# die richtigen Icon-Dateien für Windows und Android.
+flutter_launcher_icons:
+  # Haupt-Icon-Datei. Sollte quadratisch sein, z. B. 1024x1024.
+  image_path: "assets/icon/app_icon.png"
+
+  # Android gleich mitmachen, weil deine App später auch dort laufen soll.
+  android: true
+
+  # Windows-App-Icon generieren.
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+    # 256 ist für Windows sinnvoller als der Default 48,
+    # weil es bei Verknüpfungen / Explorer / Taskbar besser aussieht.
+    icon_size: 256
