@@ -308,21 +308,28 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? 3
                             : 2;
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Dashboard',
-                              style: Theme.of(context).textTheme.headlineMedium,
+                        return CustomScrollView(
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: Text(
+                                'Dashboard',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            GridView.count(
-                              shrinkWrap: true,
-                              crossAxisCount: dashboardColumnCount,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: isWide ? 2.4 : 1.9,
-                              children: [
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 16),
+                            ),
+                            SliverGrid(
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: dashboardColumnCount,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: isWide ? 2.4 : 1.9,
+                                  ),
+                              delegate: SliverChildListDelegate.fixed([
                                 StatCard(
                                   title: 'Spiele',
                                   value: stats.totalGames.toString(),
@@ -352,114 +359,118 @@ class _HomeScreenState extends State<HomeScreen> {
                                           stats.pricePerHour!,
                                         ),
                                 ),
-                              ],
+                              ]),
                             ),
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Text(
-                                  'Käufe',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineSmall,
-                                ),
-                                const Spacer(),
-                                DropdownButton<PurchaseSortOption>(
-                                  value: _sortOption,
-                                  onChanged: (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-
-                                    setState(() {
-                                      _sortOption = value;
-                                    });
-                                  },
-                                  items: PurchaseSortOption.values.map((
-                                    option,
-                                  ) {
-                                    return DropdownMenuItem(
-                                      value: option,
-                                      child: Text(_getSortLabel(option)),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 24),
                             ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: _purchases.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.',
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: sortedPurchases.length,
-                                      itemBuilder: (context, index) {
-                                        final purchase = sortedPurchases[index];
+                            SliverToBoxAdapter(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Käufe',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.headlineSmall,
+                                  ),
+                                  const Spacer(),
+                                  DropdownButton<PurchaseSortOption>(
+                                    value: _sortOption,
+                                    onChanged: (value) {
+                                      if (value == null) {
+                                        return;
+                                      }
 
-                                        final discountText =
-                                            purchase.discount == null
-                                            ? null
-                                            : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
-                                        final playtimeText = _formatPlaytime(
-                                          purchase.playtimeHours,
+                                      setState(() {
+                                        _sortOption = value;
+                                      });
+                                    },
+                                    items: PurchaseSortOption.values.map((
+                                      option,
+                                    ) {
+                                      return DropdownMenuItem(
+                                        value: option,
+                                        child: Text(_getSortLabel(option)),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 8),
+                            ),
+                            if (_purchases.isEmpty)
+                              const SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: Center(
+                                  child: Text(
+                                    'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.',
+                                  ),
+                                ),
+                              )
+                            else
+                              SliverList.builder(
+                                itemCount: sortedPurchases.length,
+                                itemBuilder: (context, index) {
+                                  final purchase = sortedPurchases[index];
+
+                                  final discountText = purchase.discount == null
+                                      ? null
+                                      : '${(purchase.discount! * 100).toStringAsFixed(1)} % Rabatt';
+                                  final playtimeText = _formatPlaytime(
+                                    purchase.playtimeHours,
+                                  );
+                                  final pricePerHourText =
+                                      purchase.pricePerHour == null
+                                      ? null
+                                      : _formatPricePerHour(
+                                          purchase.pricePerHour!,
                                         );
-                                        final pricePerHourText =
-                                            purchase.pricePerHour == null
-                                            ? null
-                                            : _formatPricePerHour(
-                                                purchase.pricePerHour!,
-                                              );
-                                        final detailParts = [
-                                          _formatDate(purchase.purchaseDate),
-                                          ?discountText,
-                                          ?playtimeText,
-                                          ?pricePerHourText,
-                                        ];
+                                  final detailParts = [
+                                    _formatDate(purchase.purchaseDate),
+                                    ?discountText,
+                                    ?playtimeText,
+                                    ?pricePerHourText,
+                                  ];
 
-                                        return Card(
-                                          child: ListTile(
-                                            onTap: () =>
+                                  return Card(
+                                    child: ListTile(
+                                      onTap: () =>
+                                          _openEditPurchaseScreen(purchase),
+                                      title: Text(purchase.gameName),
+                                      subtitle: Text(detailParts.join(' · ')),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${purchase.price.toStringAsFixed(2)} €',
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            tooltip: 'Bearbeiten',
+                                            onPressed: () =>
                                                 _openEditPurchaseScreen(
                                                   purchase,
                                                 ),
-                                            title: Text(purchase.gameName),
-                                            subtitle: Text(
-                                              detailParts.join(' · '),
-                                            ),
-                                            trailing: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '${purchase.price.toStringAsFixed(2)} €',
-                                                ),
-                                                const SizedBox(width: 8),
-                                                IconButton(
-                                                  tooltip: 'Bearbeiten',
-                                                  onPressed: () =>
-                                                      _openEditPurchaseScreen(
-                                                        purchase,
-                                                      ),
-                                                  icon: const Icon(Icons.edit),
-                                                ),
-                                                IconButton(
-                                                  tooltip: 'Löschen',
-                                                  onPressed: () =>
-                                                      _confirmDeletePurchase(
-                                                        purchase,
-                                                      ),
-                                                  icon: const Icon(
-                                                    Icons.delete,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                            icon: const Icon(Icons.edit),
                                           ),
-                                        );
-                                      },
+                                          IconButton(
+                                            tooltip: 'Löschen',
+                                            onPressed: () =>
+                                                _confirmDeletePurchase(
+                                                  purchase,
+                                                ),
+                                            icon: const Icon(Icons.delete),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                  );
+                                },
+                              ),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 88),
                             ),
                           ],
                         );
