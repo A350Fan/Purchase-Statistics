@@ -414,15 +414,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ? null
         : _formatPricePerHour(purchase.pricePerHour!);
 
-    final dataItems = [
-      _buildPurchaseDataItem('Preis', _formatCurrency(purchase.price)),
-      if (discountText != null) _buildPurchaseDataItem('Rabatt', discountText),
-      if (playtimeText != null)
-        _buildPurchaseDataItem('Spielzeit', playtimeText),
-      if (pricePerHourText != null)
-        _buildPurchaseDataItem('Kosten', pricePerHourText),
-    ];
-
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -435,8 +426,10 @@ class _HomeScreenState extends State<HomeScreen> {
               final isCompact = constraints.maxWidth < 760;
               final titleSection = _buildPurchaseTitleSection(purchase);
               final dataSection = _buildPurchaseDataSection(
-                dataItems,
-                alignment: isCompact ? WrapAlignment.start : WrapAlignment.end,
+                priceText: _formatCurrency(purchase.price),
+                discountText: discountText,
+                playtimeText: playtimeText,
+                pricePerHourText: pricePerHourText,
               );
               final actions = _buildPurchaseActions(purchase);
 
@@ -502,17 +495,66 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPurchaseDataSection(
-    List<Widget> items, {
-    required WrapAlignment alignment,
+  Widget _buildPurchaseDataSection({
+    required String priceText,
+    required String? discountText,
+    required String? playtimeText,
+    required String? pricePerHourText,
   }) {
-    return Wrap(
-      alignment: alignment,
-      runAlignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: items,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slots = [
+          _buildPurchaseDataSlot('Preis', priceText),
+          _buildPurchaseDataSlot('Rabatt', discountText),
+          _buildPurchaseDataSlot('Spielzeit', playtimeText),
+          _buildPurchaseDataSlot('Kosten', pricePerHourText),
+        ];
+
+        if (constraints.maxWidth < 440) {
+          final hasSecondRow = playtimeText != null || pricePerHourText != null;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: slots[0]),
+                  const SizedBox(width: 8),
+                  Expanded(child: slots[1]),
+                ],
+              ),
+              if (hasSecondRow) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: slots[2]),
+                    const SizedBox(width: 8),
+                    Expanded(child: slots[3]),
+                  ],
+                ),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var index = 0; index < slots.length; index++) ...[
+              if (index > 0) const SizedBox(width: 8),
+              Expanded(child: slots[index]),
+            ],
+          ],
+        );
+      },
     );
+  }
+
+  Widget _buildPurchaseDataSlot(String label, String? value) {
+    if (value == null) {
+      return const SizedBox(height: 64);
+    }
+
+    return _buildPurchaseDataItem(label, value);
   }
 
   Widget _buildPurchaseDataItem(String label, String value) {
@@ -520,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = theme.colorScheme;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 86),
+      constraints: const BoxConstraints(minHeight: 64),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
