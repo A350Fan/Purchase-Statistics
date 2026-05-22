@@ -26,6 +26,29 @@ class SteamPurchaseRepository {
     return purchase.copyWith(id: id);
   }
 
+  Future<int> addPurchases(List<SteamPurchase> purchases) async {
+    if (purchases.isEmpty) {
+      return 0;
+    }
+
+    final db = await AppDatabase.instance;
+
+    return db.transaction((transaction) async {
+      for (final purchase in purchases) {
+        final map = purchase.toMap();
+        map['id'] = null;
+
+        await transaction.insert(
+          _tableName,
+          map,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      return purchases.length;
+    });
+  }
+
   Future<void> updatePurchase(SteamPurchase purchase) async {
     if (purchase.id == null) {
       throw ArgumentError('Cannot update purchase without id.');

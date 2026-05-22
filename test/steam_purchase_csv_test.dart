@@ -1,0 +1,64 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:steam_stats_app/data/steam_purchase_csv.dart';
+import 'package:steam_stats_app/models/steam_purchase.dart';
+
+void main() {
+  group('SteamPurchaseCsv', () {
+    test('encodes and decodes purchases with quoted values', () {
+      final csv = SteamPurchaseCsv.encode([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          gameName: 'Portal, Episode "Two"',
+          price: 3.99,
+          originalPrice: 19.99,
+          playtimeHours: 12.5,
+          note: 'Summer sale\nWorth it',
+        ),
+      ]);
+
+      expect(csv, contains('"Portal, Episode ""Two"""'));
+
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      expect(purchases, hasLength(1));
+      expect(purchases.single.purchaseDate, DateTime(2026, 5, 22));
+      expect(purchases.single.gameName, 'Portal, Episode "Two"');
+      expect(purchases.single.price, 3.99);
+      expect(purchases.single.originalPrice, 19.99);
+      expect(purchases.single.playtimeHours, 12.5);
+      expect(purchases.single.note, 'Summer sale\nWorth it');
+    });
+
+    test(
+      'decodes semicolon separated csv with german headers and decimals',
+      () {
+        const csv = '''
+Kaufdatum;Spielname;Preis;Originalpreis;Spielzeit;Notiz
+22.05.2026;Half-Life;1,99;9,99;3,5;Sale
+''';
+
+        final purchases = SteamPurchaseCsv.decode(csv);
+
+        expect(purchases, hasLength(1));
+        expect(purchases.single.purchaseDate, DateTime(2026, 5, 22));
+        expect(purchases.single.gameName, 'Half-Life');
+        expect(purchases.single.price, 1.99);
+        expect(purchases.single.originalPrice, 9.99);
+        expect(purchases.single.playtimeHours, 3.5);
+        expect(purchases.single.note, 'Sale');
+      },
+    );
+
+    test('throws a descriptive exception for invalid rows', () {
+      const csv = '''
+purchase_date,game_name,price
+2026-05-22,Half-Life,-1.00
+''';
+
+      expect(
+        () => SteamPurchaseCsv.decode(csv),
+        throwsA(isA<SteamPurchaseCsvException>()),
+      );
+    });
+  });
+}

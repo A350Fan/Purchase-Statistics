@@ -1,5 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
@@ -34,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
+  bool _isCsvOperationRunning = false;
   PurchaseSortOption _sortOption = PurchaseSortOption.dateNewestFirst;
 
   @override
@@ -185,6 +192,115 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadPurchases();
   }
 
+  Future<void> _importPurchasesFromCsv() async {
+    if (_isCsvOperationRunning) {
+      return;
+    }
+
+    setState(() {
+      _isCsvOperationRunning = true;
+    });
+
+    try {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: 'Steam-Käufe importieren',
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        lockParentWindow: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final csv = await _readPickedCsvFile(result.files.single);
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      if (purchases.isEmpty) {
+        _showSnackBar('Die CSV enthält keine Käufe.');
+        return;
+      }
+
+      final importedCount = await _repository.addPurchases(purchases);
+      await _loadPurchases();
+      _showSnackBar(
+        importedCount == 1
+            ? '1 Kauf wurde importiert.'
+            : '$importedCount Käufe wurden importiert.',
+      );
+    } on SteamPurchaseCsvException catch (error) {
+      _showSnackBar('CSV konnte nicht importiert werden: $error');
+    } catch (error) {
+      _showSnackBar('CSV konnte nicht importiert werden: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCsvOperationRunning = false;
+        });
+      }
+    }
+  }
+
+  Future<String> _readPickedCsvFile(PlatformFile file) async {
+    final bytes = file.bytes;
+
+    if (bytes != null) {
+      return utf8.decode(bytes, allowMalformed: true);
+    }
+
+    final path = file.path;
+
+    if (path == null) {
+      throw const SteamPurchaseCsvException(
+        'Die ausgewählte Datei konnte nicht gelesen werden.',
+      );
+    }
+
+    return File(path).readAsString();
+  }
+
+  Future<void> _exportPurchasesToCsv() async {
+    if (_isCsvOperationRunning) {
+      return;
+    }
+
+    setState(() {
+      _isCsvOperationRunning = true;
+    });
+
+    try {
+      final sortedPurchases = _getSortedPurchases();
+      final csv = SteamPurchaseCsv.encode(sortedPurchases);
+      final fileName = 'steam_purchases_${_formatFileDate(DateTime.now())}.csv';
+      final path = await FilePicker.saveFile(
+        dialogTitle: 'Steam-Käufe exportieren',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: Uint8List.fromList(utf8.encode(csv)),
+        lockParentWindow: true,
+      );
+
+      if (path == null) {
+        return;
+      }
+
+      _showSnackBar(
+        sortedPurchases.length == 1
+            ? '1 Kauf wurde exportiert.'
+            : '${sortedPurchases.length} Käufe wurden exportiert.',
+      );
+    } catch (error) {
+      _showSnackBar('CSV konnte nicht exportiert werden: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCsvOperationRunning = false;
+        });
+      }
+    }
+  }
+
   Future<void> _confirmDeletePurchase(SteamPurchase purchase) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -236,6 +352,12 @@ class _HomeScreenState extends State<HomeScreen> {
         '${date.year}';
   }
 
+  String _formatFileDate(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}'
+        '${date.month.toString().padLeft(2, '0')}'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
+
   String? _formatPlaytime(double? hours) {
     if (hours == null || hours <= 0) {
       return null;
@@ -262,6 +384,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return value.toStringAsFixed(hasFraction ? 1 : 0).replaceAll('.', ',');
   }
 
+  void _showSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = SteamStatistics(_purchases);
@@ -272,6 +404,20 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Steam Stats'),
+          actions: [
+            IconButton(
+              tooltip: 'CSV importieren',
+              onPressed: _isCsvOperationRunning
+                  ? null
+                  : _importPurchasesFromCsv,
+              icon: const Icon(Icons.upload_file),
+            ),
+            IconButton(
+              tooltip: 'CSV exportieren',
+              onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
+              icon: const Icon(Icons.download),
+            ),
+          ],
 
           // Die TabBar hängt direkt unter der AppBar.
           // Tab 1 bleibt deine bisherige Übersicht.
