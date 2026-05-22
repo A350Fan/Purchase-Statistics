@@ -11,6 +11,7 @@ import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
+import 'charts_tab.dart';
 import 'statistics_tab.dart';
 
 enum PurchaseSortOption {
@@ -406,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sortedPurchases = _getSortedPurchases();
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Steam Stats'),
@@ -426,12 +427,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
 
           // Die TabBar hängt direkt unter der AppBar.
-          // Tab 1 bleibt deine bisherige Übersicht.
-          // Tab 2 bekommt die neue grafische Statistik.
+          // Übersicht, Zahlentabellen und Diagramme bleiben getrennt.
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.dashboard), text: 'Übersicht'),
               Tab(icon: Icon(Icons.bar_chart), text: 'Statistik'),
+              Tab(icon: Icon(Icons.show_chart), text: 'Diagramme'),
             ],
           ),
         ),
@@ -647,10 +648,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
 
-                  // TAB 2: Neue grafische Statistik.
-                  // Dieser Screen bekommt dieselben Käufe wie die Übersicht,
-                  // berechnet daraus aber eigene Balken/Charts.
+                  // TAB 2: Statistik in Zahlen.
                   StatisticsTab(purchases: _purchases),
+
+                  // TAB 3: Statistik als Diagramme.
+                  ChartsTab(purchases: _purchases),
                 ],
               ),
       ),
