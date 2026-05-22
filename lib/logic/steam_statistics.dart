@@ -90,6 +90,18 @@ class SteamStatistics {
   }
 
   int get totalGames {
+    return purchases
+        .where((purchase) => purchase.purchaseType == SteamPurchaseType.game)
+        .length;
+  }
+
+  int get totalDlcs {
+    return purchases
+        .where((purchase) => purchase.purchaseType == SteamPurchaseType.dlc)
+        .length;
+  }
+
+  int get totalPurchases {
     return purchases.length;
   }
 

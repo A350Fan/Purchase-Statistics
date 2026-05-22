@@ -17,12 +17,15 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _gameNameController = TextEditingController();
+  final _editionController = TextEditingController();
+  final _dlcNameController = TextEditingController();
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
   final _playtimeHoursController = TextEditingController();
   final _noteController = TextEditingController();
 
   DateTime _purchaseDate = DateTime.now();
+  SteamPurchaseType _purchaseType = SteamPurchaseType.game;
 
   @override
   void initState() {
@@ -35,7 +38,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     _purchaseDate = initialPurchase.purchaseDate;
+    _purchaseType = initialPurchase.purchaseType;
     _gameNameController.text = initialPurchase.gameName;
+    _editionController.text = initialPurchase.edition ?? '';
+    _dlcNameController.text = initialPurchase.dlcName ?? '';
     _priceController.text = initialPurchase.price.toStringAsFixed(2);
 
     if (initialPurchase.originalPrice != null) {
@@ -56,6 +62,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   @override
   void dispose() {
     _gameNameController.dispose();
+    _editionController.dispose();
+    _dlcNameController.dispose();
     _priceController.dispose();
     _originalPriceController.dispose();
     _playtimeHoursController.dispose();
@@ -104,7 +112,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final purchase = SteamPurchase(
       id: initialPurchase?.id,
       purchaseDate: _purchaseDate,
+      purchaseType: _purchaseType,
       gameName: _gameNameController.text.trim(),
+      edition: _editionController.text.trim().isEmpty
+          ? null
+          : _editionController.text.trim(),
+      dlcName: _purchaseType == SteamPurchaseType.dlc
+          ? _dlcNameController.text.trim()
+          : null,
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
       playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
@@ -151,11 +166,35 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                             ListView(
                               padding: const EdgeInsets.all(16),
                               children: [
+                                SegmentedButton<SteamPurchaseType>(
+                                  segments: const [
+                                    ButtonSegment(
+                                      value: SteamPurchaseType.game,
+                                      icon: Icon(Icons.sports_esports),
+                                      label: Text('Spiel'),
+                                    ),
+                                    ButtonSegment(
+                                      value: SteamPurchaseType.dlc,
+                                      icon: Icon(Icons.extension),
+                                      label: Text('DLC'),
+                                    ),
+                                  ],
+                                  selected: {_purchaseType},
+                                  onSelectionChanged: (selection) {
+                                    setState(() {
+                                      _purchaseType = selection.single;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _gameNameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Spielname',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        _purchaseType == SteamPurchaseType.dlc
+                                        ? 'Zugehöriges Spiel'
+                                        : 'Spielname',
+                                    border: const OutlineInputBorder(),
                                   ),
                                   textInputAction: TextInputAction.next,
                                   validator: (value) {
@@ -165,6 +204,39 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
                                     return null;
                                   },
+                                ),
+                                const SizedBox(height: 16),
+                                if (_purchaseType == SteamPurchaseType.dlc) ...[
+                                  TextFormField(
+                                    controller: _dlcNameController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'DLC-Name',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    textInputAction: TextInputAction.next,
+                                    validator: (value) {
+                                      if (_purchaseType !=
+                                          SteamPurchaseType.dlc) {
+                                        return null;
+                                      }
+
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Bitte DLC-Name eingeben';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                                TextFormField(
+                                  controller: _editionController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Edition optional',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  textInputAction: TextInputAction.next,
                                 ),
                                 const SizedBox(height: 16),
                                 OutlinedButton.icon(

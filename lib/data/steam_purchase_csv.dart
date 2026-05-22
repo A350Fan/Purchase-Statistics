@@ -14,7 +14,10 @@ class SteamPurchaseCsvException implements Exception {
 class SteamPurchaseCsv {
   static const headers = [
     'purchase_date',
+    'purchase_type',
     'game_name',
+    'edition',
+    'dlc_name',
     'price',
     'original_price',
     'playtime_hours',
@@ -27,7 +30,10 @@ class SteamPurchaseCsv {
       for (final purchase in purchases)
         [
           _formatDate(purchase.purchaseDate),
+          purchase.purchaseType.storageValue,
           purchase.gameName,
+          purchase.edition ?? '',
+          purchase.dlcName ?? '',
           _formatDouble(purchase.price),
           _formatOptionalDouble(purchase.originalPrice),
           _formatOptionalDouble(purchase.playtimeHours),
@@ -214,12 +220,29 @@ class SteamPurchaseCsv {
       case 'datum':
       case 'kaufdatum':
         return 'purchase_date';
+      case 'purchase_type':
+      case 'type':
+      case 'typ':
+      case 'art':
+      case 'kaufart':
+        return 'purchase_type';
       case 'game_name':
       case 'game':
       case 'name':
       case 'spiel':
       case 'spielname':
         return 'game_name';
+      case 'edition':
+      case 'edition_name':
+      case 'ausgabe':
+      case 'version':
+        return 'edition';
+      case 'dlc_name':
+      case 'dlc':
+      case 'addon':
+      case 'add_on':
+      case 'erweiterung':
+        return 'dlc_name';
       case 'price':
       case 'preis':
       case 'kaufpreis':
@@ -247,6 +270,12 @@ class SteamPurchaseCsv {
     Map<String, int> headerIndexes,
   ) {
     final gameName = _requiredValue(row, headerIndexes, 'game_name');
+    final dlcName = _optionalValue(row, headerIndexes, 'dlc_name').trim();
+    final purchaseType = _parsePurchaseType(
+      _optionalValue(row, headerIndexes, 'purchase_type'),
+      row.lineNumber,
+      dlcName,
+    );
     final purchaseDate = _parseRequiredDate(
       _requiredValue(row, headerIndexes, 'purchase_date'),
       row.lineNumber,
@@ -267,11 +296,18 @@ class SteamPurchaseCsv {
       row.lineNumber,
       'playtime_hours',
     );
+    final edition = _optionalValue(row, headerIndexes, 'edition').trim();
     final note = _optionalValue(row, headerIndexes, 'note');
 
     if (gameName.trim().isEmpty) {
       throw SteamPurchaseCsvException(
         'Zeile ${row.lineNumber}: Spielname fehlt.',
+      );
+    }
+
+    if (purchaseType == SteamPurchaseType.dlc && dlcName.isEmpty) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: DLC-Name fehlt.',
       );
     }
 
@@ -295,7 +331,10 @@ class SteamPurchaseCsv {
 
     return SteamPurchase(
       purchaseDate: purchaseDate,
+      purchaseType: purchaseType,
       gameName: gameName.trim(),
+      edition: edition.isEmpty ? null : edition,
+      dlcName: purchaseType == SteamPurchaseType.dlc ? dlcName : null,
       price: price,
       originalPrice: originalPrice,
       playtimeHours: playtimeHours,
@@ -421,6 +460,39 @@ class SteamPurchaseCsv {
     }
 
     return double.tryParse(compactValue);
+  }
+
+  static SteamPurchaseType _parsePurchaseType(
+    String value,
+    int lineNumber,
+    String dlcName,
+  ) {
+    final normalized = value.trim().toLowerCase().replaceAll(
+      RegExp(r'[\s-]+'),
+      '_',
+    );
+
+    if (normalized.isEmpty) {
+      return dlcName.isEmpty ? SteamPurchaseType.game : SteamPurchaseType.dlc;
+    }
+
+    switch (normalized) {
+      case 'game':
+      case 'spiel':
+      case 'base_game':
+      case 'hauptspiel':
+        return SteamPurchaseType.game;
+      case 'dlc':
+      case 'addon':
+      case 'add_on':
+      case 'downloadable_content':
+      case 'erweiterung':
+        return SteamPurchaseType.dlc;
+    }
+
+    throw SteamPurchaseCsvException(
+      'Zeile $lineNumber: "purchase_type" muss "game" oder "dlc" sein.',
+    );
   }
 }
 

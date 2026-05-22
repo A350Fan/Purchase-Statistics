@@ -383,7 +383,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              'Ø Rabatt: nur Spiele mit bekanntem UVP',
+              'Ø Rabatt: nur Käufe mit bekanntem UVP',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(

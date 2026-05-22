@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -37,7 +37,10 @@ class AppDatabase {
       CREATE TABLE steam_purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         purchase_date TEXT NOT NULL,
+        purchase_type TEXT NOT NULL DEFAULT 'game',
         game_name TEXT NOT NULL,
+        edition TEXT,
+        dlc_name TEXT,
         price REAL NOT NULL,
         original_price REAL,
         playtime_hours REAL,
@@ -55,6 +58,14 @@ class AppDatabase {
       await db.execute(
         'ALTER TABLE steam_purchases ADD COLUMN playtime_hours REAL',
       );
+    }
+
+    if (oldVersion < 3) {
+      await db.execute(
+        "ALTER TABLE steam_purchases ADD COLUMN purchase_type TEXT NOT NULL DEFAULT 'game'",
+      );
+      await db.execute('ALTER TABLE steam_purchases ADD COLUMN edition TEXT');
+      await db.execute('ALTER TABLE steam_purchases ADD COLUMN dlc_name TEXT');
     }
   }
 }

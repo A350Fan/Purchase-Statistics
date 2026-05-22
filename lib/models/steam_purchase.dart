@@ -1,7 +1,29 @@
+enum SteamPurchaseType {
+  game,
+  dlc;
+
+  String get storageValue {
+    return switch (this) {
+      SteamPurchaseType.game => 'game',
+      SteamPurchaseType.dlc => 'dlc',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      SteamPurchaseType.game => 'Spiel',
+      SteamPurchaseType.dlc => 'DLC',
+    };
+  }
+}
+
 class SteamPurchase {
   final int? id;
   final DateTime purchaseDate;
+  final SteamPurchaseType purchaseType;
   final String gameName;
+  final String? edition;
+  final String? dlcName;
   final double price;
   final double? originalPrice;
   final double? playtimeHours;
@@ -10,7 +32,10 @@ class SteamPurchase {
   const SteamPurchase({
     this.id,
     required this.purchaseDate,
+    this.purchaseType = SteamPurchaseType.game,
     required this.gameName,
+    this.edition,
+    this.dlcName,
     required this.price,
     this.originalPrice,
     this.playtimeHours,
@@ -41,10 +66,33 @@ class SteamPurchase {
     return price / hours;
   }
 
+  bool get isDlc {
+    return purchaseType == SteamPurchaseType.dlc;
+  }
+
+  String get displayName {
+    final editionSuffix = edition == null || edition!.trim().isEmpty
+        ? ''
+        : ' (${edition!.trim()})';
+
+    if (!isDlc) {
+      return '$gameName$editionSuffix';
+    }
+
+    final dlcTitle = dlcName == null || dlcName!.trim().isEmpty
+        ? 'DLC'
+        : dlcName!.trim();
+
+    return '$gameName: $dlcTitle$editionSuffix';
+  }
+
   SteamPurchase copyWith({
     int? id,
     DateTime? purchaseDate,
+    SteamPurchaseType? purchaseType,
     String? gameName,
+    String? edition,
+    String? dlcName,
     double? price,
     double? originalPrice,
     double? playtimeHours,
@@ -53,7 +101,10 @@ class SteamPurchase {
     return SteamPurchase(
       id: id ?? this.id,
       purchaseDate: purchaseDate ?? this.purchaseDate,
+      purchaseType: purchaseType ?? this.purchaseType,
       gameName: gameName ?? this.gameName,
+      edition: edition ?? this.edition,
+      dlcName: dlcName ?? this.dlcName,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
       playtimeHours: playtimeHours ?? this.playtimeHours,
@@ -65,7 +116,10 @@ class SteamPurchase {
     return {
       'id': id,
       'purchase_date': purchaseDate.toIso8601String(),
+      'purchase_type': purchaseType.storageValue,
       'game_name': gameName,
+      'edition': edition,
+      'dlc_name': dlcName,
       'price': price,
       'original_price': originalPrice,
       'playtime_hours': playtimeHours,
@@ -77,7 +131,10 @@ class SteamPurchase {
     return SteamPurchase(
       id: map['id'] as int?,
       purchaseDate: DateTime.parse(map['purchase_date'] as String),
+      purchaseType: _parsePurchaseType(map['purchase_type']),
       gameName: map['game_name'] as String,
+      edition: _nullableString(map['edition']),
+      dlcName: _nullableString(map['dlc_name']),
       price: (map['price'] as num).toDouble(),
       originalPrice: map['original_price'] == null
           ? null
@@ -87,5 +144,27 @@ class SteamPurchase {
           : (map['playtime_hours'] as num).toDouble(),
       note: map['note'] as String?,
     );
+  }
+
+  static SteamPurchaseType _parsePurchaseType(Object? value) {
+    final normalized = value?.toString().trim().toLowerCase();
+
+    return switch (normalized) {
+      'dlc' ||
+      'downloadable_content' ||
+      'addon' ||
+      'add_on' => SteamPurchaseType.dlc,
+      _ => SteamPurchaseType.game,
+    };
+  }
+
+  static String? _nullableString(Object? value) {
+    final stringValue = value as String?;
+
+    if (stringValue == null || stringValue.trim().isEmpty) {
+      return null;
+    }
+
+    return stringValue;
   }
 }

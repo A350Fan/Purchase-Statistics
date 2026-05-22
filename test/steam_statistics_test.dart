@@ -4,6 +4,28 @@ import 'package:steam_stats_app/models/steam_purchase.dart';
 
 void main() {
   group('SteamStatistics', () {
+    test('counts game and dlc purchases separately', () {
+      final stats = SteamStatistics([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Base game',
+          price: 20,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          purchaseType: SteamPurchaseType.dlc,
+          gameName: 'Base game',
+          dlcName: 'Expansion',
+          price: 10,
+        ),
+      ], currentDate: DateTime(2026, 5, 22));
+
+      expect(stats.totalPurchases, 2);
+      expect(stats.totalGames, 1);
+      expect(stats.totalDlcs, 1);
+      expect(stats.totalSpent, 30);
+    });
+
     test('builds annual rows with cumulative spending and known discounts', () {
       final stats = SteamStatistics([
         SteamPurchase(

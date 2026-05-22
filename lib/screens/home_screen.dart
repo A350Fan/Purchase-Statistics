@@ -80,10 +80,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return a.price.compareTo(b.price);
 
         case PurchaseSortOption.nameAZ:
-          return a.gameName.toLowerCase().compareTo(b.gameName.toLowerCase());
+          return a.displayName.toLowerCase().compareTo(
+            b.displayName.toLowerCase(),
+          );
 
         case PurchaseSortOption.nameZA:
-          return b.gameName.toLowerCase().compareTo(a.gameName.toLowerCase());
+          return b.displayName.toLowerCase().compareTo(
+            a.displayName.toLowerCase(),
+          );
 
         case PurchaseSortOption.discountHighestFirst:
           final discountA = a.discount ?? -1;
@@ -307,7 +311,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Kauf löschen?'),
-          content: Text('Möchtest du "${purchase.gameName}" wirklich löschen?'),
+          content: Text(
+            'Möchtest du "${purchase.displayName}" wirklich löschen?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -342,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${purchase.gameName}" wurde gelöscht.')),
+      SnackBar(content: Text('"${purchase.displayName}" wurde gelöscht.')),
     );
   }
 
@@ -477,8 +483,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                               delegate: SliverChildListDelegate.fixed([
                                 StatCard(
+                                  title: 'Käufe',
+                                  value: stats.totalPurchases.toString(),
+                                ),
+                                StatCard(
                                   title: 'Spiele',
                                   value: stats.totalGames.toString(),
+                                ),
+                                StatCard(
+                                  title: 'DLCs',
+                                  value: stats.totalDlcs.toString(),
                                 ),
                                 StatCard(
                                   title: 'Gesamtausgaben',
@@ -574,6 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           purchase.pricePerHour!,
                                         );
                                   final detailParts = [
+                                    purchase.purchaseType.label,
                                     _formatDate(purchase.purchaseDate),
                                     ?discountText,
                                     ?playtimeText,
@@ -584,8 +599,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: ListTile(
                                       onTap: () =>
                                           _openEditPurchaseScreen(purchase),
-                                      title: Text(purchase.gameName),
-                                      subtitle: Text(detailParts.join(' · ')),
+                                      title: Text(
+                                        purchase.displayName,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Text(
+                                        detailParts.join(' · '),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                       trailing: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
