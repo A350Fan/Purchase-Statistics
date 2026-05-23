@@ -7,8 +7,13 @@ import '../settings/app_settings_controller.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
   final SteamPurchase? initialPurchase;
+  final List<SteamPurchase> existingPurchases;
 
-  const AddPurchaseScreen({super.key, this.initialPurchase});
+  const AddPurchaseScreen({
+    super.key,
+    this.initialPurchase,
+    this.existingPurchases = const [],
+  });
 
   bool get isEditing => initialPurchase != null;
 
@@ -26,6 +31,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _originalPriceController = TextEditingController();
   final _playtimeHoursController = TextEditingController();
   final _noteController = TextEditingController();
+  final _gameNameFocusNode = FocusNode();
+  final _dlcNameFocusNode = FocusNode();
+
+  late final List<String> _gameNameSuggestions;
+  late final List<String> _dlcNameSuggestions;
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
@@ -33,6 +43,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   @override
   void initState() {
     super.initState();
+
+    _gameNameSuggestions = _uniqueNames(
+      widget.existingPurchases.map((purchase) => purchase.gameName),
+    );
+    _dlcNameSuggestions = _uniqueNames(
+      widget.existingPurchases.map((purchase) => purchase.dlcName),
+    );
 
     final initialPurchase = widget.initialPurchase;
 
@@ -64,6 +81,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   @override
   void dispose() {
+    _gameNameFocusNode.dispose();
+    _dlcNameFocusNode.dispose();
     _gameNameController.dispose();
     _editionController.dispose();
     _dlcNameController.dispose();
@@ -105,6 +124,57 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     return double.parse(value.trim().replaceAll(',', '.'));
   }
 
+  List<String> _uniqueNames(Iterable<String?> names) {
+    final namesByKey = <String, String>{};
+
+    for (final name in names) {
+      final trimmedName = name?.trim();
+
+      if (trimmedName == null || trimmedName.isEmpty) {
+        continue;
+      }
+
+      namesByKey.putIfAbsent(_normalizeName(trimmedName), () => trimmedName);
+    }
+
+    return namesByKey.values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  String _normalizeName(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  Iterable<String> _matchingNameSuggestions(
+    TextEditingValue textEditingValue,
+    List<String> suggestions,
+  ) {
+    final query = _normalizeName(textEditingValue.text);
+
+    if (query.isEmpty) {
+      return const Iterable<String>.empty();
+    }
+
+    final matches = suggestions.where((suggestion) {
+      return _normalizeName(suggestion).contains(query);
+    }).toList();
+
+    matches.sort((a, b) {
+      final normalizedA = _normalizeName(a);
+      final normalizedB = _normalizeName(b);
+      final aStartsWithQuery = normalizedA.startsWith(query);
+      final bStartsWithQuery = normalizedB.startsWith(query);
+
+      if (aStartsWithQuery != bStartsWithQuery) {
+        return aStartsWithQuery ? -1 : 1;
+      }
+
+      return normalizedA.compareTo(normalizedB);
+    });
+
+    return matches.take(8);
+  }
+
   void _savePurchase() {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -132,6 +202,83 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
 
     Navigator.of(context).pop(purchase);
+  }
+
+  Widget _buildNameAutocompleteField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String labelText,
+    required List<String> suggestions,
+    required String? Function(String?) validator,
+  }) {
+    return RawAutocomplete<String>(
+      textEditingController: controller,
+      focusNode: focusNode,
+      optionsBuilder: (textEditingValue) {
+        return _matchingNameSuggestions(textEditingValue, suggestions);
+      },
+      onSelected: (suggestion) {
+        controller.text = suggestion;
+      },
+      fieldViewBuilder:
+          (context, textEditingController, fieldFocusNode, onFieldSubmitted) {
+            return TextFormField(
+              controller: textEditingController,
+              focusNode: fieldFocusNode,
+              decoration: InputDecoration(
+                labelText: labelText,
+                border: const OutlineInputBorder(),
+              ),
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) => onFieldSubmitted(),
+              validator: validator,
+            );
+          },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  final highlightedIndex = AutocompleteHighlightedOption.of(
+                    context,
+                  );
+                  final isHighlighted = highlightedIndex == index;
+                  final colorScheme = Theme.of(context).colorScheme;
+
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Container(
+                      color: isHighlighted
+                          ? colorScheme.primaryContainer
+                          : null,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        option,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -200,16 +347,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                TextFormField(
+                                _buildNameAutocompleteField(
                                   controller: _gameNameController,
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        _purchaseType == SteamPurchaseType.dlc
-                                        ? strings.associatedGame
-                                        : strings.gameName,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  textInputAction: TextInputAction.next,
+                                  focusNode: _gameNameFocusNode,
+                                  labelText:
+                                      _purchaseType == SteamPurchaseType.dlc
+                                      ? strings.associatedGame
+                                      : strings.gameName,
+                                  suggestions: _gameNameSuggestions,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
                                       return strings.enterGameName;
@@ -220,13 +365,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 if (_purchaseType == SteamPurchaseType.dlc) ...[
-                                  TextFormField(
+                                  _buildNameAutocompleteField(
                                     controller: _dlcNameController,
-                                    decoration: InputDecoration(
-                                      labelText: strings.dlcName,
-                                      border: const OutlineInputBorder(),
-                                    ),
-                                    textInputAction: TextInputAction.next,
+                                    focusNode: _dlcNameFocusNode,
+                                    labelText: strings.dlcName,
+                                    suggestions: _dlcNameSuggestions,
                                     validator: (value) {
                                       if (_purchaseType !=
                                           SteamPurchaseType.dlc) {

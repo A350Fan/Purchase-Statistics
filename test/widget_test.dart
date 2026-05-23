@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:steam_purchase_statistics/data/steam_purchase_repository.dart';
 import 'package:steam_purchase_statistics/main.dart';
+import 'package:steam_purchase_statistics/models/steam_purchase.dart';
 import 'package:steam_purchase_statistics/settings/app_settings.dart';
 import 'package:steam_purchase_statistics/settings/app_settings_controller.dart';
 import 'package:steam_purchase_statistics/settings/settings_repository.dart';
@@ -22,11 +24,19 @@ class _InMemorySettingsStore implements AppSettingsStore {
   }
 }
 
+class _InMemoryPurchaseRepository extends SteamPurchaseRepository {
+  @override
+  Future<List<SteamPurchase>> getAllPurchases() async {
+    return [];
+  }
+}
+
 SteamStatsApp _buildTestApp([_InMemorySettingsStore? store]) {
   return SteamStatsApp(
     settingsController: AppSettingsController(
       store: store ?? _InMemorySettingsStore(),
     ),
+    purchaseRepository: _InMemoryPurchaseRepository(),
   );
 }
 

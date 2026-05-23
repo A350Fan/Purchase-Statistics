@@ -34,14 +34,16 @@ enum PurchaseSortOption {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final SteamPurchaseRepository? repository;
+
+  const HomeScreen({super.key, this.repository});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final SteamPurchaseRepository _repository = SteamPurchaseRepository();
+  late final SteamPurchaseRepository _repository;
 
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
@@ -51,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? SteamPurchaseRepository();
     _loadPurchases();
   }
 
@@ -152,7 +155,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openAddPurchaseScreen() async {
     final newPurchase = await Navigator.of(context).push<SteamPurchase>(
-      MaterialPageRoute(builder: (context) => const AddPurchaseScreen()),
+      MaterialPageRoute(
+        builder: (context) => AddPurchaseScreen(existingPurchases: _purchases),
+      ),
     );
 
     if (newPurchase == null) {
@@ -166,7 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openEditPurchaseScreen(SteamPurchase purchase) async {
     final editedPurchase = await Navigator.of(context).push<SteamPurchase>(
       MaterialPageRoute(
-        builder: (context) => AddPurchaseScreen(initialPurchase: purchase),
+        builder: (context) => AddPurchaseScreen(
+          initialPurchase: purchase,
+          existingPurchases: _purchases,
+        ),
       ),
     );
 
