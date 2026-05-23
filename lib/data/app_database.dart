@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 7,
+      version: 8,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -104,6 +104,10 @@ class AppDatabase {
     if (oldVersion < 7) {
       await _createCollectionsTables(db);
     }
+
+    if (oldVersion < 8) {
+      await _createCollectionItemUniqueIndex(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -159,6 +163,24 @@ class AppDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_collection_items_purchase_id
       ON collection_items(purchase_id)
+    ''');
+
+    await _createCollectionItemUniqueIndex(db);
+  }
+
+  static Future<void> _createCollectionItemUniqueIndex(Database db) async {
+    await db.execute('''
+      DELETE FROM collection_items
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM collection_items
+        GROUP BY collection_id, purchase_id
+      )
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_items_unique_purchase
+      ON collection_items(collection_id, purchase_id)
     ''');
   }
 }

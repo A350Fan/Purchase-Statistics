@@ -110,6 +110,26 @@ void main() {
       expect(items, hasLength(1));
     });
 
+    test('schema rejects duplicate purchase assignments', () async {
+      final purchaseId = await _insertPurchase(db, gameName: 'Portal');
+      final collectionId = await repository.insertCollection(
+        SteamCollection(name: 'Favorites', createdAt: now),
+      );
+      final item = {
+        'collection_id': collectionId,
+        'purchase_id': purchaseId,
+        'custom_order': 0,
+        'created_at': now.toIso8601String(),
+      };
+
+      await db.insert('collection_items', item);
+
+      await expectLater(
+        db.insert('collection_items', item),
+        throwsA(isA<DatabaseException>()),
+      );
+    });
+
     test('deleting a collection cascades to its items', () async {
       final purchaseId = await _insertPurchase(db, gameName: 'Half-Life');
       final collectionId = await repository.insertCollection(
@@ -165,6 +185,11 @@ Future<void> _createTestSchema(Database db) async {
       FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE,
       FOREIGN KEY(purchase_id) REFERENCES steam_purchases(id) ON DELETE CASCADE
     )
+  ''');
+
+  await db.execute('''
+    CREATE UNIQUE INDEX idx_collection_items_unique_purchase
+    ON collection_items(collection_id, purchase_id)
   ''');
 }
 

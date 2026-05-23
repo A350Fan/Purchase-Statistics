@@ -1,11 +1,29 @@
+enum SteamCollectionSortMode {
+  manual('manual');
+
+  final String storageValue;
+
+  const SteamCollectionSortMode(this.storageValue);
+
+  static SteamCollectionSortMode fromStorage(Object? value) {
+    final normalizedValue = value?.toString().trim().toLowerCase();
+
+    return SteamCollectionSortMode.values.firstWhere(
+      (sortMode) => sortMode.storageValue == normalizedValue,
+      orElse: () => SteamCollectionSortMode.manual,
+    );
+  }
+}
+
 class SteamCollection {
-  static const String manualSortMode = 'manual';
+  static const SteamCollectionSortMode manualSortMode =
+      SteamCollectionSortMode.manual;
   static const Object _unset = Object();
 
   final int? id;
   final String name;
   final String? description;
-  final String sortMode;
+  final SteamCollectionSortMode sortMode;
   final DateTime createdAt;
 
   const SteamCollection({
@@ -19,7 +37,7 @@ class SteamCollection {
   factory SteamCollection.create({
     required String name,
     String? description,
-    String sortMode = manualSortMode,
+    SteamCollectionSortMode sortMode = manualSortMode,
     DateTime Function()? now,
   }) {
     return SteamCollection(
@@ -34,7 +52,7 @@ class SteamCollection {
     int? id,
     String? name,
     Object? description = _unset,
-    String? sortMode,
+    SteamCollectionSortMode? sortMode,
     DateTime? createdAt,
   }) {
     return SteamCollection(
@@ -53,7 +71,7 @@ class SteamCollection {
       'id': id,
       'name': name,
       'description': description,
-      'sort_mode': sortMode,
+      'sort_mode': sortMode.storageValue,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -63,7 +81,7 @@ class SteamCollection {
       id: map['id'] as int?,
       name: map['name'] as String,
       description: _emptyToNull(map['description'] as String?),
-      sortMode: (map['sort_mode'] as String?) ?? manualSortMode,
+      sortMode: SteamCollectionSortMode.fromStorage(map['sort_mode']),
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

@@ -42,19 +42,35 @@ class CollectionsTabState extends State<CollectionsTab> {
   }
 
   Future<void> openCreateCollectionDialog() async {
+    await _openCollectionFormDialog();
+  }
+
+  Future<void> _openCollectionFormDialog({
+    SteamCollection? initialCollection,
+  }) async {
     final strings = AppStrings.of(context);
     final collection = await showDialog<SteamCollection>(
       context: context,
-      builder: (context) => const _CollectionFormDialog(),
+      builder: (context) =>
+          _CollectionFormDialog(initialCollection: initialCollection),
     );
 
     if (collection == null) {
       return;
     }
 
-    await widget.repository.insertCollection(collection);
+    if (initialCollection == null) {
+      await widget.repository.insertCollection(collection);
+    } else {
+      await widget.repository.updateCollection(collection);
+    }
+
     await _loadCollections(showLoading: false);
-    _showSnackBar(strings.createdCollection(collection.name));
+    _showSnackBar(
+      initialCollection == null
+          ? strings.createdCollection(collection.name)
+          : strings.updatedCollection(collection.name),
+    );
   }
 
   Future<void> _loadCollections({bool showLoading = true}) async {
@@ -86,6 +102,7 @@ class CollectionsTabState extends State<CollectionsTab> {
         ),
       ),
     );
+    await _loadCollections(showLoading: false);
   }
 
   Future<void> _confirmDeleteCollection(SteamCollection collection) async {
@@ -181,10 +198,22 @@ class CollectionsTabState extends State<CollectionsTab> {
         subtitle: description == null
             ? null
             : Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: IconButton(
-          tooltip: strings.delete,
-          onPressed: () => _confirmDeleteCollection(collection),
-          icon: const Icon(Icons.delete),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: strings.edit,
+              onPressed: () {
+                _openCollectionFormDialog(initialCollection: collection);
+              },
+              icon: const Icon(Icons.edit),
+            ),
+            IconButton(
+              tooltip: strings.delete,
+              onPressed: () => _confirmDeleteCollection(collection),
+              icon: const Icon(Icons.delete),
+            ),
+          ],
         ),
         onTap: () => _openCollectionDetail(collection),
       ),
@@ -243,17 +272,25 @@ class CollectionDetailScreen extends StatefulWidget {
 }
 
 class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
+  late SteamCollection _collection;
   List<CollectionItem> _items = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _collection = widget.collection;
     _loadItems();
   }
 
-  Future<void> _loadItems() async {
-    final collectionId = widget.collection.id;
+  Future<void> _loadItems({bool showLoading = true}) async {
+    if (showLoading && mounted && !_isLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    final collectionId = _collection.id;
 
     if (collectionId == null) {
       setState(() {
@@ -275,12 +312,71 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     });
   }
 
+  Future<void> _openEditCollectionDialog() async {
+    final strings = AppStrings.of(context);
+    final collection = await showDialog<SteamCollection>(
+      context: context,
+      builder: (context) =>
+          _CollectionFormDialog(initialCollection: _collection),
+    );
+
+    if (collection == null) {
+      return;
+    }
+
+    await widget.repository.updateCollection(collection);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _collection = collection;
+    });
+    _showSnackBar(strings.updatedCollection(collection.name));
+  }
+
+  Future<void> _openAddPurchaseDialog() async {
+    final collectionId = _collection.id;
+
+    if (collectionId == null) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+    final purchase = await showDialog<SteamPurchase>(
+      context: context,
+      builder: (context) => _AddPurchaseToCollectionDialog(
+        purchases: widget.purchases,
+        excludedPurchaseIds: _assignedPurchaseIds(),
+      ),
+    );
+    final purchaseId = purchase?.id;
+
+    if (purchase == null || purchaseId == null) {
+      return;
+    }
+
+    await widget.repository.addPurchaseToCollection(
+      collectionId: collectionId,
+      purchaseId: purchaseId,
+    );
+    await _loadItems(showLoading: false);
+    _showSnackBar(
+      strings.addedPurchaseToCollection(purchase.displayName, _collection.name),
+    );
+  }
+
   Future<void> _removeItem(CollectionItem item) async {
     await widget.repository.removePurchaseFromCollection(
       collectionId: item.collectionId,
       purchaseId: item.purchaseId,
     );
-    await _loadItems();
+    await _loadItems(showLoading: false);
+  }
+
+  Set<int> _assignedPurchaseIds() {
+    return _items.map((item) => item.purchaseId).toSet();
   }
 
   Map<int, SteamPurchase> _purchasesById() {
@@ -299,12 +395,12 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
   Widget _buildHeader(AppStrings strings) {
     final theme = Theme.of(context);
-    final description = widget.collection.description;
+    final description = _collection.description;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.collection.name, style: theme.textTheme.headlineMedium),
+        Text(_collection.name, style: theme.textTheme.headlineMedium),
         if (description != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -363,6 +459,16 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
   }
 
+  void _showSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -371,7 +477,21 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     final purchasesById = _purchasesById();
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.collection.name)),
+      appBar: AppBar(
+        title: Text(_collection.name),
+        actions: [
+          IconButton(
+            tooltip: strings.edit,
+            onPressed: _openEditCollectionDialog,
+            icon: const Icon(Icons.edit),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddPurchaseDialog,
+        icon: const Icon(Icons.add_link),
+        label: Text(strings.addPurchaseToCollection),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -394,8 +514,151 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 }
 
+class _AddPurchaseToCollectionDialog extends StatefulWidget {
+  final List<SteamPurchase> purchases;
+  final Set<int> excludedPurchaseIds;
+
+  const _AddPurchaseToCollectionDialog({
+    required this.purchases,
+    required this.excludedPurchaseIds,
+  });
+
+  @override
+  State<_AddPurchaseToCollectionDialog> createState() =>
+      _AddPurchaseToCollectionDialogState();
+}
+
+class _AddPurchaseToCollectionDialogState
+    extends State<_AddPurchaseToCollectionDialog> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<SteamPurchase> _availablePurchases() {
+    final purchases = widget.purchases.where((purchase) {
+      final id = purchase.id;
+
+      return id != null && !widget.excludedPurchaseIds.contains(id);
+    }).toList();
+
+    purchases.sort((a, b) {
+      return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
+    });
+
+    return purchases;
+  }
+
+  List<SteamPurchase> _filteredPurchases(List<SteamPurchase> purchases) {
+    final query = _normalize(_searchController.text);
+
+    if (query.isEmpty) {
+      return purchases;
+    }
+
+    return purchases.where((purchase) {
+      return _normalize(purchase.displayName).contains(query) ||
+          _normalize(purchase.gameName).contains(query);
+    }).toList();
+  }
+
+  String _normalize(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
+  }
+
+  String _formatCurrency(double value, AppCurrency currency) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
+  }
+
+  IconData _purchaseIcon(SteamPurchase purchase) {
+    return switch (purchase.purchaseType) {
+      SteamPurchaseType.game => Icons.sports_esports,
+      SteamPurchaseType.dlc => Icons.extension,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+    final availablePurchases = _availablePurchases();
+    final filteredPurchases = _filteredPurchases(availablePurchases);
+
+    return AlertDialog(
+      title: Text(strings.selectPurchaseForCollection),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                labelText: strings.purchases,
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) {
+                setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: availablePurchases.isEmpty
+                  ? Center(
+                      child: Text(strings.noAvailablePurchasesForCollection),
+                    )
+                  : filteredPurchases.isEmpty
+                  ? Center(child: Text(strings.noMatchingPurchases))
+                  : ListView.builder(
+                      itemCount: filteredPurchases.length,
+                      itemBuilder: (context, index) {
+                        final purchase = filteredPurchases[index];
+
+                        return ListTile(
+                          leading: Icon(_purchaseIcon(purchase)),
+                          title: Text(
+                            purchase.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${_formatDate(purchase.purchaseDate)} · '
+                            '${_formatCurrency(purchase.price, currency)}',
+                          ),
+                          onTap: () => Navigator.of(context).pop(purchase),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+      ],
+    );
+  }
+}
+
 class _CollectionFormDialog extends StatefulWidget {
-  const _CollectionFormDialog();
+  final SteamCollection? initialCollection;
+
+  const _CollectionFormDialog({this.initialCollection});
 
   @override
   State<_CollectionFormDialog> createState() => _CollectionFormDialogState();
@@ -405,6 +668,22 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+
+  bool get _isEditing => widget.initialCollection != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initialCollection = widget.initialCollection;
+
+    if (initialCollection == null) {
+      return;
+    }
+
+    _nameController.text = initialCollection.name;
+    _descriptionController.text = initialCollection.description ?? '';
+  }
 
   @override
   void dispose() {
@@ -418,12 +697,14 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
       return;
     }
 
-    Navigator.of(context).pop(
-      SteamCollection.create(
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-      ),
-    );
+    final initialCollection = widget.initialCollection;
+    final name = _nameController.text.trim();
+    final description = _descriptionController.text.trim();
+    final collection = initialCollection == null
+        ? SteamCollection.create(name: name, description: description)
+        : initialCollection.copyWith(name: name, description: description);
+
+    Navigator.of(context).pop(collection);
   }
 
   @override
@@ -431,7 +712,11 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     final strings = AppStrings.of(context);
 
     return AlertDialog(
-      title: Text(strings.createCollectionTitle),
+      title: Text(
+        _isEditing
+            ? strings.editCollectionTitle
+            : strings.createCollectionTitle,
+      ),
       content: Form(
         key: _formKey,
         child: SizedBox(
@@ -479,7 +764,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.save),
-          label: Text(strings.save),
+          label: Text(_isEditing ? strings.saveChanges : strings.save),
         ),
       ],
     );

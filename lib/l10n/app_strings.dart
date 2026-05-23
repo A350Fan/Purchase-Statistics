@@ -112,6 +112,8 @@ class AppStrings {
 
   String get createCollectionTitle =>
       isEnglish ? 'Create collection' : 'Kollektion erstellen';
+  String get editCollectionTitle =>
+      isEnglish ? 'Edit collection' : 'Kollektion bearbeiten';
   String get collectionName => isEnglish ? 'Name' : 'Name';
   String get collectionDescriptionOptional =>
       isEnglish ? 'Description optional' : 'Beschreibung optional';
@@ -121,6 +123,12 @@ class AppStrings {
     return isEnglish
         ? '"$collectionName" was created.'
         : '"$collectionName" wurde erstellt.';
+  }
+
+  String updatedCollection(String collectionName) {
+    return isEnglish
+        ? '"$collectionName" was updated.'
+        : '"$collectionName" wurde aktualisiert.';
   }
 
   String get deleteCollectionTitle =>
@@ -139,6 +147,21 @@ class AppStrings {
 
   String get removeFromCollection =>
       isEnglish ? 'Remove from collection' : 'Aus Kollektion entfernen';
+  String get addPurchaseToCollection =>
+      isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
+  String get selectPurchaseForCollection =>
+      isEnglish ? 'Select purchase' : 'Kauf auswählen';
+  String get noAvailablePurchasesForCollection => isEnglish
+      ? 'No purchases available to add.'
+      : 'Keine Käufe zum Hinzufügen verfügbar.';
+  String get noMatchingPurchases =>
+      isEnglish ? 'No matching purchases found.' : 'Keine passenden Käufe.';
+  String addedPurchaseToCollection(String purchaseName, String collectionName) {
+    return isEnglish
+        ? '"$purchaseName" was added to "$collectionName".'
+        : '"$purchaseName" wurde zu "$collectionName" hinzugefügt.';
+  }
+
   String get missingPurchase =>
       isEnglish ? 'Deleted purchase' : 'Gelöschter Kauf';
 
