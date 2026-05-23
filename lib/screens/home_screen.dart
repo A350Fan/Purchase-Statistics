@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
+import '../data/steam_game_metadata_service.dart';
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
@@ -38,8 +39,14 @@ enum PurchaseSortOption {
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameMetadataService? metadataService;
 
-  const HomeScreen({super.key, this.repository, this.collectionRepository});
+  const HomeScreen({
+    super.key,
+    this.repository,
+    this.collectionRepository,
+    this.metadataService,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -49,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
+  late final SteamGameMetadataService _metadataService;
   late final TabController _tabController;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
 
@@ -64,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen>
     _repository = widget.repository ?? SteamPurchaseRepository();
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
+    _metadataService = widget.metadataService ?? SteamGameMetadataService();
     _tabController = TabController(length: 4, vsync: this)
       ..addListener(_handleTabSelectionChanged);
     _loadPurchases();
@@ -206,6 +215,7 @@ class _HomeScreenState extends State<HomeScreen>
       await _collectionsTabKey.currentState?.refresh();
     }
 
+    await _refreshMetadataForPurchase(savedPurchase);
     await _loadPurchases();
   }
 
@@ -247,7 +257,28 @@ class _HomeScreenState extends State<HomeScreen>
       await _collectionsTabKey.currentState?.refresh();
     }
 
+    await _refreshMetadataForPurchase(result.purchase);
     await _loadPurchases();
+  }
+
+  Future<void> _refreshMetadataForPurchase(SteamPurchase purchase) async {
+    if (purchase.steamAppId == null) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+
+    try {
+      await _metadataService.refreshMetadataForPurchase(
+        purchase: purchase,
+        language: _steamLanguage(strings),
+        countryCode: _steamCountryCode(currency),
+      );
+    } catch (_) {
+      // Metadata refresh must not block saving a purchase.
+    }
   }
 
   void _openSettingsScreen() {
@@ -444,6 +475,20 @@ class _HomeScreenState extends State<HomeScreen>
 
   String _formatCurrency(double value, AppCurrency currency) {
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
+  }
+
+  String _steamLanguage(AppStrings strings) {
+    return strings.isEnglish ? 'english' : 'german';
+  }
+
+  String _steamCountryCode(AppCurrency currency) {
+    return switch (currency) {
+      AppCurrency.eur => 'DE',
+      AppCurrency.usd => 'US',
+      AppCurrency.gbp => 'GB',
+      AppCurrency.chf => 'CH',
+      AppCurrency.jpy => 'JP',
+    };
   }
 
   String _formatDecimal(double value) {

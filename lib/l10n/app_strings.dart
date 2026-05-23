@@ -275,6 +275,25 @@ class AppStrings {
   String get purchaseDataTab => isEnglish ? 'Purchase data' : 'Kaufdaten';
   String get associatedGame =>
       isEnglish ? 'Associated game' : 'Zugehöriges Spiel';
+  String get steamApp => isEnglish ? 'Steam app' : 'Steam-App';
+  String get steamAppNotLinked =>
+      isEnglish ? 'No Steam app linked' : 'Keine Steam-App verknüpft';
+  String steamAppLinked(int appId) {
+    return isEnglish
+        ? 'Linked Steam app: $appId'
+        : 'Verknüpfte Steam-App: $appId';
+  }
+
+  String get linkSteamApp =>
+      isEnglish ? 'Link Steam app' : 'Steam-App verknüpfen';
+  String get clearSteamAppLink =>
+      isEnglish ? 'Clear Steam link' : 'Steam-Verknüpfung entfernen';
+  String get searchSteamApp =>
+      isEnglish ? 'Search Steam app' : 'Steam-App suchen';
+  String get steamSearchQuery => isEnglish ? 'Search term' : 'Suchbegriff';
+  String get search => isEnglish ? 'Search' : 'Suchen';
+  String get noSteamResults =>
+      isEnglish ? 'No Steam results found.' : 'Keine Steam-Treffer gefunden.';
   String get gameName => isEnglish ? 'Game name' : 'Spielname';
   String get dlcName => isEnglish ? 'DLC name' : 'DLC-Name';
   String get steamAppIdOptional =>

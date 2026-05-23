@@ -766,6 +766,54 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
   }
 
+  Future<void> _openSteamAppLinkDialog() async {
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+    final suggestion = await showDialog<SteamStoreSearchSuggestion>(
+      context: context,
+      builder: (context) => _SteamAppLinkDialog(
+        initialQuery: _initialSteamLinkQuery(),
+        purchaseType: _purchaseType,
+        associatedGameName: _purchaseType == SteamPurchaseType.dlc
+            ? _gameNameController.text.trim()
+            : null,
+        steamSearchSource: _steamSearchSource,
+        language: _steamLanguage(strings),
+        countryCode: _steamCountryCode(currency),
+      ),
+    );
+
+    if (suggestion == null) {
+      return;
+    }
+
+    _isApplyingAutocompleteSelection = true;
+    setState(() {
+      switch (_purchaseType) {
+        case SteamPurchaseType.game:
+          _selectedGameSteamAppId = suggestion.appId;
+          _gameNameController.text = suggestion.name;
+        case SteamPurchaseType.dlc:
+          _selectedDlcSteamAppId = suggestion.appId;
+          _dlcNameController.text = suggestion.name;
+      }
+
+      _steamAppIdController.text = suggestion.appId.toString();
+    });
+    _isApplyingAutocompleteSelection = false;
+  }
+
+  String _initialSteamLinkQuery() {
+    return switch (_purchaseType) {
+      SteamPurchaseType.game => _gameNameController.text.trim(),
+      SteamPurchaseType.dlc =>
+        _dlcNameController.text.trim().isNotEmpty
+            ? _dlcNameController.text.trim()
+            : _gameNameController.text.trim(),
+    };
+  }
+
   void _savePurchase() {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -1089,6 +1137,34 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     return null;
                                   },
                                 ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _openSteamAppLinkDialog,
+                                      icon: const Icon(Icons.search),
+                                      label: Text(strings.linkSteamApp),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _steamAppIdController.clear();
+
+                                          if (_purchaseType ==
+                                              SteamPurchaseType.dlc) {
+                                            _selectedDlcSteamAppId = null;
+                                          } else {
+                                            _selectedGameSteamAppId = null;
+                                          }
+                                        });
+                                      },
+                                      icon: const Icon(Icons.link_off),
+                                      label: Text(strings.clearSteamAppLink),
+                                    ),
+                                  ],
+                                ),
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _editionController,
@@ -1250,6 +1326,166 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SteamAppLinkDialog extends StatefulWidget {
+  final String initialQuery;
+  final SteamPurchaseType purchaseType;
+  final String? associatedGameName;
+  final SteamStoreSearchSource steamSearchSource;
+  final String language;
+  final String countryCode;
+
+  const _SteamAppLinkDialog({
+    required this.initialQuery,
+    required this.purchaseType,
+    required this.associatedGameName,
+    required this.steamSearchSource,
+    required this.language,
+    required this.countryCode,
+  });
+
+  @override
+  State<_SteamAppLinkDialog> createState() => _SteamAppLinkDialogState();
+}
+
+class _SteamAppLinkDialogState extends State<_SteamAppLinkDialog> {
+  final _queryController = TextEditingController();
+
+  List<SteamStoreSearchSuggestion> _suggestions = [];
+  bool _isSearching = false;
+  int _searchGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController.text = widget.initialQuery;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _search();
+    });
+  }
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+
+    if (query.length < SteamStoreSearchRepository.minimumQueryLength) {
+      setState(() {
+        _suggestions = [];
+      });
+      return;
+    }
+
+    final generation = ++_searchGeneration;
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    final suggestions = await widget.steamSearchSource.search(
+      query: query,
+      purchaseType: widget.purchaseType,
+      language: widget.language,
+      countryCode: widget.countryCode,
+      associatedGameName: widget.associatedGameName,
+    );
+
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
+
+    setState(() {
+      _suggestions = suggestions;
+      _isSearching = false;
+    });
+  }
+
+  IconData _itemIcon(SteamStoreSearchSuggestion suggestion) {
+    return switch (suggestion.itemType) {
+      SteamStoreItemType.game => Icons.sports_esports,
+      SteamStoreItemType.dlc => Icons.extension,
+      SteamStoreItemType.other => Icons.apps,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+
+    return AlertDialog(
+      title: Text(strings.searchSteamApp),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              controller: _queryController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: strings.steamSearchQuery,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+              ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _search(),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isSearching ? null : _search,
+                icon: _isSearching
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search),
+                label: Text(strings.search),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _suggestions.isEmpty
+                  ? Center(child: Text(strings.noSteamResults))
+                  : ListView.builder(
+                      itemCount: _suggestions.length,
+                      itemBuilder: (context, index) {
+                        final suggestion = _suggestions[index];
+
+                        return ListTile(
+                          leading: Icon(_itemIcon(suggestion)),
+                          title: Text(
+                            suggestion.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${strings.steamApp}: ${suggestion.appId}',
+                          ),
+                          onTap: () => Navigator.of(context).pop(suggestion),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+      ],
     );
   }
 }

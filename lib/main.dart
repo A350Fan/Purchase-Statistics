@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data/steam_collection_repository.dart';
+import 'data/steam_game_metadata_service.dart';
 import 'data/steam_purchase_repository.dart';
 import 'l10n/app_strings.dart';
 import 'screens/home_screen.dart';
@@ -15,12 +16,14 @@ class SteamStatsApp extends StatefulWidget {
   final AppSettingsController? settingsController;
   final SteamPurchaseRepository? purchaseRepository;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameMetadataService? metadataService;
 
   const SteamStatsApp({
     super.key,
     this.settingsController,
     this.purchaseRepository,
     this.collectionRepository,
+    this.metadataService,
   });
 
   @override
@@ -122,6 +125,7 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
               home: HomeScreen(
                 repository: widget.purchaseRepository,
                 collectionRepository: widget.collectionRepository,
+                metadataService: widget.metadataService,
               ),
             ),
           );
