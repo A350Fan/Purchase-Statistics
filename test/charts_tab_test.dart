@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_stats_app/models/steam_purchase.dart';
-import 'package:steam_stats_app/screens/charts_tab.dart';
+import 'package:steam_purchase_statistics/models/steam_purchase.dart';
+import 'package:steam_purchase_statistics/screens/charts_tab.dart';
 
 void main() {
   testWidgets('renders the chart panels with purchase data', (tester) async {

@@ -12,7 +12,7 @@ class SteamStatsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Steam Stats',
+      title: 'Steam Purchase Statistics',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

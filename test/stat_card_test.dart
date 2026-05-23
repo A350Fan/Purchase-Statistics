@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_stats_app/widgets/stat_card.dart';
+import 'package:steam_purchase_statistics/widgets/stat_card.dart';
 
 void main() {
   testWidgets('renders without overflow in a compact dashboard grid cell', (

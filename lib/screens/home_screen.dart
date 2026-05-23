@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Steam Stats'),
+          title: const Text('Steam Purchase Statistics'),
           actions: [
             IconButton(
               tooltip: 'CSV importieren',

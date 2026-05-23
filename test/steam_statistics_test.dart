@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_stats_app/logic/steam_statistics.dart';
-import 'package:steam_stats_app/models/steam_purchase.dart';
+import 'package:steam_purchase_statistics/logic/steam_statistics.dart';
+import 'package:steam_purchase_statistics/models/steam_purchase.dart';
 
 void main() {
   group('SteamStatistics', () {
