@@ -66,6 +66,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _gameNameController = TextEditingController();
   final _editionController = TextEditingController();
   final _dlcNameController = TextEditingController();
+  final _steamAppIdController = TextEditingController();
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
   final _playtimeHoursController = TextEditingController();
@@ -81,6 +82,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   Timer? _gameNameSteamSearchTimer;
   Timer? _dlcNameSteamSearchTimer;
+  Timer? _gameNameFocusLossTimer;
+  Timer? _dlcNameFocusLossTimer;
   List<SteamStoreSearchSuggestion> _steamGameNameSuggestions = [];
   List<SteamStoreSearchSuggestion> _steamDlcNameSuggestions = [];
   int _gameNameSteamSearchGeneration = 0;
@@ -136,6 +139,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     } else {
       _selectedGameSteamAppId = initialPurchase.steamAppId;
     }
+    if (initialPurchase.steamAppId != null) {
+      _steamAppIdController.text = initialPurchase.steamAppId!.toString();
+    }
     _priceController.text = initialPurchase.price.toStringAsFixed(2);
 
     if (initialPurchase.originalPrice != null) {
@@ -160,6 +166,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void dispose() {
     _gameNameSteamSearchTimer?.cancel();
     _dlcNameSteamSearchTimer?.cancel();
+    _gameNameFocusLossTimer?.cancel();
+    _dlcNameFocusLossTimer?.cancel();
     _gameNameController.removeListener(_handleGameNameChanged);
     _dlcNameController.removeListener(_handleDlcNameChanged);
     _gameNameFocusNode.removeListener(_handleGameNameFocusChanged);
@@ -171,6 +179,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _gameNameController.dispose();
     _editionController.dispose();
     _dlcNameController.dispose();
+    _steamAppIdController.dispose();
     _priceController.dispose();
     _originalPriceController.dispose();
     _playtimeHoursController.dispose();
@@ -299,6 +308,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return;
     }
 
+    _clearSteamAppIdIfAutoAssigned(_selectedGameSteamAppId);
     _selectedGameSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.game);
     _scheduleSteamNameSearch(_NameSuggestionField.game);
@@ -314,17 +324,51 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return;
     }
 
+    _clearSteamAppIdIfAutoAssigned(_selectedDlcSteamAppId);
     _selectedDlcSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
     _scheduleSteamNameSearch(_NameSuggestionField.dlc);
   }
 
   void _handleGameNameFocusChanged() {
-    _updateNameSuggestionsOverlay(_NameSuggestionField.game);
+    _handleNameFocusChanged(_NameSuggestionField.game);
   }
 
   void _handleDlcNameFocusChanged() {
-    _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
+    _handleNameFocusChanged(_NameSuggestionField.dlc);
+  }
+
+  void _handleNameFocusChanged(_NameSuggestionField field) {
+    final focusNode = switch (field) {
+      _NameSuggestionField.game => _gameNameFocusNode,
+      _NameSuggestionField.dlc => _dlcNameFocusNode,
+    };
+    final currentTimer = switch (field) {
+      _NameSuggestionField.game => _gameNameFocusLossTimer,
+      _NameSuggestionField.dlc => _dlcNameFocusLossTimer,
+    };
+
+    currentTimer?.cancel();
+
+    if (focusNode.hasFocus) {
+      _updateNameSuggestionsOverlay(field);
+      return;
+    }
+
+    final nextTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted || focusNode.hasFocus) {
+        return;
+      }
+
+      _removeNameSuggestionsOverlay(field);
+    });
+
+    switch (field) {
+      case _NameSuggestionField.game:
+        _gameNameFocusLossTimer = nextTimer;
+      case _NameSuggestionField.dlc:
+        _dlcNameFocusLossTimer = nextTimer;
+    }
   }
 
   void _scheduleSteamNameSearch(_NameSuggestionField field) {
@@ -563,55 +607,73 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return const SizedBox.shrink();
     }
 
-    return CompositedTransformFollower(
-      link: layerLink,
-      showWhenUnlinked: false,
-      offset: const Offset(0, 64),
-      child: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: 240, maxWidth: width),
-          child: SizedBox(
-            width: width,
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              itemCount: options.length,
-              itemBuilder: (context, index) {
-                final option = options[index];
-                final colorScheme = Theme.of(context).colorScheme;
+    return Positioned.fill(
+      child: CompositedTransformFollower(
+        link: layerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.bottomLeft,
+        followerAnchor: Alignment.topLeft,
+        offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: 240, maxWidth: width),
+              child: SizedBox(
+                width: width,
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final option = options[index];
+                    final colorScheme = Theme.of(context).colorScheme;
 
-                return InkWell(
-                  onTap: () => _selectNameSuggestion(field, option),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            option.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    return Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: (_) {
+                        _selectNameSuggestion(field, option);
+                      },
+                      child: InkWell(
+                        onTap: () {
+                          _selectNameSuggestion(field, option);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  option.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (option.source ==
+                                  _NameSuggestionSource.steam) ...[
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Steam',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        if (option.source == _NameSuggestionSource.steam) ...[
-                          const SizedBox(width: 12),
-                          Text(
-                            'Steam',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -628,6 +690,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _NameSuggestionField.dlc => _dlcNameController,
     };
 
+    _gameNameFocusLossTimer?.cancel();
+    _dlcNameFocusLossTimer?.cancel();
     _isApplyingAutocompleteSelection = true;
     controller.value = TextEditingValue(
       text: suggestion.name,
@@ -636,8 +700,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     switch (field) {
       case _NameSuggestionField.game:
         _selectedGameSteamAppId = suggestion.steamAppId;
+        if (_purchaseType == SteamPurchaseType.game) {
+          _setSteamAppIdFromSuggestion(suggestion.steamAppId);
+        }
       case _NameSuggestionField.dlc:
         _selectedDlcSteamAppId = suggestion.steamAppId;
+        if (_purchaseType == SteamPurchaseType.dlc) {
+          _setSteamAppIdFromSuggestion(suggestion.steamAppId);
+        }
     }
     _isApplyingAutocompleteSelection = false;
     _removeNameSuggestionsOverlay(field);
@@ -672,6 +742,30 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     };
   }
 
+  int? _parseOptionalInt(String value) {
+    final trimmedValue = value.trim();
+
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    return int.tryParse(trimmedValue);
+  }
+
+  void _setSteamAppIdFromSuggestion(int? steamAppId) {
+    _steamAppIdController.text = steamAppId?.toString() ?? '';
+  }
+
+  void _clearSteamAppIdIfAutoAssigned(int? steamAppId) {
+    if (steamAppId == null) {
+      return;
+    }
+
+    if (_steamAppIdController.text.trim() == steamAppId.toString()) {
+      _steamAppIdController.clear();
+    }
+  }
+
   void _savePurchase() {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -690,9 +784,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       dlcName: _purchaseType == SteamPurchaseType.dlc
           ? _dlcNameController.text.trim()
           : null,
-      steamAppId: _purchaseType == SteamPurchaseType.dlc
-          ? _selectedDlcSteamAppId
-          : _selectedGameSteamAppId,
+      steamAppId: _parseOptionalInt(_steamAppIdController.text),
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
       playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
@@ -899,8 +991,18 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   ],
                                   selected: {_purchaseType},
                                   onSelectionChanged: (selection) {
+                                    final nextPurchaseType = selection.single;
                                     setState(() {
-                                      _purchaseType = selection.single;
+                                      _purchaseType = nextPurchaseType;
+                                      _steamAppIdController.text =
+                                          nextPurchaseType ==
+                                              SteamPurchaseType.dlc
+                                          ? _selectedDlcSteamAppId
+                                                    ?.toString() ??
+                                                ''
+                                          : _selectedGameSteamAppId
+                                                    ?.toString() ??
+                                                '';
                                     });
 
                                     _updateNameSuggestionsOverlay(
@@ -962,6 +1064,32 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                 ],
+                                TextFormField(
+                                  controller: _steamAppIdController,
+                                  decoration: InputDecoration(
+                                    labelText: strings.steamAppIdOptional,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return null;
+                                    }
+
+                                    final parsedValue = int.tryParse(
+                                      value.trim(),
+                                    );
+
+                                    if (parsedValue == null ||
+                                        parsedValue <= 0) {
+                                      return strings.enterValidSteamAppId;
+                                    }
+
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _editionController,
                                   decoration: InputDecoration(

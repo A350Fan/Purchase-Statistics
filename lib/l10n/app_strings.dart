@@ -277,6 +277,8 @@ class AppStrings {
       isEnglish ? 'Associated game' : 'Zugehöriges Spiel';
   String get gameName => isEnglish ? 'Game name' : 'Spielname';
   String get dlcName => isEnglish ? 'DLC name' : 'DLC-Name';
+  String get steamAppIdOptional =>
+      isEnglish ? 'Steam App ID optional' : 'Steam-App-ID optional';
   String get editionOptional =>
       isEnglish ? 'Edition optional' : 'Edition optional';
   String purchaseDate(String date) {
@@ -299,6 +301,9 @@ class AppStrings {
       isEnglish ? 'Enter a purchase price' : 'Bitte Kaufpreis eingeben';
   String get enterValidNumber =>
       isEnglish ? 'Enter a valid number' : 'Bitte gültige Zahl eingeben';
+  String get enterValidSteamAppId => isEnglish
+      ? 'Enter a valid positive Steam App ID'
+      : 'Bitte gültige positive Steam-App-ID eingeben';
   String get priceCannotBeNegative =>
       isEnglish ? 'Price cannot be negative' : 'Preis darf nicht negativ sein';
   String get originalPriceMustBePositive => isEnglish

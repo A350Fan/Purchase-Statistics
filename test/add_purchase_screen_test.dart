@@ -83,6 +83,69 @@ void main() {
     expect(find.text('Microsoft Flight Simulator 2024'), findsOneWidget);
     expect(find.text('Steam'), findsOneWidget);
   });
+
+  testWidgets('selects Steam suggestions and returns the Steam app id', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+    final steamSearchSource = _FakeSteamSearchSource([
+      const SteamStoreSearchSuggestion(
+        appId: 2537590,
+        name: 'Microsoft Flight Simulator 2024',
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => AddPurchaseScreen(
+                            steamSearchSource: steamSearchSource,
+                          ),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'flight');
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pump();
+
+    await tester.tap(find.text('Microsoft Flight Simulator 2024'));
+    await tester.pump();
+
+    expect(find.text('2537590'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(3), '59.99');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.gameName, 'Microsoft Flight Simulator 2024');
+    expect(result!.purchase.steamAppId, 2537590);
+  });
 }
 
 class _FakeSteamSearchSource implements SteamStoreSearchSource {
