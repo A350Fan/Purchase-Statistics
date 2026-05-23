@@ -26,7 +26,8 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
+      onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -40,6 +41,10 @@ class AppDatabase {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     _isDesktopFactoryConfigured = true;
+  }
+
+  static Future<void> _configureDatabase(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
   }
 
   static Future<void> _createDatabase(Database db, int version) async {
@@ -60,6 +65,7 @@ class AppDatabase {
 
     await _createSettingsTable(db);
     await _createSteamStoreSearchCacheTable(db);
+    await _createCollectionsTables(db);
   }
 
   static Future<void> _upgradeDatabase(
@@ -94,6 +100,10 @@ class AppDatabase {
     if (oldVersion < 6) {
       await _createSteamStoreSearchCacheTable(db);
     }
+
+    if (oldVersion < 7) {
+      await _createCollectionsTables(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -114,6 +124,41 @@ class AppDatabase {
         suggestions_json TEXT NOT NULL,
         expires_at INTEGER NOT NULL
       )
+    ''');
+  }
+
+  static Future<void> _createCollectionsTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        sort_mode TEXT NOT NULL DEFAULT 'manual',
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS collection_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        collection_id INTEGER NOT NULL,
+        purchase_id INTEGER NOT NULL,
+        custom_order INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+        FOREIGN KEY(purchase_id) REFERENCES steam_purchases(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
+      ON collection_items(collection_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_collection_items_purchase_id
+      ON collection_items(purchase_id)
     ''');
   }
 }

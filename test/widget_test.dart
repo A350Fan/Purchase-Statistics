@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:purchase_statistics/data/steam_collection_repository.dart';
 import 'package:purchase_statistics/data/steam_purchase_repository.dart';
 import 'package:purchase_statistics/main.dart';
+import 'package:purchase_statistics/models/collection_item.dart';
+import 'package:purchase_statistics/models/steam_collection.dart';
 import 'package:purchase_statistics/models/steam_purchase.dart';
 import 'package:purchase_statistics/settings/app_settings.dart';
 import 'package:purchase_statistics/settings/app_settings_controller.dart';
@@ -31,12 +34,40 @@ class _InMemoryPurchaseRepository extends SteamPurchaseRepository {
   }
 }
 
+class _InMemoryCollectionRepository extends SteamCollectionRepository {
+  @override
+  Future<List<SteamCollection>> getCollections() async {
+    return [];
+  }
+
+  @override
+  Future<int> insertCollection(SteamCollection collection) async {
+    return 1;
+  }
+
+  @override
+  Future<int> updateCollection(SteamCollection collection) async {
+    return 1;
+  }
+
+  @override
+  Future<int> deleteCollection(int id) async {
+    return 1;
+  }
+
+  @override
+  Future<List<CollectionItem>> getItemsForCollection(int collectionId) async {
+    return [];
+  }
+}
+
 SteamStatsApp _buildTestApp([_InMemorySettingsStore? store]) {
   return SteamStatsApp(
     settingsController: AppSettingsController(
       store: store ?? _InMemorySettingsStore(),
     ),
     purchaseRepository: _InMemoryPurchaseRepository(),
+    collectionRepository: _InMemoryCollectionRepository(),
   );
 }
 

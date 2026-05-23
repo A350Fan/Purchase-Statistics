@@ -40,7 +40,9 @@ class AppStrings {
   String get overviewTab => isEnglish ? 'Overview' : 'Übersicht';
   String get statisticsTab => isEnglish ? 'Statistics' : 'Statistik';
   String get chartsTab => isEnglish ? 'Charts' : 'Diagramme';
+  String get collectionsTab => isEnglish ? 'Collections' : 'Kollektionen';
   String get purchaseFab => isEnglish ? 'Purchase' : 'Kauf';
+  String get collectionFab => isEnglish ? 'Collection' : 'Kollektion';
   String get importCsv => isEnglish ? 'Import CSV' : 'CSV importieren';
   String get exportCsv => isEnglish ? 'Export CSV' : 'CSV exportieren';
   String get openSettings => isEnglish ? 'Settings' : 'Einstellungen';
@@ -54,6 +56,12 @@ class AppStrings {
       : 'Noch keine Statistikdaten vorhanden.';
   String get noChartData =>
       isEnglish ? 'No chart data yet.' : 'Noch keine Diagrammdaten vorhanden.';
+  String get noCollections => isEnglish
+      ? 'No collections yet. Create your first collection.'
+      : 'Noch keine Kollektionen vorhanden. Erstelle deine erste Kollektion.';
+  String get noCollectionItems => isEnglish
+      ? 'No purchases in this collection yet.'
+      : 'Noch keine Käufe in dieser Kollektion.';
   String get noData => isEnglish ? 'No data' : 'Keine Daten';
   String get price => isEnglish ? 'Price' : 'Preis';
   String get discount => isEnglish ? 'Discount' : 'Rabatt';
@@ -101,6 +109,38 @@ class AppStrings {
         ? '"$purchaseName" was deleted.'
         : '"$purchaseName" wurde gelöscht.';
   }
+
+  String get createCollectionTitle =>
+      isEnglish ? 'Create collection' : 'Kollektion erstellen';
+  String get collectionName => isEnglish ? 'Name' : 'Name';
+  String get collectionDescriptionOptional =>
+      isEnglish ? 'Description optional' : 'Beschreibung optional';
+  String get enterCollectionName =>
+      isEnglish ? 'Enter a collection name' : 'Bitte Namen eingeben';
+  String createdCollection(String collectionName) {
+    return isEnglish
+        ? '"$collectionName" was created.'
+        : '"$collectionName" wurde erstellt.';
+  }
+
+  String get deleteCollectionTitle =>
+      isEnglish ? 'Delete collection?' : 'Kollektion löschen?';
+  String deleteCollectionMessage(String collectionName) {
+    return isEnglish
+        ? 'Do you really want to delete "$collectionName"?'
+        : 'Möchtest du "$collectionName" wirklich löschen?';
+  }
+
+  String deletedCollection(String collectionName) {
+    return isEnglish
+        ? '"$collectionName" was deleted.'
+        : '"$collectionName" wurde gelöscht.';
+  }
+
+  String get removeFromCollection =>
+      isEnglish ? 'Remove from collection' : 'Aus Kollektion entfernen';
+  String get missingPurchase =>
+      isEnglish ? 'Deleted purchase' : 'Gelöschter Kauf';
 
   String csvImportFailed(Object error) {
     return isEnglish

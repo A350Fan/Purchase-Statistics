@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../data/steam_collection_repository.dart';
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
@@ -15,6 +16,7 @@ import '../settings/app_settings_controller.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 import 'charts_tab.dart';
+import 'collections_tab.dart';
 import 'settings_screen.dart';
 import 'statistics_tab.dart';
 
@@ -35,26 +37,53 @@ enum PurchaseSortOption {
 
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
+  final SteamCollectionRepository? collectionRepository;
 
-  const HomeScreen({super.key, this.repository});
+  const HomeScreen({super.key, this.repository, this.collectionRepository});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late final SteamPurchaseRepository _repository;
+  late final SteamCollectionRepository _collectionRepository;
+  late final TabController _tabController;
+  final _collectionsTabKey = GlobalKey<CollectionsTabState>();
 
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
   bool _isCsvOperationRunning = false;
+  int _selectedTabIndex = 0;
   PurchaseSortOption _sortOption = PurchaseSortOption.dateNewestFirst;
 
   @override
   void initState() {
     super.initState();
     _repository = widget.repository ?? SteamPurchaseRepository();
+    _collectionRepository =
+        widget.collectionRepository ?? SteamCollectionRepository();
+    _tabController = TabController(length: 4, vsync: this)
+      ..addListener(_handleTabSelectionChanged);
     _loadPurchases();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabSelectionChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabSelectionChanged() {
+    if (_selectedTabIndex == _tabController.index) {
+      return;
+    }
+
+    setState(() {
+      _selectedTabIndex = _tabController.index;
+    });
   }
 
   Future<void> _loadPurchases() async {
@@ -166,6 +195,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await _repository.addPurchase(newPurchase);
     await _loadPurchases();
+  }
+
+  void _openCreateCollectionDialog() {
+    final collectionsTabState = _collectionsTabKey.currentState;
+
+    if (collectionsTabState != null) {
+      collectionsTabState.openCreateCollectionDialog();
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _collectionsTabKey.currentState?.openCreateCollectionDialog();
+    });
   }
 
   Future<void> _openEditPurchaseScreen(SteamPurchase purchase) async {
@@ -623,6 +665,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildFloatingActionButton(AppStrings strings) {
+    if (_selectedTabIndex == 3) {
+      return FloatingActionButton.extended(
+        onPressed: _openCreateCollectionDialog,
+        icon: const Icon(Icons.create_new_folder),
+        label: Text(strings.collectionFab),
+      );
+    }
+
+    return FloatingActionButton.extended(
+      onPressed: _openAddPurchaseScreen,
+      icon: const Icon(Icons.add),
+      label: Text(strings.purchaseFab),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -631,214 +689,202 @@ class _HomeScreenState extends State<HomeScreen> {
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases(stats);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(strings.appTitle),
-          actions: [
-            IconButton(
-              tooltip: strings.importCsv,
-              onPressed: _isCsvOperationRunning
-                  ? null
-                  : _importPurchasesFromCsv,
-              icon: const Icon(Icons.upload_file),
-            ),
-            IconButton(
-              tooltip: strings.exportCsv,
-              onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
-              icon: const Icon(Icons.download),
-            ),
-            IconButton(
-              tooltip: strings.openSettings,
-              onPressed: _openSettingsScreen,
-              icon: const Icon(Icons.settings),
-            ),
-          ],
-
-          // Die TabBar hängt direkt unter der AppBar.
-          // Übersicht, Zahlentabellen und Diagramme bleiben getrennt.
-          bottom: TabBar(
-            tabs: [
-              Tab(icon: const Icon(Icons.dashboard), text: strings.overviewTab),
-              Tab(
-                icon: const Icon(Icons.bar_chart),
-                text: strings.statisticsTab,
-              ),
-              Tab(icon: const Icon(Icons.show_chart), text: strings.chartsTab),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(strings.appTitle),
+        actions: [
+          IconButton(
+            tooltip: strings.importCsv,
+            onPressed: _isCsvOperationRunning ? null : _importPurchasesFromCsv,
+            icon: const Icon(Icons.upload_file),
           ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _openAddPurchaseScreen,
-          icon: const Icon(Icons.add),
-          label: Text(strings.purchaseFab),
-        ),
+          IconButton(
+            tooltip: strings.exportCsv,
+            onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
+            icon: const Icon(Icons.download),
+          ),
+          IconButton(
+            tooltip: strings.openSettings,
+            onPressed: _openSettingsScreen,
+            icon: const Icon(Icons.settings),
+          ),
+        ],
 
-        // Loading bleibt global, damit beide Tabs erst angezeigt werden,
-        // wenn die Käufe aus der Datenbank geladen wurden.
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                children: [
-                  // TAB 1: Deine bisherige Startseite.
-                  // Hier bleibt Dashboard + sortierbare Kaufliste komplett erhalten.
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth > 700;
-                        final dashboardColumnCount = constraints.maxWidth > 1200
-                            ? 5
-                            : isWide
-                            ? 3
-                            : 2;
+        // Die TabBar hängt direkt unter der AppBar.
+        // Übersicht, Zahlen, Diagramme und Kollektionen bleiben getrennt.
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(icon: const Icon(Icons.dashboard), text: strings.overviewTab),
+            Tab(icon: const Icon(Icons.bar_chart), text: strings.statisticsTab),
+            Tab(icon: const Icon(Icons.show_chart), text: strings.chartsTab),
+            Tab(icon: const Icon(Icons.folder), text: strings.collectionsTab),
+          ],
+        ),
+      ),
+      floatingActionButton: _buildFloatingActionButton(strings),
 
-                        return CustomScrollView(
-                          slivers: [
-                            SliverToBoxAdapter(
-                              child: Text(
-                                strings.dashboard,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineMedium,
+      // Loading bleibt global, damit die Tabs erst angezeigt werden,
+      // wenn die Käufe aus der Datenbank geladen wurden.
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // TAB 1: Deine bisherige Startseite.
+                // Hier bleibt Dashboard + sortierbare Kaufliste komplett erhalten.
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 700;
+                      final dashboardColumnCount = constraints.maxWidth > 1200
+                          ? 5
+                          : isWide
+                          ? 3
+                          : 2;
+
+                      return CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Text(
+                              strings.dashboard,
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                          SliverGrid(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: dashboardColumnCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: isWide ? 2.4 : 1.9,
+                                ),
+                            delegate: SliverChildListDelegate.fixed([
+                              StatCard(
+                                title: strings.purchases,
+                                value: stats.totalPurchases.toString(),
                               ),
-                            ),
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 16),
-                            ),
-                            SliverGrid(
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: dashboardColumnCount,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    childAspectRatio: isWide ? 2.4 : 1.9,
-                                  ),
-                              delegate: SliverChildListDelegate.fixed([
-                                StatCard(
-                                  title: strings.purchases,
-                                  value: stats.totalPurchases.toString(),
+                              StatCard(
+                                title: strings.games,
+                                value: stats.totalGames.toString(),
+                              ),
+                              StatCard(
+                                title: strings.dlcs,
+                                value: stats.totalDlcs.toString(),
+                              ),
+                              StatCard(
+                                title: strings.totalSpent,
+                                value: _formatCurrency(
+                                  stats.totalSpent,
+                                  currency,
                                 ),
-                                StatCard(
-                                  title: strings.games,
-                                  value: stats.totalGames.toString(),
+                              ),
+                              StatCard(
+                                title: strings.averageDiscount,
+                                value: stats.averageDiscount == null
+                                    ? '-'
+                                    : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
+                              ),
+                              StatCard(
+                                title: strings.playtime,
+                                value: _formatTotalPlaytime(
+                                  stats.totalPlaytimeHours,
                                 ),
-                                StatCard(
-                                  title: strings.dlcs,
-                                  value: stats.totalDlcs.toString(),
+                              ),
+                              StatCard(
+                                title: strings.averagePricePerHour(
+                                  currency.symbol,
                                 ),
-                                StatCard(
-                                  title: strings.totalSpent,
-                                  value: _formatCurrency(
-                                    stats.totalSpent,
-                                    currency,
-                                  ),
+                                value: stats.pricePerHour == null
+                                    ? '-'
+                                    : _formatPricePerHour(
+                                        stats.pricePerHour!,
+                                        currency,
+                                      ),
+                              ),
+                            ]),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                          SliverToBoxAdapter(
+                            child: Row(
+                              children: [
+                                Text(
+                                  strings.purchases,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
                                 ),
-                                StatCard(
-                                  title: strings.averageDiscount,
-                                  value: stats.averageDiscount == null
-                                      ? '-'
-                                      : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
-                                ),
-                                StatCard(
-                                  title: strings.playtime,
-                                  value: _formatTotalPlaytime(
-                                    stats.totalPlaytimeHours,
-                                  ),
-                                ),
-                                StatCard(
-                                  title: strings.averagePricePerHour(
-                                    currency.symbol,
-                                  ),
-                                  value: stats.pricePerHour == null
-                                      ? '-'
-                                      : _formatPricePerHour(
-                                          stats.pricePerHour!,
+                                const Spacer(),
+                                DropdownButton<PurchaseSortOption>(
+                                  value: _sortOption,
+                                  onChanged: (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
+
+                                    setState(() {
+                                      _sortOption = value;
+                                    });
+                                  },
+                                  items: PurchaseSortOption.values.map((
+                                    option,
+                                  ) {
+                                    return DropdownMenuItem(
+                                      value: option,
+                                      child: Text(
+                                        _getSortLabel(
+                                          option,
+                                          strings,
                                           currency,
                                         ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              ]),
+                              ],
                             ),
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 24),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                          if (_purchases.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(child: Text(strings.noPurchases)),
+                            )
+                          else
+                            SliverList.builder(
+                              itemCount: sortedPurchases.length,
+                              itemBuilder: (context, index) {
+                                final purchase = sortedPurchases[index];
+                                return _buildPurchaseCard(
+                                  purchase,
+                                  stats,
+                                  currency,
+                                );
+                              },
                             ),
-                            SliverToBoxAdapter(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    strings.purchases,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.headlineSmall,
-                                  ),
-                                  const Spacer(),
-                                  DropdownButton<PurchaseSortOption>(
-                                    value: _sortOption,
-                                    onChanged: (value) {
-                                      if (value == null) {
-                                        return;
-                                      }
-
-                                      setState(() {
-                                        _sortOption = value;
-                                      });
-                                    },
-                                    items: PurchaseSortOption.values.map((
-                                      option,
-                                    ) {
-                                      return DropdownMenuItem(
-                                        value: option,
-                                        child: Text(
-                                          _getSortLabel(
-                                            option,
-                                            strings,
-                                            currency,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 8),
-                            ),
-                            if (_purchases.isEmpty)
-                              SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: Center(child: Text(strings.noPurchases)),
-                              )
-                            else
-                              SliverList.builder(
-                                itemCount: sortedPurchases.length,
-                                itemBuilder: (context, index) {
-                                  final purchase = sortedPurchases[index];
-                                  return _buildPurchaseCard(
-                                    purchase,
-                                    stats,
-                                    currency,
-                                  );
-                                },
-                              ),
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 88),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 88)),
+                        ],
+                      );
+                    },
                   ),
+                ),
 
-                  // TAB 2: Statistik in Zahlen.
-                  StatisticsTab(purchases: _purchases),
+                // TAB 2: Statistik in Zahlen.
+                StatisticsTab(purchases: _purchases),
 
-                  // TAB 3: Statistik als Diagramme.
-                  ChartsTab(purchases: _purchases),
-                ],
-              ),
-      ),
+                // TAB 3: Statistik als Diagramme.
+                ChartsTab(purchases: _purchases),
+
+                // TAB 4: Manuelle Kollektionen als stabile Grundlage.
+                CollectionsTab(
+                  key: _collectionsTabKey,
+                  repository: _collectionRepository,
+                  purchases: _purchases,
+                ),
+              ],
+            ),
     );
   }
 }
