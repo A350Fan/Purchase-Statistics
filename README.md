@@ -1,117 +1,302 @@
-# Steam Purchase Statistics (Early Prototype)
+# Steam Purchase Statistics
 
-Steam Purchase Statistics is an early-stage Flutter app for tracking and analyzing Steam game purchases.
+Steam Purchase Statistics is a Flutter app for tracking and analyzing Steam game purchases.
 
-The project is intended as a lightweight replacement for a personal spreadsheet-based Steam statistics workflow.
-It focuses on purchase history, spending statistics, discounts and later playtime-based analysis.
+The project started as a replacement for a personal spreadsheet-based Steam statistics workflow. It focuses on purchase history, spending statistics, discounts, DLCs and playtime-based analysis.
 
 This project is **independent** and **not affiliated with Valve, Steam or any other third-party platform**.
 
-Steam Purchase Statistics currently serves as a **lightweight technical foundation**:
-
-- **Purchase model**: stores basic Steam purchase information such as game name, purchase date, price and optional original price.
-- **Statistics logic**: calculates total spending, number of purchases, average discount and spending by year.
-- **Responsive Flutter UI**: provides a simple dashboard layout for desktop and later mobile use.
-- **Purchase form**: allows adding new purchases during runtime.
-- **Repository layer**: separates app state from UI logic to prepare future persistent storage.
-
-> Note: This is **not yet a full Steam library tracker**.  
-> It is the stable base on which future features will be built  
-> (SQLite storage, CSV/XLSX import, charts, playtime statistics and Android support).
-
 ---
 
-## 1) Project Goals
+## Project Status
 
-The main goal of this project is to turn a spreadsheet-based Steam purchase tracker into a proper cross-platform app.
+The app is currently an **early prototype**, but it already has persistent storage, CSV import/export and a dedicated statistics/dashboard UI.
 
-Planned target platforms:
+Current target platforms:
 
 - Windows
 - Linux
 - Android
 
-The app is built with Flutter so that most of the logic can be shared across desktop and mobile versions.
+Flutter is used so that the same app logic can be shared between desktop and mobile versions.
 
 ---
 
-## 2) Current Features
+## Current Features
 
-Already implemented:
+Implemented so far:
 
-- Basic Flutter app structure
-- Responsive dashboard layout
-- Steam purchase data model
-- Runtime purchase list
-- Add-purchase form
-- Total spending calculation
-- Purchase count calculation
-- Average discount calculation
-- Spending grouped by year
-- Repository layer for purchase handling
-
-Currently, added purchases are only stored during runtime.
-Persistent storage is planned for a later version.
-
----
-
-## 3) Planned Features
-
-Next steps:
-
-- Add SQLite storage
-- Add edit/delete support for purchases
-- Add CSV import
-- Add optional XLSX import
-- Add charts for yearly and quarterly spending
-- Add cumulative spending view
-- Add playtime tracking
-- Add price-per-hour statistics
-- Improve Android layout
-- Add proper release builds for Windows and Linux
-
-Possible future features:
-
-- Steam Web API integration
-- Automatic playtime updates
-- Game categories/tags
-- Backup and restore
-- Export to CSV
+- Custom app icon
+- Dark Material 3 based UI
+- Responsive layout for desktop and smaller screens
+- Persistent SQLite storage
+- Desktop SQLite support via `sqflite_common_ffi`
+- Add, edit and delete Steam purchases
+- Delete confirmation dialog
+- Game and DLC purchase types
+- Optional edition field
+- Optional DLC name field
+- Optional original price/list price
+- Optional playtime tracking
+- Optional notes
+- Sorting options for the purchase list
+- CSV import
+- CSV export
+- Dashboard overview cards
+- Yearly statistics table
+- Quarterly statistics table
+- Year selector for quarterly statistics
+- Spending charts
+- Discount charts
+- Cumulative spending charts
+- Basic price-per-hour statistics
 
 ---
 
-## 4) Setup
+## Data Model
+
+A Steam purchase can currently store:
+
+| Field | Description |
+| --- | --- |
+| `purchase_date` | Date of the purchase |
+| `purchase_type` | `game` or `dlc` |
+| `game_name` | Name of the game |
+| `edition` | Optional edition/version |
+| `dlc_name` | Optional DLC/add-on name |
+| `price` | Paid price |
+| `original_price` | Optional original/list price |
+| `playtime_hours` | Optional playtime in hours |
+| `note` | Optional note |
+
+---
+
+## Statistics
+
+The app currently calculates:
+
+- Total spending
+- Total original/list price
+- Total savings
+- Total purchase count
+- Number of games
+- Number of DLCs
+- Average price
+- Average original/list price
+- Average savings
+- Average discount
+- Total playtime
+- Price per hour
+- Spending by year
+- Purchases by year
+- Savings by year
+- Average discount by year
+- Playtime by year
+- Price per hour by year
+- Spending by quarter
+- Purchases by quarter
+- Average discount by quarter
+- Playtime by quarter
+- Price per hour by quarter
+- Cumulative spending by year and quarter
+- Projected current-year spending
+
+For price-per-hour statistics, linked DLC spending is included for the matching base game when possible.
+
+---
+
+## CSV Import and Export
+
+The app supports CSV files with the following columns:
+
+```csv
+purchase_date,purchase_type,game_name,edition,dlc_name,price,original_price,playtime_hours,note
+```
+
+Required columns:
+
+- `purchase_date`
+- `game_name`
+- `price`
+
+Optional columns:
+
+- `purchase_type`
+- `edition`
+- `dlc_name`
+- `original_price`
+- `playtime_hours`
+- `note`
+
+Supported delimiters:
+
+- Comma: `,`
+- Semicolon: `;`
+- Tab
+
+The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit` and `notiz`.
+
+---
+
+## Setup
 
 ### Requirements
 
 - Flutter SDK
 - Dart
 - Git
-- Android Studio or Visual Studio Code
-- Windows, Linux or Android build tools depending on the target platform
+- Visual Studio Code or Android Studio
+- Platform build tools depending on the target platform
 
-Check your Flutter setup with:
+Check the local Flutter setup:
 
 ```powershell
 flutter doctor
+```
+
+Install dependencies:
+
+```powershell
+flutter pub get
+```
+
+Run the app:
+
+```powershell
+flutter run
+```
 
 ---
 
+## Build
 
+### Windows
 
-## 5) Run the App
+```powershell
+flutter build windows --release
+```
 
-Will be added later...
+The release output is created under:
 
-## License & Usage
+```text
+build/windows/x64/runner/Release
+```
 
-Copyright (c) 2026 A350Fan
+### Android APK
 
-This project is licensed under the MIT License.
+```powershell
+flutter build apk --release
+```
 
-You may use, copy, modify, merge, publish, distribute, sublicense and/or sell
-copies of the software under the terms of the MIT License.
+The APK is created under:
 
-This project is independent and not affiliated with Valve or Steam.
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
 
-See the .\LICENSE file for full details
+### Linux
+
+```bash
+flutter build linux --release
+```
+
+The release output is created under:
+
+```text
+build/linux/x64/release/bundle
+```
+
+Packaging this Linux bundle as an AppImage is a separate packaging step.
+
+---
+
+## Database
+
+The app stores purchases in a local SQLite database named:
+
+```text
+steam_stats.db
+```
+
+On desktop platforms, SQLite is initialized through `sqflite_common_ffi`.
+
+The database schema is versioned and currently includes migrations for:
+
+- Adding playtime tracking
+- Adding game/DLC purchase types
+- Adding edition and DLC name fields
+
+---
+
+## Project Structure
+
+```text
+lib/
+├─ data/
+│  ├─ app_database.dart
+│  ├─ steam_purchase_csv.dart
+│  └─ steam_purchase_repository.dart
+├─ logic/
+│  └─ steam_statistics.dart
+├─ models/
+│  └─ steam_purchase.dart
+├─ screens/
+│  ├─ add_purchase_screen.dart
+│  ├─ charts_tab.dart
+│  ├─ home_screen.dart
+│  └─ statistics_tab.dart
+├─ widgets/
+│  ├─ stat_bar.dart
+│  └─ stat_card.dart
+└─ main.dart
+```
+
+---
+
+## Planned Features
+
+Possible next steps:
+
+- Improve Android layout
+- Add XLSX import
+- Add backup and restore
+- Add advanced filters
+- Add search
+- Add categories/tags
+- Add more chart types
+- Add full release packaging for Windows
+- Add AppImage packaging for Linux
+- Add Steam Web API integration
+- Add automatic playtime updates
+
+---
+
+## Development Workflow
+
+Recommended workflow:
+
+```powershell
+git checkout develop
+git pull
+git checkout -b feature/update-readme
+```
+
+After updating the README:
+
+```powershell
+git add README.md
+git commit -m "docs: update readme"
+git checkout develop
+git merge feature/update-readme
+git push
+```
+
+---
+
+## Disclaimer
+
+Steam Purchase Statistics is a private/open-source helper project for manually tracking Steam purchases.
+
+It does **not** connect to Steam automatically yet and does **not** access a Steam account.
+
+Steam, Valve and related names are trademarks of their respective owners.
