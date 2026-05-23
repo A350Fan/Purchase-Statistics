@@ -1,18 +1,43 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../data/steam_store_search_repository.dart';
 import '../l10n/app_strings.dart';
 import '../models/steam_purchase.dart';
+import '../models/steam_store_search_suggestion.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
+
+enum _NameSuggestionSource { local, steam }
+
+class _NameSuggestionOption {
+  final String name;
+  final _NameSuggestionSource source;
+  final int? steamAppId;
+
+  const _NameSuggestionOption.local(this.name)
+    : source = _NameSuggestionSource.local,
+      steamAppId = null;
+
+  const _NameSuggestionOption.steam({
+    required this.name,
+    required this.steamAppId,
+  }) : source = _NameSuggestionSource.steam;
+}
+
+enum _NameSuggestionField { game, dlc }
 
 class AddPurchaseScreen extends StatefulWidget {
   final SteamPurchase? initialPurchase;
   final List<SteamPurchase> existingPurchases;
+  final SteamStoreSearchSource? steamSearchSource;
 
   const AddPurchaseScreen({
     super.key,
     this.initialPurchase,
     this.existingPurchases = const [],
+    this.steamSearchSource,
   });
 
   bool get isEditing => initialPurchase != null;
@@ -33,9 +58,26 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _noteController = TextEditingController();
   final _gameNameFocusNode = FocusNode();
   final _dlcNameFocusNode = FocusNode();
+  final _gameNameLayerLink = LayerLink();
+  final _dlcNameLayerLink = LayerLink();
 
+  late final SteamStoreSearchSource _steamSearchSource;
   late final List<String> _gameNameSuggestions;
   late final List<String> _dlcNameSuggestions;
+
+  Timer? _gameNameSteamSearchTimer;
+  Timer? _dlcNameSteamSearchTimer;
+  List<SteamStoreSearchSuggestion> _steamGameNameSuggestions = [];
+  List<SteamStoreSearchSuggestion> _steamDlcNameSuggestions = [];
+  int _gameNameSteamSearchGeneration = 0;
+  int _dlcNameSteamSearchGeneration = 0;
+  String? _lastGameNameSteamSearchKey;
+  String? _lastDlcNameSteamSearchKey;
+  bool _isApplyingAutocompleteSelection = false;
+  OverlayEntry? _gameNameSuggestionsOverlay;
+  OverlayEntry? _dlcNameSuggestionsOverlay;
+  double _gameNameSuggestionsWidth = 0;
+  double _dlcNameSuggestionsWidth = 0;
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
@@ -44,6 +86,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void initState() {
     super.initState();
 
+    _steamSearchSource =
+        widget.steamSearchSource ?? SteamStoreSearchRepository();
     _gameNameSuggestions = _uniqueNames(
       widget.existingPurchases.map((purchase) => purchase.gameName),
     );
@@ -54,6 +98,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final initialPurchase = widget.initialPurchase;
 
     if (initialPurchase == null) {
+      _startListeningForNameChanges();
       return;
     }
 
@@ -77,10 +122,20 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     if (initialPurchase.note != null) {
       _noteController.text = initialPurchase.note!;
     }
+
+    _startListeningForNameChanges();
   }
 
   @override
   void dispose() {
+    _gameNameSteamSearchTimer?.cancel();
+    _dlcNameSteamSearchTimer?.cancel();
+    _gameNameController.removeListener(_handleGameNameChanged);
+    _dlcNameController.removeListener(_handleDlcNameChanged);
+    _gameNameFocusNode.removeListener(_handleGameNameFocusChanged);
+    _dlcNameFocusNode.removeListener(_handleDlcNameFocusChanged);
+    _removeNameSuggestionsOverlay(_NameSuggestionField.game);
+    _removeNameSuggestionsOverlay(_NameSuggestionField.dlc);
     _gameNameFocusNode.dispose();
     _dlcNameFocusNode.dispose();
     _gameNameController.dispose();
@@ -91,6 +146,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _playtimeHoursController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  void _startListeningForNameChanges() {
+    _gameNameController.addListener(_handleGameNameChanged);
+    _dlcNameController.addListener(_handleDlcNameChanged);
+    _gameNameFocusNode.addListener(_handleGameNameFocusChanged);
+    _dlcNameFocusNode.addListener(_handleDlcNameFocusChanged);
   }
 
   Future<void> _pickPurchaseDate() async {
@@ -145,21 +207,22 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
-  Iterable<String> _matchingNameSuggestions(
+  Iterable<_NameSuggestionOption> _matchingNameSuggestions(
     TextEditingValue textEditingValue,
-    List<String> suggestions,
+    List<String> localSuggestions,
+    List<SteamStoreSearchSuggestion> steamSuggestions,
   ) {
     final query = _normalizeName(textEditingValue.text);
 
     if (query.isEmpty) {
-      return const Iterable<String>.empty();
+      return const Iterable<_NameSuggestionOption>.empty();
     }
 
-    final matches = suggestions.where((suggestion) {
+    final localMatches = localSuggestions.where((suggestion) {
       return _normalizeName(suggestion).contains(query);
     }).toList();
 
-    matches.sort((a, b) {
+    localMatches.sort((a, b) {
       final normalizedA = _normalizeName(a);
       final normalizedB = _normalizeName(b);
       final aStartsWithQuery = normalizedA.startsWith(query);
@@ -172,7 +235,403 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return normalizedA.compareTo(normalizedB);
     });
 
-    return matches.take(8);
+    final options = <_NameSuggestionOption>[];
+    final seenNames = <String>{};
+
+    for (final suggestion in localMatches) {
+      final normalizedSuggestion = _normalizeName(suggestion);
+      seenNames.add(normalizedSuggestion);
+      options.add(_NameSuggestionOption.local(suggestion));
+    }
+
+    for (final suggestion in steamSuggestions) {
+      final normalizedSuggestion = _normalizeName(suggestion.name);
+
+      if (!normalizedSuggestion.contains(query) ||
+          seenNames.contains(normalizedSuggestion)) {
+        continue;
+      }
+
+      seenNames.add(normalizedSuggestion);
+      options.add(
+        _NameSuggestionOption.steam(
+          name: suggestion.name,
+          steamAppId: suggestion.appId,
+        ),
+      );
+    }
+
+    return options.take(10);
+  }
+
+  void _handleGameNameChanged() {
+    if (_isApplyingAutocompleteSelection) {
+      return;
+    }
+
+    _updateNameSuggestionsOverlay(_NameSuggestionField.game);
+    _scheduleSteamNameSearch(_NameSuggestionField.game);
+
+    if (_purchaseType == SteamPurchaseType.dlc) {
+      _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
+      _scheduleSteamNameSearch(_NameSuggestionField.dlc);
+    }
+  }
+
+  void _handleDlcNameChanged() {
+    if (_isApplyingAutocompleteSelection) {
+      return;
+    }
+
+    _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
+    _scheduleSteamNameSearch(_NameSuggestionField.dlc);
+  }
+
+  void _handleGameNameFocusChanged() {
+    _updateNameSuggestionsOverlay(_NameSuggestionField.game);
+  }
+
+  void _handleDlcNameFocusChanged() {
+    _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
+  }
+
+  void _scheduleSteamNameSearch(_NameSuggestionField field) {
+    final controller = switch (field) {
+      _NameSuggestionField.game => _gameNameController,
+      _NameSuggestionField.dlc => _dlcNameController,
+    };
+    final localSuggestions = switch (field) {
+      _NameSuggestionField.game => _gameNameSuggestions,
+      _NameSuggestionField.dlc => _dlcNameSuggestions,
+    };
+    final timer = switch (field) {
+      _NameSuggestionField.game => _gameNameSteamSearchTimer,
+      _NameSuggestionField.dlc => _dlcNameSteamSearchTimer,
+    };
+    final query = controller.text.trim();
+    final normalizedQuery = _normalizeName(query);
+
+    timer?.cancel();
+
+    if (normalizedQuery.length <
+            SteamStoreSearchRepository.minimumQueryLength ||
+        _hasExactLocalSuggestion(normalizedQuery, localSuggestions)) {
+      _clearSteamSuggestions(field);
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+    final language = _steamLanguage(strings);
+    final countryCode = _steamCountryCode(currency);
+    final associatedGameName = field == _NameSuggestionField.dlc
+        ? _gameNameController.text.trim()
+        : null;
+    final searchKey =
+        '$field|$normalizedQuery|${_normalizeName(associatedGameName ?? '')}|'
+        '$language|$countryCode';
+    final lastSearchKey = switch (field) {
+      _NameSuggestionField.game => _lastGameNameSteamSearchKey,
+      _NameSuggestionField.dlc => _lastDlcNameSteamSearchKey,
+    };
+
+    if (lastSearchKey == searchKey) {
+      return;
+    }
+
+    final nextTimer = Timer(const Duration(milliseconds: 650), () {
+      _loadSteamNameSuggestions(
+        field: field,
+        query: query,
+        searchKey: searchKey,
+        language: language,
+        countryCode: countryCode,
+        associatedGameName: associatedGameName,
+      );
+    });
+
+    switch (field) {
+      case _NameSuggestionField.game:
+        _gameNameSteamSearchTimer = nextTimer;
+      case _NameSuggestionField.dlc:
+        _dlcNameSteamSearchTimer = nextTimer;
+    }
+  }
+
+  bool _hasExactLocalSuggestion(
+    String normalizedQuery,
+    List<String> localSuggestions,
+  ) {
+    return localSuggestions.any(
+      (suggestion) => _normalizeName(suggestion) == normalizedQuery,
+    );
+  }
+
+  void _clearSteamSuggestions(_NameSuggestionField field) {
+    switch (field) {
+      case _NameSuggestionField.game:
+        _lastGameNameSteamSearchKey = null;
+
+        if (_steamGameNameSuggestions.isEmpty) {
+          return;
+        }
+
+        setState(() {
+          _steamGameNameSuggestions = [];
+        });
+        _updateNameSuggestionsOverlay(field);
+      case _NameSuggestionField.dlc:
+        _lastDlcNameSteamSearchKey = null;
+
+        if (_steamDlcNameSuggestions.isEmpty) {
+          return;
+        }
+
+        setState(() {
+          _steamDlcNameSuggestions = [];
+        });
+        _updateNameSuggestionsOverlay(field);
+    }
+  }
+
+  Future<void> _loadSteamNameSuggestions({
+    required _NameSuggestionField field,
+    required String query,
+    required String searchKey,
+    required String language,
+    required String countryCode,
+    required String? associatedGameName,
+  }) async {
+    final generation = switch (field) {
+      _NameSuggestionField.game => ++_gameNameSteamSearchGeneration,
+      _NameSuggestionField.dlc => ++_dlcNameSteamSearchGeneration,
+    };
+    final purchaseType = switch (field) {
+      _NameSuggestionField.game => SteamPurchaseType.game,
+      _NameSuggestionField.dlc => SteamPurchaseType.dlc,
+    };
+
+    switch (field) {
+      case _NameSuggestionField.game:
+        _lastGameNameSteamSearchKey = searchKey;
+      case _NameSuggestionField.dlc:
+        _lastDlcNameSteamSearchKey = searchKey;
+    }
+
+    final suggestions = await _steamSearchSource.search(
+      query: query,
+      purchaseType: purchaseType,
+      language: language,
+      countryCode: countryCode,
+      associatedGameName: associatedGameName,
+    );
+
+    if (!mounted || !_isCurrentSteamSearch(field, generation, searchKey)) {
+      return;
+    }
+
+    setState(() {
+      switch (field) {
+        case _NameSuggestionField.game:
+          _steamGameNameSuggestions = suggestions;
+        case _NameSuggestionField.dlc:
+          _steamDlcNameSuggestions = suggestions;
+      }
+    });
+    _updateNameSuggestionsOverlay(field);
+  }
+
+  void _updateNameSuggestionsOverlay(_NameSuggestionField field) {
+    if (!mounted) {
+      return;
+    }
+
+    final focusNode = switch (field) {
+      _NameSuggestionField.game => _gameNameFocusNode,
+      _NameSuggestionField.dlc => _dlcNameFocusNode,
+    };
+    final options = _currentNameSuggestionOptions(field);
+
+    if (!focusNode.hasFocus || options.isEmpty) {
+      _removeNameSuggestionsOverlay(field);
+      return;
+    }
+
+    final currentOverlay = switch (field) {
+      _NameSuggestionField.game => _gameNameSuggestionsOverlay,
+      _NameSuggestionField.dlc => _dlcNameSuggestionsOverlay,
+    };
+
+    if (currentOverlay != null) {
+      currentOverlay.markNeedsBuild();
+      return;
+    }
+
+    final overlay = Overlay.maybeOf(context);
+
+    if (overlay == null) {
+      return;
+    }
+
+    final overlayEntry = OverlayEntry(
+      builder: (context) => _buildNameSuggestionsOverlay(field),
+    );
+
+    switch (field) {
+      case _NameSuggestionField.game:
+        _gameNameSuggestionsOverlay = overlayEntry;
+      case _NameSuggestionField.dlc:
+        _dlcNameSuggestionsOverlay = overlayEntry;
+    }
+
+    overlay.insert(overlayEntry);
+  }
+
+  void _removeNameSuggestionsOverlay(_NameSuggestionField field) {
+    switch (field) {
+      case _NameSuggestionField.game:
+        _gameNameSuggestionsOverlay?.remove();
+        _gameNameSuggestionsOverlay = null;
+      case _NameSuggestionField.dlc:
+        _dlcNameSuggestionsOverlay?.remove();
+        _dlcNameSuggestionsOverlay = null;
+    }
+  }
+
+  List<_NameSuggestionOption> _currentNameSuggestionOptions(
+    _NameSuggestionField field,
+  ) {
+    return switch (field) {
+      _NameSuggestionField.game => _matchingNameSuggestions(
+        _gameNameController.value,
+        _gameNameSuggestions,
+        _steamGameNameSuggestions,
+      ).toList(growable: false),
+      _NameSuggestionField.dlc => _matchingNameSuggestions(
+        _dlcNameController.value,
+        _dlcNameSuggestions,
+        _steamDlcNameSuggestions,
+      ).toList(growable: false),
+    };
+  }
+
+  Widget _buildNameSuggestionsOverlay(_NameSuggestionField field) {
+    final width = switch (field) {
+      _NameSuggestionField.game => _gameNameSuggestionsWidth,
+      _NameSuggestionField.dlc => _dlcNameSuggestionsWidth,
+    };
+    final layerLink = switch (field) {
+      _NameSuggestionField.game => _gameNameLayerLink,
+      _NameSuggestionField.dlc => _dlcNameLayerLink,
+    };
+    final options = _currentNameSuggestionOptions(field);
+
+    if (width <= 0 || options.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return CompositedTransformFollower(
+      link: layerLink,
+      showWhenUnlinked: false,
+      offset: const Offset(0, 64),
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: 240, maxWidth: width),
+          child: SizedBox(
+            width: width,
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: options.length,
+              itemBuilder: (context, index) {
+                final option = options[index];
+                final colorScheme = Theme.of(context).colorScheme;
+
+                return InkWell(
+                  onTap: () => _selectNameSuggestion(field, option),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            option.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (option.source == _NameSuggestionSource.steam) ...[
+                          const SizedBox(width: 12),
+                          Text(
+                            'Steam',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectNameSuggestion(
+    _NameSuggestionField field,
+    _NameSuggestionOption suggestion,
+  ) {
+    final controller = switch (field) {
+      _NameSuggestionField.game => _gameNameController,
+      _NameSuggestionField.dlc => _dlcNameController,
+    };
+
+    _isApplyingAutocompleteSelection = true;
+    controller.value = TextEditingValue(
+      text: suggestion.name,
+      selection: TextSelection.collapsed(offset: suggestion.name.length),
+    );
+    _isApplyingAutocompleteSelection = false;
+    _removeNameSuggestionsOverlay(field);
+  }
+
+  bool _isCurrentSteamSearch(
+    _NameSuggestionField field,
+    int generation,
+    String searchKey,
+  ) {
+    return switch (field) {
+      _NameSuggestionField.game =>
+        generation == _gameNameSteamSearchGeneration &&
+            searchKey == _lastGameNameSteamSearchKey,
+      _NameSuggestionField.dlc =>
+        generation == _dlcNameSteamSearchGeneration &&
+            searchKey == _lastDlcNameSteamSearchKey,
+    };
+  }
+
+  String _steamLanguage(AppStrings strings) {
+    return strings.isEnglish ? 'english' : 'german';
+  }
+
+  String _steamCountryCode(AppCurrency currency) {
+    return switch (currency) {
+      AppCurrency.eur => 'DE',
+      AppCurrency.usd => 'US',
+      AppCurrency.gbp => 'GB',
+      AppCurrency.chf => 'CH',
+      AppCurrency.jpy => 'JP',
+    };
   }
 
   void _savePurchase() {
@@ -205,76 +664,45 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildNameAutocompleteField({
+    required _NameSuggestionField field,
     required TextEditingController controller,
     required FocusNode focusNode,
     required String labelText,
-    required List<String> suggestions,
     required String? Function(String?) validator,
   }) {
-    return RawAutocomplete<String>(
-      textEditingController: controller,
-      focusNode: focusNode,
-      optionsBuilder: (textEditingValue) {
-        return _matchingNameSuggestions(textEditingValue, suggestions);
-      },
-      onSelected: (suggestion) {
-        controller.text = suggestion;
-      },
-      fieldViewBuilder:
-          (context, textEditingController, fieldFocusNode, onFieldSubmitted) {
-            return TextFormField(
-              controller: textEditingController,
-              focusNode: fieldFocusNode,
-              decoration: InputDecoration(
-                labelText: labelText,
-                border: const OutlineInputBorder(),
-              ),
-              textInputAction: TextInputAction.next,
-              onFieldSubmitted: (_) => onFieldSubmitted(),
-              validator: validator,
-            );
-          },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
-            clipBehavior: Clip.antiAlias,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options.elementAt(index);
-                  final highlightedIndex = AutocompleteHighlightedOption.of(
-                    context,
-                  );
-                  final isHighlighted = highlightedIndex == index;
-                  final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        switch (field) {
+          case _NameSuggestionField.game:
+            _gameNameSuggestionsWidth = constraints.maxWidth;
+          case _NameSuggestionField.dlc:
+            _dlcNameSuggestionsWidth = constraints.maxWidth;
+        }
 
-                  return InkWell(
-                    onTap: () => onSelected(option),
-                    child: Container(
-                      color: isHighlighted
-                          ? colorScheme.primaryContainer
-                          : null,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Text(
-                        option,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                },
-              ),
+        final layerLink = switch (field) {
+          _NameSuggestionField.game => _gameNameLayerLink,
+          _NameSuggestionField.dlc => _dlcNameLayerLink,
+        };
+
+        return CompositedTransformTarget(
+          link: layerLink,
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            decoration: InputDecoration(
+              labelText: labelText,
+              border: const OutlineInputBorder(),
             ),
+            textInputAction: TextInputAction.next,
+            onTap: () => _updateNameSuggestionsOverlay(field),
+            onFieldSubmitted: (_) {
+              final options = _currentNameSuggestionOptions(field);
+
+              if (options.isNotEmpty) {
+                _selectNameSuggestion(field, options.first);
+              }
+            },
+            validator: validator,
           ),
         );
       },
@@ -344,17 +772,35 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     setState(() {
                                       _purchaseType = selection.single;
                                     });
+
+                                    _updateNameSuggestionsOverlay(
+                                      _NameSuggestionField.game,
+                                    );
+
+                                    if (_purchaseType ==
+                                        SteamPurchaseType.dlc) {
+                                      _updateNameSuggestionsOverlay(
+                                        _NameSuggestionField.dlc,
+                                      );
+                                      _scheduleSteamNameSearch(
+                                        _NameSuggestionField.dlc,
+                                      );
+                                    } else {
+                                      _removeNameSuggestionsOverlay(
+                                        _NameSuggestionField.dlc,
+                                      );
+                                    }
                                   },
                                 ),
                                 const SizedBox(height: 16),
                                 _buildNameAutocompleteField(
+                                  field: _NameSuggestionField.game,
                                   controller: _gameNameController,
                                   focusNode: _gameNameFocusNode,
                                   labelText:
                                       _purchaseType == SteamPurchaseType.dlc
                                       ? strings.associatedGame
                                       : strings.gameName,
-                                  suggestions: _gameNameSuggestions,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
                                       return strings.enterGameName;
@@ -366,10 +812,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 const SizedBox(height: 16),
                                 if (_purchaseType == SteamPurchaseType.dlc) ...[
                                   _buildNameAutocompleteField(
+                                    field: _NameSuggestionField.dlc,
                                     controller: _dlcNameController,
                                     focusNode: _dlcNameFocusNode,
                                     labelText: strings.dlcName,
-                                    suggestions: _dlcNameSuggestions,
                                     validator: (value) {
                                       if (_purchaseType !=
                                           SteamPurchaseType.dlc) {

@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -59,6 +59,7 @@ class AppDatabase {
     ''');
 
     await _createSettingsTable(db);
+    await _createSteamStoreSearchCacheTable(db);
   }
 
   static Future<void> _upgradeDatabase(
@@ -89,6 +90,10 @@ class AppDatabase {
         "ALTER TABLE app_settings ADD COLUMN currency TEXT NOT NULL DEFAULT 'eur'",
       );
     }
+
+    if (oldVersion < 6) {
+      await _createSteamStoreSearchCacheTable(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -98,6 +103,16 @@ class AppDatabase {
         theme_mode TEXT NOT NULL,
         language TEXT NOT NULL,
         currency TEXT NOT NULL DEFAULT 'eur'
+      )
+    ''');
+  }
+
+  static Future<void> _createSteamStoreSearchCacheTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_store_search_cache (
+        query_key TEXT PRIMARY KEY,
+        suggestions_json TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
       )
     ''');
   }

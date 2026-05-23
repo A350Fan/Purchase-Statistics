@@ -1,0 +1,228 @@
+import 'dart:convert';
+
+import 'package:sqflite/sqflite.dart';
+
+import '../models/steam_purchase.dart';
+import '../models/steam_store_search_suggestion.dart';
+import 'app_database.dart';
+import 'steam_store_search_client.dart';
+
+abstract class SteamStoreSearchSource {
+  Future<List<SteamStoreSearchSuggestion>> search({
+    required String query,
+    required SteamPurchaseType purchaseType,
+    required String language,
+    required String countryCode,
+    String? associatedGameName,
+  });
+}
+
+class SteamStoreSearchRepository implements SteamStoreSearchSource {
+  static const int minimumQueryLength = 3;
+
+  final SteamStoreSearchClient client;
+  final SteamStoreSearchCache cache;
+  final DateTime Function() now;
+  final Duration resultCacheDuration;
+  final Duration emptyResultCacheDuration;
+
+  SteamStoreSearchRepository({
+    SteamStoreSearchClient? client,
+    SteamStoreSearchCache? cache,
+    DateTime Function()? now,
+    this.resultCacheDuration = const Duration(days: 30),
+    this.emptyResultCacheDuration = const Duration(days: 1),
+  }) : client = client ?? HttpSteamStoreSearchClient(),
+       cache = cache ?? SqliteSteamStoreSearchCache(),
+       now = now ?? DateTime.now;
+
+  @override
+  Future<List<SteamStoreSearchSuggestion>> search({
+    required String query,
+    required SteamPurchaseType purchaseType,
+    required String language,
+    required String countryCode,
+    String? associatedGameName,
+  }) async {
+    final searchTerm = _buildSearchTerm(
+      query: query,
+      purchaseType: purchaseType,
+      associatedGameName: associatedGameName,
+    );
+    final normalizedSearchTerm = _normalizeSearchTerm(searchTerm);
+
+    if (normalizedSearchTerm.length < minimumQueryLength) {
+      return [];
+    }
+
+    final cacheKey = SteamStoreSearchCacheKey(
+      normalizedSearchTerm: normalizedSearchTerm,
+      purchaseType: purchaseType,
+      language: language,
+      countryCode: countryCode,
+    );
+    final cachedEntry = await cache.read(cacheKey);
+    final currentTime = now();
+
+    if (cachedEntry != null && cachedEntry.expiresAt.isAfter(currentTime)) {
+      return cachedEntry.suggestions;
+    }
+
+    try {
+      final suggestions = await client.search(
+        query: searchTerm,
+        purchaseType: purchaseType,
+        language: language,
+        countryCode: countryCode,
+      );
+      final cacheDuration = suggestions.isEmpty
+          ? emptyResultCacheDuration
+          : resultCacheDuration;
+
+      await cache.write(
+        cacheKey,
+        SteamStoreSearchCacheEntry(
+          suggestions: suggestions,
+          expiresAt: currentTime.add(cacheDuration),
+        ),
+      );
+
+      return suggestions;
+    } catch (_) {
+      return cachedEntry?.suggestions ?? [];
+    }
+  }
+
+  String _buildSearchTerm({
+    required String query,
+    required SteamPurchaseType purchaseType,
+    required String? associatedGameName,
+  }) {
+    if (purchaseType != SteamPurchaseType.dlc) {
+      return query;
+    }
+
+    final trimmedGameName = associatedGameName?.trim();
+
+    if (trimmedGameName == null || trimmedGameName.isEmpty) {
+      return query;
+    }
+
+    if (_normalizeSearchTerm(
+      query,
+    ).contains(_normalizeSearchTerm(trimmedGameName))) {
+      return query;
+    }
+
+    return '$trimmedGameName $query';
+  }
+
+  String _normalizeSearchTerm(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+}
+
+class SteamStoreSearchCacheKey {
+  final String normalizedSearchTerm;
+  final SteamPurchaseType purchaseType;
+  final String language;
+  final String countryCode;
+
+  const SteamStoreSearchCacheKey({
+    required this.normalizedSearchTerm,
+    required this.purchaseType,
+    required this.language,
+    required this.countryCode,
+  });
+
+  String get storageKey {
+    return jsonEncode({
+      'query': normalizedSearchTerm,
+      'type': purchaseType.storageValue,
+      'language': language,
+      'country': countryCode.toUpperCase(),
+    });
+  }
+}
+
+class SteamStoreSearchCacheEntry {
+  final List<SteamStoreSearchSuggestion> suggestions;
+  final DateTime expiresAt;
+
+  const SteamStoreSearchCacheEntry({
+    required this.suggestions,
+    required this.expiresAt,
+  });
+}
+
+abstract class SteamStoreSearchCache {
+  Future<SteamStoreSearchCacheEntry?> read(SteamStoreSearchCacheKey key);
+
+  Future<void> write(
+    SteamStoreSearchCacheKey key,
+    SteamStoreSearchCacheEntry entry,
+  );
+}
+
+class SqliteSteamStoreSearchCache implements SteamStoreSearchCache {
+  static const String tableName = 'steam_store_search_cache';
+
+  @override
+  Future<SteamStoreSearchCacheEntry?> read(SteamStoreSearchCacheKey key) async {
+    final db = await AppDatabase.instance;
+    final rows = await db.query(
+      tableName,
+      columns: ['suggestions_json', 'expires_at'],
+      where: 'query_key = ?',
+      whereArgs: [key.storageKey],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return _entryFromMap(rows.single);
+  }
+
+  @override
+  Future<void> write(
+    SteamStoreSearchCacheKey key,
+    SteamStoreSearchCacheEntry entry,
+  ) async {
+    final db = await AppDatabase.instance;
+    await db.insert(tableName, {
+      'query_key': key.storageKey,
+      'suggestions_json': jsonEncode(
+        entry.suggestions.map((suggestion) => suggestion.toJson()).toList(),
+      ),
+      'expires_at': entry.expiresAt.millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  SteamStoreSearchCacheEntry? _entryFromMap(Map<String, Object?> map) {
+    try {
+      final decoded = jsonDecode(map['suggestions_json'] as String);
+
+      if (decoded is! List<Object?>) {
+        return null;
+      }
+
+      return SteamStoreSearchCacheEntry(
+        suggestions: decoded
+            .whereType<Map<Object?, Object?>>()
+            .map(
+              (suggestion) => SteamStoreSearchSuggestion.fromJson(
+                suggestion.cast<String, Object?>(),
+              ),
+            )
+            .toList(growable: false),
+        expiresAt: DateTime.fromMillisecondsSinceEpoch(
+          map['expires_at'] as int,
+        ),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
