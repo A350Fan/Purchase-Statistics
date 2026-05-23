@@ -34,16 +34,20 @@ class SteamPurchaseRepository {
     final db = await AppDatabase.instance;
 
     return db.transaction((transaction) async {
+      final batch = transaction.batch();
+
       for (final purchase in purchases) {
         final map = purchase.toMap();
         map['id'] = null;
 
-        await transaction.insert(
+        batch.insert(
           _tableName,
           map,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+
+      await batch.commit(noResult: true);
 
       return purchases.length;
     });

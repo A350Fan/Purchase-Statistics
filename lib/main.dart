@@ -19,6 +19,52 @@ class SteamStatsApp extends StatefulWidget {
 }
 
 class _SteamStatsAppState extends State<SteamStatsApp> {
+  static final ThemeData _lightTheme = ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.blueGrey,
+      brightness: Brightness.light,
+    ),
+    scaffoldBackgroundColor: const Color(0xFFF6F8FA),
+    cardTheme: const CardThemeData(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.symmetric(vertical: 4),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFFF6F8FA),
+      foregroundColor: Color(0xFF16202A),
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+    ),
+    dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
+    useMaterial3: true,
+  );
+
+  static final ThemeData _darkTheme = ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.blueGrey,
+      brightness: Brightness.dark,
+    ),
+    scaffoldBackgroundColor: const Color(0xFF101418),
+    cardTheme: const CardThemeData(
+      color: Color(0xFF1A2027),
+      elevation: 0,
+      margin: EdgeInsets.symmetric(vertical: 4),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF101418),
+      foregroundColor: Color(0xFFE7ECEF),
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      filled: true,
+      fillColor: Color(0xFF151B21),
+    ),
+    dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1A2027)),
+    useMaterial3: true,
+  );
+
   late final AppSettingsController _settingsController;
   late final bool _ownsSettingsController;
 
@@ -62,63 +108,13 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
                 GlobalCupertinoLocalizations.delegate,
               ],
               themeMode: _settingsController.themeMode,
-              theme: _buildLightTheme(),
-              darkTheme: _buildDarkTheme(),
+              theme: _lightTheme,
+              darkTheme: _darkTheme,
               home: const HomeScreen(),
             ),
           );
         },
       ),
-    );
-  }
-
-  ThemeData _buildLightTheme() {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blueGrey,
-        brightness: Brightness.light,
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF6F8FA),
-      cardTheme: const CardThemeData(
-        color: Colors.white,
-        elevation: 0,
-        margin: EdgeInsets.symmetric(vertical: 4),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFF6F8FA),
-        foregroundColor: Color(0xFF16202A),
-      ),
-      inputDecorationTheme: const InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-      useMaterial3: true,
-    );
-  }
-
-  ThemeData _buildDarkTheme() {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blueGrey,
-        brightness: Brightness.dark,
-      ),
-      scaffoldBackgroundColor: const Color(0xFF101418),
-      cardTheme: const CardThemeData(
-        color: Color(0xFF1A2027),
-        elevation: 0,
-        margin: EdgeInsets.symmetric(vertical: 4),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF101418),
-        foregroundColor: Color(0xFFE7ECEF),
-      ),
-      inputDecorationTheme: const InputDecorationTheme(
-        filled: true,
-        fillColor: Color(0xFF151B21),
-      ),
-      dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1A2027)),
-      useMaterial3: true,
     );
   }
 }

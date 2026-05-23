@@ -77,24 +77,17 @@ The app currently calculates:
 
 - Total spending
 - Total original/list price
-- Total savings
 - Total purchase count
 - Number of games
 - Number of DLCs
-- Average price
-- Average original/list price
-- Average savings
 - Average discount
 - Total playtime
 - Price per hour
 - Spending by year
-- Purchases by year
-- Savings by year
 - Average discount by year
 - Playtime by year
 - Price per hour by year
 - Spending by quarter
-- Purchases by quarter
 - Average discount by quarter
 - Playtime by quarter
 - Price per hour by quarter
@@ -246,7 +239,6 @@ lib/
 │  ├─ home_screen.dart
 │  └─ statistics_tab.dart
 ├─ widgets/
-│  ├─ stat_bar.dart
 │  └─ stat_card.dart
 └─ main.dart
 ```

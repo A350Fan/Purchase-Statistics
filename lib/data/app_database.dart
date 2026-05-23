@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class AppDatabase {
   static Database? _database;
+  static bool _isDesktopFactoryConfigured = false;
 
   static Future<Database> get instance async {
     if (_database != null) {
@@ -17,8 +18,7 @@ class AppDatabase {
 
   static Future<Database> _openDatabase() async {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
+      _configureDesktopFactory();
     }
 
     final databasePath = await getDatabasesPath();
@@ -30,6 +30,16 @@ class AppDatabase {
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
+  }
+
+  static void _configureDesktopFactory() {
+    if (_isDesktopFactoryConfigured) {
+      return;
+    }
+
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    _isDesktopFactoryConfigured = true;
   }
 
   static Future<void> _createDatabase(Database db, int version) async {

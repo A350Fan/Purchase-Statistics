@@ -157,7 +157,6 @@ class AppStrings {
 
   String get settingsTitle => isEnglish ? 'Settings' : 'Einstellungen';
   String get appearance => isEnglish ? 'Appearance' : 'Darstellung';
-  String get theme => isEnglish ? 'Theme' : 'Theme';
   String get system => isEnglish ? 'System' : 'System';
   String get light => isEnglish ? 'Light' : 'Hell';
   String get dark => isEnglish ? 'Dark' : 'Dunkel';

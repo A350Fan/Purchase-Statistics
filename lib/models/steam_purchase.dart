@@ -8,13 +8,6 @@ enum SteamPurchaseType {
       SteamPurchaseType.dlc => 'dlc',
     };
   }
-
-  String get label {
-    return switch (this) {
-      SteamPurchaseType.game => 'Spiel',
-      SteamPurchaseType.dlc => 'DLC',
-    };
-  }
 }
 
 class SteamPurchase {
@@ -56,26 +49,12 @@ class SteamPurchase {
     return 1 - (price / originalPrice!);
   }
 
-  double? get pricePerHour {
-    final hours = playtimeHours;
-
-    if (hours == null || hours <= 0) {
-      return null;
-    }
-
-    return price / hours;
-  }
-
-  bool get isDlc {
-    return purchaseType == SteamPurchaseType.dlc;
-  }
-
   String get displayName {
     final editionSuffix = edition == null || edition!.trim().isEmpty
         ? ''
         : ' (${edition!.trim()})';
 
-    if (!isDlc) {
+    if (purchaseType != SteamPurchaseType.dlc) {
       return '$gameName$editionSuffix';
     }
 

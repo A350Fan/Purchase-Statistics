@@ -79,69 +79,43 @@ class QuarterlyStatisticsSummary {
 class SteamStatistics {
   final List<SteamPurchase> purchases;
   final DateTime currentDate;
+
+  final Map<int, _QuarterAggregate> _quarterAggregatesByYear = {};
+
   late final Set<String> _gameNamesWithTrackedPlaytime =
       _buildGameNamesWithTrackedPlaytime();
   late final Map<String, double> _dlcSpendingByGameName =
       _buildDlcSpendingByGameName();
+  late final Map<int, double> _spendingByYear = _buildSpendingByYear();
+  late final Map<int, double> _playtimeByYear = _buildPlaytimeByYear();
+  late final Map<int, double> _spendingWithPlaytimeByYear =
+      _buildSpendingWithPlaytimeByYear();
+  late final Map<int, double?> _averageDiscountByYear =
+      _buildAverageDiscountByYear();
+  late final Map<int, double?> _pricePerHourByYear = _buildPricePerHourByYear();
+
+  late final double totalSpent = _sumSpent();
+  late final int totalGames = _countPurchaseType(SteamPurchaseType.game);
+  late final int totalDlcs = _countPurchaseType(SteamPurchaseType.dlc);
+  late final double totalOriginalPrice = _sumOriginalPrice();
+  late final double totalPlaytimeHours = _sumPlaytime();
+  late final double totalSpentWithPlaytime = _sumSpentWithPlaytime();
+  late final double? pricePerHour = _pricePerHour(
+    totalSpentWithPlaytime,
+    totalPlaytimeHours,
+  );
+  late final double? averageDiscount = _averageDiscountFor(purchases);
+  late final List<int> years = _buildYears();
+  late final AnnualStatisticsSummary annualSummary = _buildAnnualSummary();
+  late final List<AnnualStatistics> annualStatistics = _buildAnnualStatistics();
 
   SteamStatistics(this.purchases, {DateTime? currentDate})
     : currentDate = currentDate == null
           ? DateTime.now()
           : DateTime(currentDate.year, currentDate.month, currentDate.day);
 
-  double get totalSpent {
-    return purchases.fold(0.0, (sum, purchase) => sum + purchase.price);
-  }
-
-  int get totalGames {
-    return purchases
-        .where((purchase) => purchase.purchaseType == SteamPurchaseType.game)
-        .length;
-  }
-
-  int get totalDlcs {
-    return purchases
-        .where((purchase) => purchase.purchaseType == SteamPurchaseType.dlc)
-        .length;
-  }
-
   int get totalPurchases {
     return purchases.length;
-  }
-
-  double get totalOriginalPrice {
-    return purchases.fold(
-      0.0,
-      (sum, purchase) => sum + (purchase.originalPrice ?? purchase.price),
-    );
-  }
-
-  double get totalPlaytimeHours {
-    return purchases.fold(0.0, (sum, purchase) {
-      if (!_hasPlaytime(purchase)) {
-        return sum;
-      }
-
-      return sum + purchase.playtimeHours!;
-    });
-  }
-
-  double get totalSpentWithPlaytime {
-    return purchases.fold(0.0, (sum, purchase) {
-      if (!_countsTowardsPricePerHourSpending(purchase)) {
-        return sum;
-      }
-
-      return sum + purchase.price;
-    });
-  }
-
-  double? get pricePerHour {
-    if (totalPlaytimeHours <= 0) {
-      return null;
-    }
-
-    return totalSpentWithPlaytime / totalPlaytimeHours;
   }
 
   double priceIncludingLinkedDlcsForPurchase(SteamPurchase purchase) {
@@ -163,82 +137,98 @@ class SteamStatistics {
     return priceIncludingLinkedDlcsForPurchase(purchase) / hours;
   }
 
-  double get totalSavings {
-    return purchases.fold(0.0, (sum, purchase) {
-      final originalPrice = purchase.originalPrice;
+  List<QuarterlyStatistics> quarterlyStatisticsForYear(int year) {
+    final rows = <QuarterlyStatistics>[];
+    final aggregate = _quarterAggregateForYear(year);
+    var cumulativeSpending = 0.0;
 
-      if (originalPrice == null) {
-        return sum;
-      }
+    for (var quarter = 1; quarter <= 4; quarter++) {
+      final spending = aggregate.spending[quarter];
+      cumulativeSpending += spending;
 
-      return sum + (originalPrice - purchase.price);
-    });
-  }
-
-  double? get averagePrice {
-    if (purchases.isEmpty) {
-      return null;
+      rows.add(
+        QuarterlyStatistics(
+          quarter: quarter,
+          spending: spending,
+          averageDiscount: aggregate.averageDiscountForQuarter(quarter),
+          cumulativeSpending: cumulativeSpending,
+          playtimeHours: aggregate.playtime[quarter],
+          pricePerHour: aggregate.pricePerHourForQuarter(quarter),
+        ),
+      );
     }
 
-    return totalSpent / purchases.length;
+    return rows;
   }
 
-  double? get averageOriginalPrice {
-    final purchasesWithOriginalPrice = purchases
-        .where((purchase) => purchase.originalPrice != null)
-        .toList();
+  QuarterlyStatisticsSummary quarterlySummaryForYear(int year) {
+    final aggregate = _quarterAggregateForYear(year);
+    final actualSpending = aggregate.actualSpending;
+    final isProjected = year == currentDate.year;
+    final projectedSpending = isProjected
+        ? _projectCurrentYearSpending(actualSpending)
+        : actualSpending;
 
-    if (purchasesWithOriginalPrice.isEmpty) {
-      return null;
-    }
-
-    final sum = purchasesWithOriginalPrice.fold(
-      0.0,
-      (sum, purchase) => sum + purchase.originalPrice!,
+    return QuarterlyStatisticsSummary(
+      year: year,
+      actualSpending: actualSpending,
+      projectedSpending: projectedSpending,
+      averageQuarterSpending: projectedSpending / 4,
+      averageDiscount: aggregate.averageDiscount,
+      totalPlaytimeHours: aggregate.totalPlaytime,
+      pricePerHour: _pricePerHour(
+        aggregate.totalTrackedSpending,
+        aggregate.totalPlaytime,
+      ),
+      isProjected: isProjected,
     );
-
-    return sum / purchasesWithOriginalPrice.length;
   }
 
-  double? get averageSavings {
-    final purchasesWithOriginalPrice = purchases
-        .where((purchase) => purchase.originalPrice != null)
-        .toList();
+  AnnualStatisticsSummary _buildAnnualSummary() {
+    return AnnualStatisticsSummary(
+      averageSpending: years.isEmpty ? 0 : totalSpent / years.length,
+      totalSpending: totalSpent,
+      totalOriginalPrice: totalOriginalPrice,
+      totalPlaytimeHours: totalPlaytimeHours,
+      averageDiscount: averageDiscount,
+      pricePerHour: pricePerHour,
+    );
+  }
 
-    if (purchasesWithOriginalPrice.isEmpty) {
-      return null;
+  List<AnnualStatistics> _buildAnnualStatistics() {
+    final rows = <AnnualStatistics>[];
+    var cumulativeSpending = 0.0;
+
+    for (final year in years) {
+      final spending = _spendingByYear[year] ?? 0.0;
+      cumulativeSpending += spending;
+
+      rows.add(
+        AnnualStatistics(
+          year: year,
+          spending: spending,
+          averageDiscount: _averageDiscountByYear[year],
+          cumulativeSpending: cumulativeSpending,
+          playtimeHours: _playtimeByYear[year] ?? 0.0,
+          pricePerHour: _pricePerHourByYear[year],
+        ),
+      );
     }
 
-    final sum = purchasesWithOriginalPrice.fold(0.0, (sum, purchase) {
-      return sum + (purchase.originalPrice! - purchase.price);
-    });
-
-    return sum / purchasesWithOriginalPrice.length;
+    return List.unmodifiable(rows);
   }
 
-  double? get averageDiscount {
-    final discounts = purchases
-        .map((purchase) => purchase.discount)
-        .whereType<double>()
-        .toList();
-
-    if (discounts.isEmpty) {
-      return null;
-    }
-
-    final sum = discounts.fold(0.0, (a, b) => a + b);
-    return sum / discounts.length;
-  }
-
-  List<int> get years {
+  List<int> _buildYears() {
     if (purchases.isEmpty) {
-      return [];
+      return const [];
     }
 
     var firstYear = purchases.first.year;
     var lastYear = purchases.first.year;
 
-    for (final purchase in purchases.skip(1)) {
+    for (var index = 1; index < purchases.length; index++) {
+      final purchase = purchases[index];
+
       if (purchase.year < firstYear) {
         firstYear = purchase.year;
       }
@@ -252,59 +242,12 @@ class SteamStatistics {
       lastYear = currentDate.year;
     }
 
-    return [for (var year = firstYear; year <= lastYear; year++) year];
+    return List.unmodifiable([
+      for (var year = firstYear; year <= lastYear; year++) year,
+    ]);
   }
 
-  AnnualStatisticsSummary get annualSummary {
-    final yearsWithData = years;
-
-    return AnnualStatisticsSummary(
-      averageSpending: yearsWithData.isEmpty
-          ? 0
-          : totalSpent / yearsWithData.length,
-      totalSpending: totalSpent,
-      totalOriginalPrice: totalOriginalPrice,
-      totalPlaytimeHours: totalPlaytimeHours,
-      averageDiscount: averageDiscount,
-      pricePerHour: pricePerHour,
-    );
-  }
-
-  SteamPurchase? get mostExpensivePurchase {
-    if (purchases.isEmpty) {
-      return null;
-    }
-
-    return purchases.reduce((current, next) {
-      return next.price > current.price ? next : current;
-    });
-  }
-
-  SteamPurchase? get cheapestPurchase {
-    if (purchases.isEmpty) {
-      return null;
-    }
-
-    return purchases.reduce((current, next) {
-      return next.price < current.price ? next : current;
-    });
-  }
-
-  SteamPurchase? get highestDiscountPurchase {
-    final purchasesWithDiscount = purchases
-        .where((purchase) => purchase.discount != null)
-        .toList();
-
-    if (purchasesWithDiscount.isEmpty) {
-      return null;
-    }
-
-    return purchasesWithDiscount.reduce((current, next) {
-      return next.discount! > current.discount! ? next : current;
-    });
-  }
-
-  Map<int, double> get spendingByYear {
+  Map<int, double> _buildSpendingByYear() {
     final result = <int, double>{};
 
     for (final purchase in purchases) {
@@ -314,34 +257,7 @@ class SteamStatistics {
     return result;
   }
 
-  Map<int, int> get purchasesByYear {
-    final result = <int, int>{};
-
-    for (final purchase in purchases) {
-      result[purchase.year] = (result[purchase.year] ?? 0) + 1;
-    }
-
-    return result;
-  }
-
-  Map<int, double> get savingsByYear {
-    final result = <int, double>{};
-
-    for (final purchase in purchases) {
-      final originalPrice = purchase.originalPrice;
-
-      if (originalPrice == null) {
-        continue;
-      }
-
-      result[purchase.year] =
-          (result[purchase.year] ?? 0.0) + (originalPrice - purchase.price);
-    }
-
-    return result;
-  }
-
-  Map<int, double> get playtimeByYear {
+  Map<int, double> _buildPlaytimeByYear() {
     final result = <int, double>{};
 
     for (final purchase in purchases) {
@@ -356,7 +272,7 @@ class SteamStatistics {
     return result;
   }
 
-  Map<int, double> get spendingWithPlaytimeByYear {
+  Map<int, double> _buildSpendingWithPlaytimeByYear() {
     final result = <int, double>{};
 
     for (final purchase in purchases) {
@@ -370,27 +286,9 @@ class SteamStatistics {
     return result;
   }
 
-  Map<int, double?> get pricePerHourByYear {
-    final result = <int, double?>{};
-    final yearlyPlaytime = playtimeByYear;
-    final yearlyTrackedSpending = spendingWithPlaytimeByYear;
-
-    for (final year in years) {
-      final playtime = yearlyPlaytime[year] ?? 0.0;
-
-      if (playtime <= 0) {
-        result[year] = null;
-        continue;
-      }
-
-      result[year] = (yearlyTrackedSpending[year] ?? 0.0) / playtime;
-    }
-
-    return result;
-  }
-
-  Map<int, double?> get averageDiscountByYear {
-    final discountsByYear = <int, List<double>>{};
+  Map<int, double?> _buildAverageDiscountByYear() {
+    final sumsByYear = <int, double>{};
+    final countsByYear = <int, int>{};
 
     for (final purchase in purchases) {
       final discount = purchase.discount;
@@ -399,213 +297,128 @@ class SteamStatistics {
         continue;
       }
 
-      discountsByYear.putIfAbsent(purchase.year, () => []).add(discount);
+      sumsByYear[purchase.year] = (sumsByYear[purchase.year] ?? 0.0) + discount;
+      countsByYear[purchase.year] = (countsByYear[purchase.year] ?? 0) + 1;
     }
 
     final result = <int, double?>{};
 
     for (final year in years) {
-      final discounts = discountsByYear[year];
-
-      if (discounts == null || discounts.isEmpty) {
-        result[year] = null;
-        continue;
-      }
-
-      result[year] =
-          discounts.fold(0.0, (sum, discount) => sum + discount) /
-          discounts.length;
+      final count = countsByYear[year];
+      result[year] = count == null ? null : sumsByYear[year]! / count;
     }
 
     return result;
   }
 
-  List<AnnualStatistics> get annualStatistics {
-    final rows = <AnnualStatistics>[];
-    final yearlySpending = spendingByYear;
-    final yearlyDiscount = averageDiscountByYear;
-    final yearlyPlaytime = playtimeByYear;
-    final yearlyPricePerHour = pricePerHourByYear;
-    var cumulativeSpending = 0.0;
+  Map<int, double?> _buildPricePerHourByYear() {
+    final result = <int, double?>{};
 
     for (final year in years) {
-      final spending = yearlySpending[year] ?? 0.0;
-      cumulativeSpending += spending;
-
-      rows.add(
-        AnnualStatistics(
-          year: year,
-          spending: spending,
-          averageDiscount: yearlyDiscount[year],
-          cumulativeSpending: cumulativeSpending,
-          playtimeHours: yearlyPlaytime[year] ?? 0.0,
-          pricePerHour: yearlyPricePerHour[year],
-        ),
+      result[year] = _pricePerHour(
+        _spendingWithPlaytimeByYear[year] ?? 0.0,
+        _playtimeByYear[year] ?? 0.0,
       );
     }
 
-    return rows;
-  }
-
-  Map<int, double> spendingByQuarterForYear(int year) {
-    final result = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0};
-
-    for (final purchase in purchases.where(
-      (purchase) => purchase.year == year,
-    )) {
-      result[purchase.quarter] = result[purchase.quarter]! + purchase.price;
-    }
-
     return result;
   }
 
-  Map<int, int> purchasesByQuarterForYear(int year) {
-    final result = {1: 0, 2: 0, 3: 0, 4: 0};
-
-    for (final purchase in purchases.where(
-      (purchase) => purchase.year == year,
-    )) {
-      result[purchase.quarter] = result[purchase.quarter]! + 1;
-    }
-
-    return result;
-  }
-
-  Map<int, double?> averageDiscountByQuarterForYear(int year) {
-    final discountsByQuarter = <int, List<double>>{1: [], 2: [], 3: [], 4: []};
-
-    for (final purchase in purchases.where(
-      (purchase) => purchase.year == year,
-    )) {
-      final discount = purchase.discount;
-
-      if (discount == null) {
-        continue;
-      }
-
-      discountsByQuarter[purchase.quarter]!.add(discount);
-    }
-
-    return discountsByQuarter.map((quarter, discounts) {
-      if (discounts.isEmpty) {
-        return MapEntry(quarter, null);
-      }
-
-      final sum = discounts.fold(0.0, (a, b) => a + b);
-      return MapEntry(quarter, sum / discounts.length);
-    });
-  }
-
-  Map<int, double> playtimeByQuarterForYear(int year) {
-    final result = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0};
-
-    for (final purchase in purchases.where(
-      (purchase) => purchase.year == year,
-    )) {
-      if (!_hasPlaytime(purchase)) {
-        continue;
-      }
-
-      result[purchase.quarter] =
-          result[purchase.quarter]! + purchase.playtimeHours!;
-    }
-
-    return result;
-  }
-
-  Map<int, double> spendingWithPlaytimeByQuarterForYear(int year) {
-    final result = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0};
-
-    for (final purchase in purchases.where(
-      (purchase) => purchase.year == year,
-    )) {
-      if (!_countsTowardsPricePerHourSpending(purchase)) {
-        continue;
-      }
-
-      result[purchase.quarter] = result[purchase.quarter]! + purchase.price;
-    }
-
-    return result;
-  }
-
-  Map<int, double?> pricePerHourByQuarterForYear(int year) {
-    final result = <int, double?>{};
-    final quarterPlaytime = playtimeByQuarterForYear(year);
-    final quarterTrackedSpending = spendingWithPlaytimeByQuarterForYear(year);
-
-    for (var quarter = 1; quarter <= 4; quarter++) {
-      final playtime = quarterPlaytime[quarter] ?? 0.0;
-
-      if (playtime <= 0) {
-        result[quarter] = null;
-        continue;
-      }
-
-      result[quarter] = (quarterTrackedSpending[quarter] ?? 0.0) / playtime;
-    }
-
-    return result;
-  }
-
-  List<QuarterlyStatistics> quarterlyStatisticsForYear(int year) {
-    final rows = <QuarterlyStatistics>[];
-    final quarterSpending = spendingByQuarterForYear(year);
-    final quarterDiscount = averageDiscountByQuarterForYear(year);
-    final quarterPlaytime = playtimeByQuarterForYear(year);
-    final quarterPricePerHour = pricePerHourByQuarterForYear(year);
-    var cumulativeSpending = 0.0;
-
-    for (var quarter = 1; quarter <= 4; quarter++) {
-      final spending = quarterSpending[quarter] ?? 0.0;
-      cumulativeSpending += spending;
-
-      rows.add(
-        QuarterlyStatistics(
-          quarter: quarter,
-          spending: spending,
-          averageDiscount: quarterDiscount[quarter],
-          cumulativeSpending: cumulativeSpending,
-          playtimeHours: quarterPlaytime[quarter] ?? 0.0,
-          pricePerHour: quarterPricePerHour[quarter],
-        ),
-      );
-    }
-
-    return rows;
-  }
-
-  QuarterlyStatisticsSummary quarterlySummaryForYear(int year) {
-    final actualSpending = spendingByQuarterForYear(
+  _QuarterAggregate _quarterAggregateForYear(int year) {
+    return _quarterAggregatesByYear.putIfAbsent(
       year,
-    ).values.fold(0.0, (sum, spending) => sum + spending);
-    final isProjected = year == currentDate.year;
-    final projectedSpending = isProjected
-        ? _projectCurrentYearSpending(actualSpending)
-        : actualSpending;
-    final discounts = purchases
-        .where((purchase) => purchase.year == year)
-        .map((purchase) => purchase.discount)
-        .whereType<double>()
-        .toList();
-    final yearlyPlaytime = playtimeByYear[year] ?? 0.0;
-    final yearlyTrackedSpending = spendingWithPlaytimeByYear[year] ?? 0.0;
-
-    return QuarterlyStatisticsSummary(
-      year: year,
-      actualSpending: actualSpending,
-      projectedSpending: projectedSpending,
-      averageQuarterSpending: projectedSpending / 4,
-      averageDiscount: discounts.isEmpty
-          ? null
-          : discounts.fold(0.0, (sum, discount) => sum + discount) /
-                discounts.length,
-      totalPlaytimeHours: yearlyPlaytime,
-      pricePerHour: yearlyPlaytime <= 0
-          ? null
-          : yearlyTrackedSpending / yearlyPlaytime,
-      isProjected: isProjected,
+      () => _buildQuarterAggregateForYear(year),
     );
+  }
+
+  _QuarterAggregate _buildQuarterAggregateForYear(int year) {
+    final aggregate = _QuarterAggregate();
+
+    for (final purchase in purchases) {
+      if (purchase.year != year) {
+        continue;
+      }
+
+      final quarter = purchase.quarter;
+      aggregate.spending[quarter] += purchase.price;
+      aggregate.actualSpending += purchase.price;
+
+      final discount = purchase.discount;
+      if (discount != null) {
+        aggregate.discountSums[quarter] += discount;
+        aggregate.discountCounts[quarter]++;
+        aggregate.totalDiscount += discount;
+        aggregate.totalDiscountCount++;
+      }
+
+      if (_hasPlaytime(purchase)) {
+        aggregate.playtime[quarter] += purchase.playtimeHours!;
+        aggregate.totalPlaytime += purchase.playtimeHours!;
+      }
+
+      if (_countsTowardsPricePerHourSpending(purchase)) {
+        aggregate.trackedSpending[quarter] += purchase.price;
+        aggregate.totalTrackedSpending += purchase.price;
+      }
+    }
+
+    return aggregate;
+  }
+
+  double _sumSpent() {
+    var sum = 0.0;
+
+    for (final purchase in purchases) {
+      sum += purchase.price;
+    }
+
+    return sum;
+  }
+
+  int _countPurchaseType(SteamPurchaseType type) {
+    var count = 0;
+
+    for (final purchase in purchases) {
+      if (purchase.purchaseType == type) {
+        count++;
+      }
+    }
+
+    return count;
+  }
+
+  double _sumOriginalPrice() {
+    var sum = 0.0;
+
+    for (final purchase in purchases) {
+      sum += purchase.originalPrice ?? purchase.price;
+    }
+
+    return sum;
+  }
+
+  double _sumPlaytime() {
+    var sum = 0.0;
+
+    for (final purchase in purchases) {
+      if (_hasPlaytime(purchase)) {
+        sum += purchase.playtimeHours!;
+      }
+    }
+
+    return sum;
+  }
+
+  double _sumSpentWithPlaytime() {
+    var sum = 0.0;
+
+    for (final purchase in purchases) {
+      if (_countsTowardsPricePerHourSpending(purchase)) {
+        sum += purchase.price;
+      }
+    }
+
+    return sum;
   }
 
   double _projectCurrentYearSpending(double spending) {
@@ -624,6 +437,36 @@ class SteamStatistics {
 
   int _daysInYear(int year) {
     return DateTime.utc(year + 1).difference(DateTime.utc(year)).inDays;
+  }
+
+  double? _pricePerHour(double spending, double playtimeHours) {
+    if (playtimeHours <= 0) {
+      return null;
+    }
+
+    return spending / playtimeHours;
+  }
+
+  double? _averageDiscountFor(Iterable<SteamPurchase> purchases) {
+    var sum = 0.0;
+    var count = 0;
+
+    for (final purchase in purchases) {
+      final discount = purchase.discount;
+
+      if (discount == null) {
+        continue;
+      }
+
+      sum += discount;
+      count++;
+    }
+
+    if (count == 0) {
+      return null;
+    }
+
+    return sum / count;
   }
 
   bool _hasPlaytime(SteamPurchase purchase) {
@@ -647,21 +490,26 @@ class SteamStatistics {
   }
 
   Set<String> _buildGameNamesWithTrackedPlaytime() {
-    return purchases
-        .where((purchase) {
-          return purchase.purchaseType == SteamPurchaseType.game &&
-              _hasPlaytime(purchase);
-        })
-        .map((purchase) => _gameNameKey(purchase.gameName))
-        .toSet();
+    final result = <String>{};
+
+    for (final purchase in purchases) {
+      if (purchase.purchaseType == SteamPurchaseType.game &&
+          _hasPlaytime(purchase)) {
+        result.add(_gameNameKey(purchase.gameName));
+      }
+    }
+
+    return result;
   }
 
   Map<String, double> _buildDlcSpendingByGameName() {
     final result = <String, double>{};
 
-    for (final purchase in purchases.where(
-      (purchase) => purchase.purchaseType == SteamPurchaseType.dlc,
-    )) {
+    for (final purchase in purchases) {
+      if (purchase.purchaseType != SteamPurchaseType.dlc) {
+        continue;
+      }
+
       final gameNameKey = _gameNameKey(purchase.gameName);
       result[gameNameKey] = (result[gameNameKey] ?? 0.0) + purchase.price;
     }
@@ -671,5 +519,47 @@ class SteamStatistics {
 
   String _gameNameKey(String gameName) {
     return gameName.trim().toLowerCase();
+  }
+}
+
+class _QuarterAggregate {
+  final List<double> spending = List.filled(5, 0.0);
+  final List<double> playtime = List.filled(5, 0.0);
+  final List<double> trackedSpending = List.filled(5, 0.0);
+  final List<double> discountSums = List.filled(5, 0.0);
+  final List<int> discountCounts = List.filled(5, 0);
+
+  double actualSpending = 0.0;
+  double totalPlaytime = 0.0;
+  double totalTrackedSpending = 0.0;
+  double totalDiscount = 0.0;
+  int totalDiscountCount = 0;
+
+  double? get averageDiscount {
+    if (totalDiscountCount == 0) {
+      return null;
+    }
+
+    return totalDiscount / totalDiscountCount;
+  }
+
+  double? averageDiscountForQuarter(int quarter) {
+    final count = discountCounts[quarter];
+
+    if (count == 0) {
+      return null;
+    }
+
+    return discountSums[quarter] / count;
+  }
+
+  double? pricePerHourForQuarter(int quarter) {
+    final hours = playtime[quarter];
+
+    if (hours <= 0) {
+      return null;
+    }
+
+    return trackedSpending[quarter] / hours;
   }
 }

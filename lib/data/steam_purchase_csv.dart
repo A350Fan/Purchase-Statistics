@@ -25,10 +25,11 @@ class SteamPurchaseCsv {
   ];
 
   static String encode(List<SteamPurchase> purchases) {
-    final rows = [
-      headers,
-      for (final purchase in purchases)
-        [
+    final buffer = StringBuffer()..writeln(_encodeRow(headers));
+
+    for (final purchase in purchases) {
+      buffer.writeln(
+        _encodeRow([
           _formatDate(purchase.purchaseDate),
           purchase.purchaseType.storageValue,
           purchase.gameName,
@@ -38,10 +39,11 @@ class SteamPurchaseCsv {
           _formatOptionalDouble(purchase.originalPrice),
           _formatOptionalDouble(purchase.playtimeHours),
           purchase.note ?? '',
-        ],
-    ];
+        ]),
+      );
+    }
 
-    return '${rows.map(_encodeRow).join('\n')}\n';
+    return buffer.toString();
   }
 
   static List<SteamPurchase> decode(String source) {
