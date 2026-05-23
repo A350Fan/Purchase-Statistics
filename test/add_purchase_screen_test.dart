@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_purchase_statistics/data/steam_store_search_repository.dart';
-import 'package:steam_purchase_statistics/models/steam_purchase.dart';
-import 'package:steam_purchase_statistics/models/steam_store_search_suggestion.dart';
-import 'package:steam_purchase_statistics/screens/add_purchase_screen.dart';
+import 'package:purchase_statistics/data/steam_store_search_repository.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
+import 'package:purchase_statistics/models/steam_store_search_suggestion.dart';
+import 'package:purchase_statistics/screens/add_purchase_screen.dart';
 
 void main() {
   testWidgets('suggests saved game names while typing', (tester) async {

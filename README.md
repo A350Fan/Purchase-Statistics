@@ -1,6 +1,6 @@
-# Steam Purchase Statistics
+# Purchase Statistics
 
-Steam Purchase Statistics is a Flutter app for tracking and analyzing Steam game purchases.
+Purchase Statistics is a Flutter app for tracking and analyzing Steam game purchases.
 
 The project started as a replacement for a personal spreadsheet-based Steam statistics workflow. It focuses on purchase history, spending statistics, discounts, DLCs and playtime-based analysis.
 
@@ -287,7 +287,7 @@ git push
 
 ## Disclaimer
 
-Steam Purchase Statistics is a private/open-source helper project for manually tracking Steam purchases.
+Purchase Statistics is a private/open-source helper project for manually tracking Steam purchases.
 
 It does **not** connect to Steam automatically yet and does **not** access a Steam account.
 

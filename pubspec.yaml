@@ -1,4 +1,4 @@
-name: steam_purchase_statistics
+name: purchase_statistics
 description: Steam purchase statistics app for Windows, Linux and Android.
 publish_to: 'none'
 version: 1.0.0+1

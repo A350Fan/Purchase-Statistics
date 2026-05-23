@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:steam_purchase_statistics/data/steam_purchase_repository.dart';
-import 'package:steam_purchase_statistics/main.dart';
-import 'package:steam_purchase_statistics/models/steam_purchase.dart';
-import 'package:steam_purchase_statistics/settings/app_settings.dart';
-import 'package:steam_purchase_statistics/settings/app_settings_controller.dart';
-import 'package:steam_purchase_statistics/settings/settings_repository.dart';
+import 'package:purchase_statistics/data/steam_purchase_repository.dart';
+import 'package:purchase_statistics/main.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
+import 'package:purchase_statistics/settings/app_settings.dart';
+import 'package:purchase_statistics/settings/app_settings_controller.dart';
+import 'package:purchase_statistics/settings/settings_repository.dart';
 
 class _InMemorySettingsStore implements AppSettingsStore {
   AppSettings settings;
@@ -46,13 +46,13 @@ Future<void> _pumpInteractionFrame(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('shows the Steam Purchase Statistics app shell', (
+  testWidgets('shows the Purchase Statistics app shell', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(_buildTestApp());
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('Steam Purchase Statistics'), findsOneWidget);
+    expect(find.text('Purchase Statistics'), findsOneWidget);
     expect(find.text('Kauf'), findsOneWidget);
     expect(find.byTooltip('Einstellungen'), findsOneWidget);
   });

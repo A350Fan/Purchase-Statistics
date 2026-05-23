@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_purchase_statistics/data/steam_purchase_csv.dart';
-import 'package:steam_purchase_statistics/models/steam_purchase.dart';
+import 'package:purchase_statistics/data/steam_purchase_csv.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
 
 void main() {
   group('SteamPurchaseCsv', () {

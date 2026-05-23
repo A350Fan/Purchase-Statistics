@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:steam_purchase_statistics/data/steam_store_search_client.dart';
-import 'package:steam_purchase_statistics/data/steam_store_search_repository.dart';
-import 'package:steam_purchase_statistics/models/steam_purchase.dart';
-import 'package:steam_purchase_statistics/models/steam_store_search_suggestion.dart';
+import 'package:purchase_statistics/data/steam_store_search_client.dart';
+import 'package:purchase_statistics/data/steam_store_search_repository.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
+import 'package:purchase_statistics/models/steam_store_search_suggestion.dart';
 
 void main() {
   group('SteamStoreSearchRepository', () {

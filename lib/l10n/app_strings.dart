@@ -25,7 +25,7 @@ class AppStrings {
 
   bool get isEnglish => locale.languageCode == 'en';
 
-  String get appTitle => 'Steam Purchase Statistics';
+  String get appTitle => 'Purchase Statistics';
   String get dashboard => isEnglish ? 'Dashboard' : 'Dashboard';
   String get purchases => isEnglish ? 'Purchases' : 'Käufe';
   String get games => isEnglish ? 'Games' : 'Spiele';
