@@ -183,17 +183,29 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openAddPurchaseScreen() async {
-    final newPurchase = await Navigator.of(context).push<SteamPurchase>(
+    final result = await Navigator.of(context).push<PurchaseEditorResult>(
       MaterialPageRoute(
-        builder: (context) => AddPurchaseScreen(existingPurchases: _purchases),
+        builder: (context) => AddPurchaseScreen(
+          existingPurchases: _purchases,
+          collectionRepository: _collectionRepository,
+        ),
       ),
     );
 
-    if (newPurchase == null) {
+    if (result == null) {
       return;
     }
 
-    await _repository.addPurchase(newPurchase);
+    final savedPurchase = await _repository.addPurchase(result.purchase);
+
+    if (savedPurchase.id != null && result.collectionIds != null) {
+      await _collectionRepository.replaceCollectionsForPurchase(
+        purchaseId: savedPurchase.id!,
+        collectionIds: result.collectionIds!,
+      );
+      await _collectionsTabKey.currentState?.refresh();
+    }
+
     await _loadPurchases();
   }
 
@@ -211,20 +223,30 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openEditPurchaseScreen(SteamPurchase purchase) async {
-    final editedPurchase = await Navigator.of(context).push<SteamPurchase>(
+    final result = await Navigator.of(context).push<PurchaseEditorResult>(
       MaterialPageRoute(
         builder: (context) => AddPurchaseScreen(
           initialPurchase: purchase,
           existingPurchases: _purchases,
+          collectionRepository: _collectionRepository,
         ),
       ),
     );
 
-    if (editedPurchase == null) {
+    if (result == null) {
       return;
     }
 
-    await _repository.updatePurchase(editedPurchase);
+    await _repository.updatePurchase(result.purchase);
+
+    if (purchase.id != null && result.collectionIds != null) {
+      await _collectionRepository.replaceCollectionsForPurchase(
+        purchaseId: purchase.id!,
+        collectionIds: result.collectionIds!,
+      );
+      await _collectionsTabKey.currentState?.refresh();
+    }
+
     await _loadPurchases();
   }
 

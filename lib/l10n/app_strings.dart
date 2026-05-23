@@ -48,6 +48,7 @@ class AppStrings {
   String get openSettings => isEnglish ? 'Settings' : 'Einstellungen';
   String get edit => isEnglish ? 'Edit' : 'Bearbeiten';
   String get delete => isEnglish ? 'Delete' : 'Löschen';
+  String get undo => isEnglish ? 'Undo' : 'Rückgängig';
   String get noPurchases => isEnglish
       ? 'No purchases yet. Add your first Steam purchase.'
       : 'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.';
@@ -62,6 +63,14 @@ class AppStrings {
   String get noCollectionItems => isEnglish
       ? 'No purchases in this collection yet.'
       : 'Noch keine Käufe in dieser Kollektion.';
+  String purchaseCount(int count) {
+    if (isEnglish) {
+      return count == 1 ? '1 purchase' : '$count purchases';
+    }
+
+    return count == 1 ? '1 Kauf' : '$count Käufe';
+  }
+
   String get noData => isEnglish ? 'No data' : 'Keine Daten';
   String get price => isEnglish ? 'Price' : 'Preis';
   String get discount => isEnglish ? 'Discount' : 'Rabatt';
@@ -147,10 +156,31 @@ class AppStrings {
 
   String get removeFromCollection =>
       isEnglish ? 'Remove from collection' : 'Aus Kollektion entfernen';
+  String removedPurchaseFromCollection(
+    String purchaseName,
+    String collectionName,
+  ) {
+    return isEnglish
+        ? '"$purchaseName" was removed from "$collectionName".'
+        : '"$purchaseName" wurde aus "$collectionName" entfernt.';
+  }
+
   String get addPurchaseToCollection =>
       isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
   String get selectPurchaseForCollection =>
       isEnglish ? 'Select purchase' : 'Kauf auswählen';
+  String get collectionsForPurchase =>
+      isEnglish ? 'Collections' : 'Kollektionen';
+  String get noCollectionsForPurchase => isEnglish
+      ? 'No collections available yet.'
+      : 'Noch keine Kollektionen verfügbar.';
+  String get sortPurchasesBy =>
+      isEnglish ? 'Sort purchases by' : 'Käufe sortieren nach';
+  String get sortByName => isEnglish ? 'Name' : 'Name';
+  String get sortByNewest => isEnglish ? 'Newest first' : 'Neueste zuerst';
+  String get sortByOldest => isEnglish ? 'Oldest first' : 'Älteste zuerst';
+  String get moveUp => isEnglish ? 'Move up' : 'Nach oben';
+  String get moveDown => isEnglish ? 'Move down' : 'Nach unten';
   String get noAvailablePurchasesForCollection => isEnglish
       ? 'No purchases available to add.'
       : 'Keine Käufe zum Hinzufügen verfügbar.';

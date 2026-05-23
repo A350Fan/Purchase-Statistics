@@ -18,6 +18,7 @@ class SteamPurchaseCsv {
     'game_name',
     'edition',
     'dlc_name',
+    'steam_app_id',
     'price',
     'original_price',
     'playtime_hours',
@@ -35,6 +36,7 @@ class SteamPurchaseCsv {
           purchase.gameName,
           purchase.edition ?? '',
           purchase.dlcName ?? '',
+          purchase.steamAppId?.toString() ?? '',
           _formatDouble(purchase.price),
           _formatOptionalDouble(purchase.originalPrice),
           _formatOptionalDouble(purchase.playtimeHours),
@@ -245,6 +247,11 @@ class SteamPurchaseCsv {
       case 'add_on':
       case 'erweiterung':
         return 'dlc_name';
+      case 'steam_app_id':
+      case 'app_id':
+      case 'steamid':
+      case 'steam_id':
+        return 'steam_app_id';
       case 'price':
       case 'preis':
       case 'kaufpreis':
@@ -287,6 +294,11 @@ class SteamPurchaseCsv {
       _requiredValue(row, headerIndexes, 'price'),
       row.lineNumber,
       'price',
+    );
+    final steamAppId = _parseOptionalInt(
+      _optionalValue(row, headerIndexes, 'steam_app_id'),
+      row.lineNumber,
+      'steam_app_id',
     );
     final originalPrice = _parseOptionalDouble(
       _optionalValue(row, headerIndexes, 'original_price'),
@@ -337,6 +349,7 @@ class SteamPurchaseCsv {
       gameName: gameName.trim(),
       edition: edition.isEmpty ? null : edition,
       dlcName: purchaseType == SteamPurchaseType.dlc ? dlcName : null,
+      steamAppId: steamAppId,
       price: price,
       originalPrice: originalPrice,
       playtimeHours: playtimeHours,
@@ -462,6 +475,24 @@ class SteamPurchaseCsv {
     }
 
     return double.tryParse(compactValue);
+  }
+
+  static int? _parseOptionalInt(String value, int lineNumber, String header) {
+    final trimmedValue = value.trim();
+
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    final parsedValue = int.tryParse(trimmedValue);
+
+    if (parsedValue == null || parsedValue <= 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile $lineNumber: "$header" ist keine gültige positive Ganzzahl.',
+      );
+    }
+
+    return parsedValue;
   }
 
   static SteamPurchaseType _parsePurchaseType(

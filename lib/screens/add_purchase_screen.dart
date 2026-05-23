@@ -2,12 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/steam_collection_repository.dart';
 import '../data/steam_store_search_repository.dart';
 import '../l10n/app_strings.dart';
+import '../models/steam_collection.dart';
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
+
+class PurchaseEditorResult {
+  final SteamPurchase purchase;
+  final Set<int>? collectionIds;
+
+  const PurchaseEditorResult({
+    required this.purchase,
+    required this.collectionIds,
+  });
+}
 
 enum _NameSuggestionSource { local, steam }
 
@@ -32,12 +44,14 @@ class AddPurchaseScreen extends StatefulWidget {
   final SteamPurchase? initialPurchase;
   final List<SteamPurchase> existingPurchases;
   final SteamStoreSearchSource? steamSearchSource;
+  final SteamCollectionRepository? collectionRepository;
 
   const AddPurchaseScreen({
     super.key,
     this.initialPurchase,
     this.existingPurchases = const [],
     this.steamSearchSource,
+    this.collectionRepository,
   });
 
   bool get isEditing => initialPurchase != null;
@@ -78,9 +92,19 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   OverlayEntry? _dlcNameSuggestionsOverlay;
   double _gameNameSuggestionsWidth = 0;
   double _dlcNameSuggestionsWidth = 0;
+  int? _selectedGameSteamAppId;
+  int? _selectedDlcSteamAppId;
+  List<SteamCollection> _collections = [];
+  Set<int> _selectedCollectionIds = {};
+  bool _isLoadingCollections = false;
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
+
+  bool get _canEditCollections {
+    return widget.initialPurchase?.id != null &&
+        widget.collectionRepository != null;
+  }
 
   @override
   void initState() {
@@ -107,6 +131,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _gameNameController.text = initialPurchase.gameName;
     _editionController.text = initialPurchase.edition ?? '';
     _dlcNameController.text = initialPurchase.dlcName ?? '';
+    if (initialPurchase.purchaseType == SteamPurchaseType.dlc) {
+      _selectedDlcSteamAppId = initialPurchase.steamAppId;
+    } else {
+      _selectedGameSteamAppId = initialPurchase.steamAppId;
+    }
     _priceController.text = initialPurchase.price.toStringAsFixed(2);
 
     if (initialPurchase.originalPrice != null) {
@@ -124,6 +153,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     _startListeningForNameChanges();
+    _loadCollectionSelection();
   }
 
   @override
@@ -269,6 +299,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return;
     }
 
+    _selectedGameSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.game);
     _scheduleSteamNameSearch(_NameSuggestionField.game);
 
@@ -283,6 +314,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return;
     }
 
+    _selectedDlcSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
     _scheduleSteamNameSearch(_NameSuggestionField.dlc);
   }
@@ -601,6 +633,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       text: suggestion.name,
       selection: TextSelection.collapsed(offset: suggestion.name.length),
     );
+    switch (field) {
+      case _NameSuggestionField.game:
+        _selectedGameSteamAppId = suggestion.steamAppId;
+      case _NameSuggestionField.dlc:
+        _selectedDlcSteamAppId = suggestion.steamAppId;
+    }
     _isApplyingAutocompleteSelection = false;
     _removeNameSuggestionsOverlay(field);
   }
@@ -652,6 +690,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       dlcName: _purchaseType == SteamPurchaseType.dlc
           ? _dlcNameController.text.trim()
           : null,
+      steamAppId: _purchaseType == SteamPurchaseType.dlc
+          ? _selectedDlcSteamAppId
+          : _selectedGameSteamAppId,
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
       playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
@@ -660,7 +701,90 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           : _noteController.text.trim(),
     );
 
-    Navigator.of(context).pop(purchase);
+    Navigator.of(context).pop(
+      PurchaseEditorResult(
+        purchase: purchase,
+        collectionIds: _canEditCollections ? _selectedCollectionIds : null,
+      ),
+    );
+  }
+
+  Future<void> _loadCollectionSelection() async {
+    final repository = widget.collectionRepository;
+    final purchaseId = widget.initialPurchase?.id;
+
+    if (repository == null || purchaseId == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingCollections = true;
+    });
+
+    final collections = await repository.getCollections();
+    final selectedCollectionIds = await repository.getCollectionIdsForPurchase(
+      purchaseId,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _collections = collections;
+      _selectedCollectionIds = selectedCollectionIds;
+      _isLoadingCollections = false;
+    });
+  }
+
+  Widget _buildCollectionsTab(AppStrings strings) {
+    if (_isLoadingCollections) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_collections.isEmpty) {
+      return Center(child: Text(strings.noCollectionsForPurchase));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _collections.length,
+      itemBuilder: (context, index) {
+        final collection = _collections[index];
+        final collectionId = collection.id;
+        final isSelected =
+            collectionId != null &&
+            _selectedCollectionIds.contains(collectionId);
+
+        return CheckboxListTile(
+          value: isSelected,
+          secondary: const Icon(Icons.folder),
+          title: Text(
+            collection.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: collection.description == null
+              ? null
+              : Text(
+                  collection.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+          onChanged: collectionId == null
+              ? null
+              : (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedCollectionIds.add(collectionId);
+                    } else {
+                      _selectedCollectionIds.remove(collectionId);
+                    }
+                  });
+                },
+        );
+      },
+    );
   }
 
   Widget _buildNameAutocompleteField({
@@ -718,9 +842,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         '${_purchaseDate.day.toString().padLeft(2, '0')}.'
         '${_purchaseDate.month.toString().padLeft(2, '0')}.'
         '${_purchaseDate.year}';
+    final tabCount = _canEditCollections ? 3 : 2;
 
     return DefaultTabController(
-      length: 2,
+      length: tabCount,
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -735,6 +860,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                 text: strings.purchaseDataTab,
               ),
               Tab(icon: const Icon(Icons.timer), text: strings.playtime),
+              if (_canEditCollections)
+                Tab(
+                  icon: const Icon(Icons.folder),
+                  text: strings.collectionsTab,
+                ),
             ],
           ),
         ),
@@ -964,6 +1094,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 ),
                               ],
                             ),
+                            if (_canEditCollections)
+                              _buildCollectionsTab(strings),
                           ],
                         ),
                       ),

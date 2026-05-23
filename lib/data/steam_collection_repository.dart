@@ -27,6 +27,20 @@ class SteamCollectionRepository {
     return maps.map(SteamCollection.fromMap).toList();
   }
 
+  Future<Map<int, int>> getItemCountsByCollection() async {
+    final db = await _databaseProvider();
+    final rows = await db.rawQuery('''
+      SELECT collection_id, COUNT(*) AS item_count
+      FROM $collectionItemsTable
+      GROUP BY collection_id
+    ''');
+
+    return {
+      for (final row in rows)
+        row['collection_id'] as int: (row['item_count'] as int?) ?? 0,
+    };
+  }
+
   Future<int> insertCollection(SteamCollection collection) async {
     final db = await _databaseProvider();
 
@@ -66,6 +80,69 @@ class SteamCollectionRepository {
     return maps.map(CollectionItem.fromMap).toList();
   }
 
+  Future<Set<int>> getCollectionIdsForPurchase(int purchaseId) async {
+    final db = await _databaseProvider();
+    final maps = await db.query(
+      collectionItemsTable,
+      columns: ['collection_id'],
+      where: 'purchase_id = ?',
+      whereArgs: [purchaseId],
+    );
+
+    return maps.map((map) => map['collection_id'] as int).toSet();
+  }
+
+  Future<void> replaceCollectionsForPurchase({
+    required int purchaseId,
+    required Set<int> collectionIds,
+  }) async {
+    final db = await _databaseProvider();
+
+    await db.transaction((transaction) async {
+      final existingRows = await transaction.query(
+        collectionItemsTable,
+        columns: ['collection_id'],
+        where: 'purchase_id = ?',
+        whereArgs: [purchaseId],
+      );
+      final existingCollectionIds = existingRows
+          .map((row) => row['collection_id'] as int)
+          .toSet();
+      final collectionIdsToRemove = existingCollectionIds.difference(
+        collectionIds,
+      );
+      final collectionIdsToAdd = collectionIds.difference(
+        existingCollectionIds,
+      );
+
+      if (collectionIdsToRemove.isNotEmpty) {
+        await transaction.delete(
+          collectionItemsTable,
+          where:
+              'purchase_id = ? AND collection_id IN (${List.filled(collectionIdsToRemove.length, '?').join(', ')})',
+          whereArgs: [purchaseId, ...collectionIdsToRemove],
+        );
+      }
+
+      final batch = transaction.batch();
+
+      for (final collectionId in collectionIdsToAdd) {
+        final customOrder = await _nextCustomOrder(transaction, collectionId);
+
+        batch.insert(collectionItemsTable, {
+          'collection_id': collectionId,
+          'purchase_id': purchaseId,
+          'custom_order': customOrder,
+          'created_at': _now().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+
+      if (collectionIdsToAdd.isNotEmpty) {
+        await batch.commit(noResult: true);
+      }
+    });
+  }
+
   Future<int> addPurchaseToCollection({
     required int collectionId,
     required int purchaseId,
@@ -86,10 +163,35 @@ class SteamCollectionRepository {
     final item = CollectionItem.create(
       collectionId: collectionId,
       purchaseId: purchaseId,
+      customOrder: await _nextCustomOrder(db, collectionId),
       now: _now,
     );
 
     return db.insert(collectionItemsTable, item.toMap());
+  }
+
+  Future<void> updateCollectionItemOrder({
+    required int collectionId,
+    required List<int> itemIds,
+  }) async {
+    final db = await _databaseProvider();
+
+    await db.transaction((transaction) async {
+      final batch = transaction.batch();
+
+      for (var index = 0; index < itemIds.length; index++) {
+        batch.update(
+          collectionItemsTable,
+          {'custom_order': index},
+          where: 'id = ? AND collection_id = ?',
+          whereArgs: [itemIds[index], collectionId],
+        );
+      }
+
+      if (itemIds.isNotEmpty) {
+        await batch.commit(noResult: true);
+      }
+    });
   }
 
   Future<int> removePurchaseFromCollection({
@@ -103,5 +205,21 @@ class SteamCollectionRepository {
       where: 'collection_id = ? AND purchase_id = ?',
       whereArgs: [collectionId, purchaseId],
     );
+  }
+
+  Future<int> _nextCustomOrder(
+    DatabaseExecutor executor,
+    int collectionId,
+  ) async {
+    final rows = await executor.rawQuery(
+      '''
+      SELECT COALESCE(MAX(custom_order) + 1, 0) AS next_order
+      FROM $collectionItemsTable
+      WHERE collection_id = ?
+      ''',
+      [collectionId],
+    );
+
+    return rows.single['next_order'] as int;
   }
 }

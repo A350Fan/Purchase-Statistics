@@ -12,6 +12,7 @@ void main() {
           gameName: 'Portal, Episode "Two"',
           edition: 'Deluxe Edition',
           dlcName: 'Soundtrack, "Plus"',
+          steamAppId: 620,
           price: 3.99,
           originalPrice: 19.99,
           playtimeHours: 12.5,
@@ -30,6 +31,7 @@ void main() {
       expect(purchases.single.gameName, 'Portal, Episode "Two"');
       expect(purchases.single.edition, 'Deluxe Edition');
       expect(purchases.single.dlcName, 'Soundtrack, "Plus"');
+      expect(purchases.single.steamAppId, 620);
       expect(purchases.single.price, 3.99);
       expect(purchases.single.originalPrice, 19.99);
       expect(purchases.single.playtimeHours, 12.5);

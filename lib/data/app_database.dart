@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -56,6 +56,7 @@ class AppDatabase {
         game_name TEXT NOT NULL,
         edition TEXT,
         dlc_name TEXT,
+        steam_app_id INTEGER,
         price REAL NOT NULL,
         original_price REAL,
         playtime_hours REAL,
@@ -66,6 +67,8 @@ class AppDatabase {
     await _createSettingsTable(db);
     await _createSteamStoreSearchCacheTable(db);
     await _createCollectionsTables(db);
+    await _createSteamPurchaseMetadataIndexes(db);
+    await _createSteamGameMetadataTables(db);
   }
 
   static Future<void> _upgradeDatabase(
@@ -107,6 +110,14 @@ class AppDatabase {
 
     if (oldVersion < 8) {
       await _createCollectionItemUniqueIndex(db);
+    }
+
+    if (oldVersion < 9) {
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN steam_app_id INTEGER',
+      );
+      await _createSteamPurchaseMetadataIndexes(db);
+      await _createSteamGameMetadataTables(db);
     }
   }
 
@@ -181,6 +192,40 @@ class AppDatabase {
     await db.execute('''
       CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_items_unique_purchase
       ON collection_items(collection_id, purchase_id)
+    ''');
+  }
+
+  static Future<void> _createSteamGameMetadataTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_game_metadata (
+        steam_app_id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_game_metadata_values (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        steam_app_id INTEGER NOT NULL,
+        field TEXT NOT NULL,
+        value TEXT NOT NULL,
+        FOREIGN KEY(steam_app_id)
+          REFERENCES steam_game_metadata(steam_app_id)
+          ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_steam_metadata_values_unique
+      ON steam_game_metadata_values(steam_app_id, field, value)
+    ''');
+  }
+
+  static Future<void> _createSteamPurchaseMetadataIndexes(Database db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_steam_purchases_steam_app_id
+      ON steam_purchases(steam_app_id)
     ''');
   }
 }

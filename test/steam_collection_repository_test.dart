@@ -90,6 +90,96 @@ void main() {
       expect(await repository.getItemsForCollection(collectionId), isEmpty);
     });
 
+    test('counts items by collection', () async {
+      final firstPurchaseId = await _insertPurchase(db, gameName: 'Portal');
+      final secondPurchaseId = await _insertPurchase(db, gameName: 'Half-Life');
+      final firstCollectionId = await repository.insertCollection(
+        SteamCollection(name: 'Favorites', createdAt: now),
+      );
+      final secondCollectionId = await repository.insertCollection(
+        SteamCollection(name: 'Backlog', createdAt: now),
+      );
+
+      await repository.addPurchaseToCollection(
+        collectionId: firstCollectionId,
+        purchaseId: firstPurchaseId,
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: firstCollectionId,
+        purchaseId: secondPurchaseId,
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: secondCollectionId,
+        purchaseId: secondPurchaseId,
+      );
+
+      final counts = await repository.getItemCountsByCollection();
+
+      expect(counts[firstCollectionId], 2);
+      expect(counts[secondCollectionId], 1);
+    });
+
+    test('replaces collection assignments for a purchase', () async {
+      final purchaseId = await _insertPurchase(db, gameName: 'Portal');
+      final firstCollectionId = await repository.insertCollection(
+        SteamCollection(name: 'Favorites', createdAt: now),
+      );
+      final secondCollectionId = await repository.insertCollection(
+        SteamCollection(name: 'Backlog', createdAt: now),
+      );
+
+      await repository.replaceCollectionsForPurchase(
+        purchaseId: purchaseId,
+        collectionIds: {firstCollectionId},
+      );
+      expect(await repository.getCollectionIdsForPurchase(purchaseId), {
+        firstCollectionId,
+      });
+
+      await repository.replaceCollectionsForPurchase(
+        purchaseId: purchaseId,
+        collectionIds: {secondCollectionId},
+      );
+
+      expect(await repository.getCollectionIdsForPurchase(purchaseId), {
+        secondCollectionId,
+      });
+      expect(
+        await repository.getItemsForCollection(firstCollectionId),
+        isEmpty,
+      );
+    });
+
+    test('updates manual item order', () async {
+      final firstPurchaseId = await _insertPurchase(db, gameName: 'Portal');
+      final secondPurchaseId = await _insertPurchase(db, gameName: 'Half-Life');
+      final collectionId = await repository.insertCollection(
+        SteamCollection(name: 'Favorites', createdAt: now),
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: collectionId,
+        purchaseId: firstPurchaseId,
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: collectionId,
+        purchaseId: secondPurchaseId,
+      );
+      final initialItems = await repository.getItemsForCollection(collectionId);
+
+      await repository.updateCollectionItemOrder(
+        collectionId: collectionId,
+        itemIds: [initialItems.last.id!, initialItems.first.id!],
+      );
+      final reorderedItems = await repository.getItemsForCollection(
+        collectionId,
+      );
+
+      expect(reorderedItems.first.purchaseId, secondPurchaseId);
+      expect(reorderedItems.last.purchaseId, firstPurchaseId);
+      expect(reorderedItems.first.customOrder, 0);
+      expect(reorderedItems.last.customOrder, 1);
+    });
+
     test('does not duplicate purchase assignments', () async {
       final purchaseId = await _insertPurchase(db, gameName: 'Portal');
       final collectionId = await repository.insertCollection(

@@ -17,6 +17,7 @@ class SteamPurchase {
   final String gameName;
   final String? edition;
   final String? dlcName;
+  final int? steamAppId;
   final double price;
   final double? originalPrice;
   final double? playtimeHours;
@@ -29,6 +30,7 @@ class SteamPurchase {
     required this.gameName,
     this.edition,
     this.dlcName,
+    this.steamAppId,
     required this.price,
     this.originalPrice,
     this.playtimeHours,
@@ -72,6 +74,7 @@ class SteamPurchase {
     String? gameName,
     String? edition,
     String? dlcName,
+    int? steamAppId,
     double? price,
     double? originalPrice,
     double? playtimeHours,
@@ -84,6 +87,7 @@ class SteamPurchase {
       gameName: gameName ?? this.gameName,
       edition: edition ?? this.edition,
       dlcName: dlcName ?? this.dlcName,
+      steamAppId: steamAppId ?? this.steamAppId,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
       playtimeHours: playtimeHours ?? this.playtimeHours,
@@ -99,6 +103,7 @@ class SteamPurchase {
       'game_name': gameName,
       'edition': edition,
       'dlc_name': dlcName,
+      'steam_app_id': steamAppId,
       'price': price,
       'original_price': originalPrice,
       'playtime_hours': playtimeHours,
@@ -114,6 +119,7 @@ class SteamPurchase {
       gameName: map['game_name'] as String,
       edition: _nullableString(map['edition']),
       dlcName: _nullableString(map['dlc_name']),
+      steamAppId: map['steam_app_id'] as int?,
       price: (map['price'] as num).toDouble(),
       originalPrice: map['original_price'] == null
           ? null

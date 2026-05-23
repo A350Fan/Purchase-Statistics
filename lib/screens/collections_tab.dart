@@ -8,6 +8,8 @@ import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+enum _PurchaseSelectionSortOption { name, newest, oldest }
+
 class CollectionsTab extends StatefulWidget {
   final SteamCollectionRepository repository;
   final List<SteamPurchase> purchases;
@@ -24,6 +26,7 @@ class CollectionsTab extends StatefulWidget {
 
 class CollectionsTabState extends State<CollectionsTab> {
   List<SteamCollection> _collections = [];
+  Map<int, int> _collectionItemCounts = {};
   bool _isLoading = true;
 
   @override
@@ -43,6 +46,10 @@ class CollectionsTabState extends State<CollectionsTab> {
 
   Future<void> openCreateCollectionDialog() async {
     await _openCollectionFormDialog();
+  }
+
+  Future<void> refresh() async {
+    await _loadCollections(showLoading: false);
   }
 
   Future<void> _openCollectionFormDialog({
@@ -81,6 +88,7 @@ class CollectionsTabState extends State<CollectionsTab> {
     }
 
     final collections = await widget.repository.getCollections();
+    final itemCounts = await widget.repository.getItemCountsByCollection();
 
     if (!mounted) {
       return;
@@ -88,6 +96,7 @@ class CollectionsTabState extends State<CollectionsTab> {
 
     setState(() {
       _collections = collections;
+      _collectionItemCounts = itemCounts;
       _isLoading = false;
     });
   }
@@ -184,6 +193,8 @@ class CollectionsTabState extends State<CollectionsTab> {
   Widget _buildCollectionCard(SteamCollection collection) {
     final strings = AppStrings.of(context);
     final description = collection.description;
+    final itemCount = _collectionItemCounts[collection.id] ?? 0;
+    final subtitleParts = [strings.purchaseCount(itemCount), ?description];
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -195,9 +206,11 @@ class CollectionsTabState extends State<CollectionsTab> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: description == null
-            ? null
-            : Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          subtitleParts.join(' · '),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -368,9 +381,77 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _removeItem(CollectionItem item) async {
+    final strings = AppStrings.of(context);
+    final purchase = _purchasesById()[item.purchaseId];
+    final purchaseName = purchase?.displayName ?? strings.missingPurchase;
+
     await widget.repository.removePurchaseFromCollection(
       collectionId: item.collectionId,
       purchaseId: item.purchaseId,
+    );
+    await _loadItems(showLoading: false);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            strings.removedPurchaseFromCollection(
+              purchaseName,
+              _collection.name,
+            ),
+          ),
+          action: SnackBarAction(
+            label: strings.undo,
+            onPressed: () {
+              _restoreRemovedItem(item);
+            },
+          ),
+        ),
+      );
+  }
+
+  Future<void> _restoreRemovedItem(CollectionItem item) async {
+    await widget.repository.addPurchaseToCollection(
+      collectionId: item.collectionId,
+      purchaseId: item.purchaseId,
+    );
+    await _loadItems(showLoading: false);
+  }
+
+  Future<void> _moveItem(int index, int direction) async {
+    final collectionId = _collection.id;
+    final targetIndex = index + direction;
+
+    if (collectionId == null ||
+        targetIndex < 0 ||
+        targetIndex >= _items.length) {
+      return;
+    }
+
+    final reorderedItems = [..._items];
+    final movedItem = reorderedItems.removeAt(index);
+    reorderedItems.insert(targetIndex, movedItem);
+    final itemIds = reorderedItems
+        .map((item) => item.id)
+        .whereType<int>()
+        .toList();
+
+    if (itemIds.length != reorderedItems.length) {
+      return;
+    }
+
+    setState(() {
+      _items = reorderedItems;
+    });
+
+    await widget.repository.updateCollectionItemOrder(
+      collectionId: collectionId,
+      itemIds: itemIds,
     );
     await _loadItems(showLoading: false);
   }
@@ -418,6 +499,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
   Widget _buildPurchaseCard(
     CollectionItem item,
+    int index,
     Map<int, SteamPurchase> purchasesById,
     AppStrings strings,
     AppCurrency currency,
@@ -440,10 +522,27 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 '${_formatDate(purchase.purchaseDate)} · '
                 '${_formatCurrency(purchase.price, currency)}',
               ),
-        trailing: IconButton(
-          tooltip: strings.removeFromCollection,
-          onPressed: () => _removeItem(item),
-          icon: const Icon(Icons.link_off),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: strings.moveUp,
+              onPressed: index == 0 ? null : () => _moveItem(index, -1),
+              icon: const Icon(Icons.arrow_upward),
+            ),
+            IconButton(
+              tooltip: strings.moveDown,
+              onPressed: index == _items.length - 1
+                  ? null
+                  : () => _moveItem(index, 1),
+              icon: const Icon(Icons.arrow_downward),
+            ),
+            IconButton(
+              tooltip: strings.removeFromCollection,
+              onPressed: () => _removeItem(item),
+              icon: const Icon(Icons.link_off),
+            ),
+          ],
         ),
       ),
     );
@@ -505,8 +604,14 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                     child: Center(child: Text(strings.noCollectionItems)),
                   )
                 else
-                  for (final item in _items)
-                    _buildPurchaseCard(item, purchasesById, strings, currency),
+                  for (var index = 0; index < _items.length; index++)
+                    _buildPurchaseCard(
+                      _items[index],
+                      index,
+                      purchasesById,
+                      strings,
+                      currency,
+                    ),
                 const SizedBox(height: 88),
               ],
             ),
@@ -531,6 +636,7 @@ class _AddPurchaseToCollectionDialog extends StatefulWidget {
 class _AddPurchaseToCollectionDialogState
     extends State<_AddPurchaseToCollectionDialog> {
   final _searchController = TextEditingController();
+  _PurchaseSelectionSortOption _sortOption = _PurchaseSelectionSortOption.name;
 
   @override
   void dispose() {
@@ -545,11 +651,22 @@ class _AddPurchaseToCollectionDialogState
       return id != null && !widget.excludedPurchaseIds.contains(id);
     }).toList();
 
-    purchases.sort((a, b) {
-      return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
-    });
+    purchases.sort(_comparePurchases);
 
     return purchases;
+  }
+
+  int _comparePurchases(SteamPurchase a, SteamPurchase b) {
+    return switch (_sortOption) {
+      _PurchaseSelectionSortOption.name =>
+        a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+      _PurchaseSelectionSortOption.newest => b.purchaseDate.compareTo(
+        a.purchaseDate,
+      ),
+      _PurchaseSelectionSortOption.oldest => a.purchaseDate.compareTo(
+        b.purchaseDate,
+      ),
+    };
   }
 
   List<SteamPurchase> _filteredPurchases(List<SteamPurchase> purchases) {
@@ -586,6 +703,17 @@ class _AddPurchaseToCollectionDialogState
     };
   }
 
+  String _sortOptionLabel(
+    _PurchaseSelectionSortOption option,
+    AppStrings strings,
+  ) {
+    return switch (option) {
+      _PurchaseSelectionSortOption.name => strings.sortByName,
+      _PurchaseSelectionSortOption.newest => strings.sortByNewest,
+      _PurchaseSelectionSortOption.oldest => strings.sortByOldest,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -614,6 +742,36 @@ class _AddPurchaseToCollectionDialogState
               },
             ),
             const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    strings.sortPurchasesBy,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DropdownButton<_PurchaseSelectionSortOption>(
+                  value: _sortOption,
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+
+                    setState(() {
+                      _sortOption = value;
+                    });
+                  },
+                  items: _PurchaseSelectionSortOption.values.map((option) {
+                    return DropdownMenuItem(
+                      value: option,
+                      child: Text(_sortOptionLabel(option, strings)),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: availablePurchases.isEmpty
                   ? Center(

@@ -41,6 +41,11 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }
 
   @override
+  Future<Map<int, int>> getItemCountsByCollection() async {
+    return {};
+  }
+
+  @override
   Future<int> insertCollection(SteamCollection collection) async {
     return 1;
   }
@@ -59,6 +64,17 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   Future<List<CollectionItem>> getItemsForCollection(int collectionId) async {
     return [];
   }
+
+  @override
+  Future<Set<int>> getCollectionIdsForPurchase(int purchaseId) async {
+    return {};
+  }
+
+  @override
+  Future<void> replaceCollectionsForPurchase({
+    required int purchaseId,
+    required Set<int> collectionIds,
+  }) async {}
 }
 
 SteamStatsApp _buildTestApp([_InMemorySettingsStore? store]) {
