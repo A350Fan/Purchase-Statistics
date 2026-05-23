@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
+import '../settings/app_settings.dart';
+import '../settings/app_settings_controller.dart';
 
 class ChartsTab extends StatefulWidget {
   final List<SteamPurchase> purchases;
@@ -21,6 +23,8 @@ class _ChartsTabState extends State<ChartsTab> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final stats = SteamStatistics(widget.purchases);
 
     if (widget.purchases.isEmpty) {
@@ -40,7 +44,7 @@ class _ChartsTabState extends State<ChartsTab> {
           return _ChartPoint(
             xLabel: row.year.toString(),
             value: row.spending,
-            valueLabel: _formatCurrency(row.spending),
+            valueLabel: _formatCurrency(row.spending, currency),
           );
         }).toList(),
       ),
@@ -50,7 +54,7 @@ class _ChartsTabState extends State<ChartsTab> {
           return _ChartPoint(
             xLabel: row.quarter.toString(),
             value: row.spending,
-            valueLabel: _formatCurrency(row.spending),
+            valueLabel: _formatCurrency(row.spending, currency),
           );
         }).toList(),
       ),
@@ -86,7 +90,7 @@ class _ChartsTabState extends State<ChartsTab> {
           return _ChartPoint(
             xLabel: row.year.toString(),
             value: row.cumulativeSpending,
-            valueLabel: _formatCurrency(row.cumulativeSpending),
+            valueLabel: _formatCurrency(row.cumulativeSpending, currency),
           );
         }).toList(),
       ),
@@ -96,7 +100,7 @@ class _ChartsTabState extends State<ChartsTab> {
           return _ChartPoint(
             xLabel: row.quarter.toString(),
             value: row.cumulativeSpending,
-            valueLabel: _formatCurrency(row.cumulativeSpending),
+            valueLabel: _formatCurrency(row.cumulativeSpending, currency),
           );
         }).toList(),
       ),
@@ -186,8 +190,8 @@ class _ChartsTabState extends State<ChartsTab> {
     return years.last;
   }
 
-  String _formatCurrency(double value) {
-    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  String _formatCurrency(double value, AppCurrency currency) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
   }
 
   String? _formatPercent(double? value) {

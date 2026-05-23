@@ -76,6 +76,7 @@ void main() {
 
     expect(find.text('Darstellung'), findsOneWidget);
     expect(find.text('Sprache'), findsOneWidget);
+    expect(find.text('Währung'), findsOneWidget);
 
     await tester.tap(find.text('Hell'));
     await _pumpInteractionFrame(tester);
@@ -84,6 +85,14 @@ void main() {
 
     final settingsContext = tester.element(find.text('Darstellung'));
     expect(Theme.of(settingsContext).brightness, Brightness.light);
+
+    await tester.tap(find.text('Euro (€)'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.tap(find.text('US-Dollar (\$)').last);
+    await _pumpInteractionFrame(tester);
+
+    expect(store.settings.currency, AppCurrency.usd);
 
     await tester.tap(find.text('Englisch'));
     await _pumpInteractionFrame(tester);

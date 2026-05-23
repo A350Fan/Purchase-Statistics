@@ -72,6 +72,29 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(height: 16),
+            _SettingsSection(
+              title: strings.currency,
+              icon: Icons.payments,
+              child: DropdownButtonFormField<AppCurrency>(
+                initialValue: settings.currency,
+                isExpanded: true,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: AppCurrency.values.map((currency) {
+                  return DropdownMenuItem(
+                    value: currency,
+                    child: Text(strings.currencyLabel(currency)),
+                  );
+                }).toList(),
+                onChanged: (currency) {
+                  if (currency == null) {
+                    return;
+                  }
+
+                  controller.setCurrency(currency);
+                },
+              ),
+            ),
           ],
         ),
       ),

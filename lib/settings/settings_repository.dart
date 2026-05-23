@@ -32,6 +32,7 @@ class SettingsRepository implements AppSettingsStore {
     return AppSettings(
       themeMode: AppThemeMode.fromStorage(row['theme_mode']),
       language: AppLanguage.fromStorage(row['language']),
+      currency: AppCurrency.fromStorage(row['currency']),
     );
   }
 
@@ -43,6 +44,7 @@ class SettingsRepository implements AppSettingsStore {
       'id': _settingsId,
       'theme_mode': settings.themeMode.storageValue,
       'language': settings.language.storageValue,
+      'currency': settings.currency.storageValue,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

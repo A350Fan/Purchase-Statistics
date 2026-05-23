@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../settings/app_settings.dart';
+
 class AppStrings {
   static const supportedLocales = [Locale('de'), Locale('en')];
 
@@ -31,7 +33,10 @@ class AppStrings {
   String get totalSpent => isEnglish ? 'Total spent' : 'Gesamtausgaben';
   String get averageDiscount => isEnglish ? 'Avg. discount' : 'Ø Rabatt';
   String get playtime => isEnglish ? 'Playtime' : 'Spielzeit';
-  String get averagePricePerHour => isEnglish ? 'Avg. €/h' : 'Ø €/h';
+  String averagePricePerHour(String currencySymbol) {
+    return isEnglish ? 'Avg. $currencySymbol/h' : 'Ø $currencySymbol/h';
+  }
+
   String get overviewTab => isEnglish ? 'Overview' : 'Übersicht';
   String get statisticsTab => isEnglish ? 'Statistics' : 'Statistik';
   String get chartsTab => isEnglish ? 'Charts' : 'Diagramme';
@@ -129,9 +134,12 @@ class AppStrings {
   String get discountDataNote => isEnglish
       ? 'Avg. discount: only purchases with known MSRP'
       : 'Ø Rabatt: nur Käufe mit bekanntem UVP';
-  String get pricePerHourDataNote => isEnglish
-      ? '€/h: requires saved playtime'
-      : '€/h: benötigt gespeicherte Spielzeit';
+  String pricePerHourDataNote(String currencySymbol) {
+    return isEnglish
+        ? '$currencySymbol/h: requires saved playtime'
+        : '$currencySymbol/h: benötigt gespeicherte Spielzeit';
+  }
+
   String get notAvailable => isEnglish ? 'N/A' : 'N/V';
   String get annualSpendingChart =>
       isEnglish ? 'Spending per year' : 'Ausgaben pro Jahr';
@@ -156,6 +164,19 @@ class AppStrings {
   String get language => isEnglish ? 'Language' : 'Sprache';
   String get german => isEnglish ? 'German' : 'Deutsch';
   String get english => isEnglish ? 'English' : 'Englisch';
+  String get currency => isEnglish ? 'Currency' : 'Währung';
+  String currencyLabel(AppCurrency currency) {
+    return switch (currency) {
+      AppCurrency.eur => 'Euro (€)',
+      AppCurrency.usd => isEnglish ? 'US dollar (\$)' : 'US-Dollar (\$)',
+      AppCurrency.gbp =>
+        isEnglish ? 'British pound (£)' : 'Britisches Pfund (£)',
+      AppCurrency.chf =>
+        isEnglish ? 'Swiss franc (CHF)' : 'Schweizer Franken (CHF)',
+      AppCurrency.jpy => isEnglish ? 'Japanese yen (¥)' : 'Japanischer Yen (¥)',
+    };
+  }
+
   String get addPurchaseTitle => isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
   String get editPurchaseTitle =>
       isEnglish ? 'Edit purchase' : 'Kauf bearbeiten';
@@ -195,7 +216,7 @@ class AppStrings {
       ? 'Playtime cannot be negative'
       : 'Spielzeit darf nicht negativ sein';
 
-  String sortLabel(String key) {
+  String sortLabel(String key, String currencySymbol) {
     return switch (key) {
       'dateNewestFirst' =>
         isEnglish ? 'Date: newest first' : 'Datum: neueste zuerst',
@@ -216,9 +237,13 @@ class AppStrings {
       'playtimeLowestFirst' =>
         isEnglish ? 'Playtime: lowest first' : 'Spielzeit: niedrigste zuerst',
       'pricePerHourLowestFirst' =>
-        isEnglish ? '€/h: lowest first' : '€/h: niedrigste zuerst',
+        isEnglish
+            ? '$currencySymbol/h: lowest first'
+            : '$currencySymbol/h: niedrigste zuerst',
       'pricePerHourHighestFirst' =>
-        isEnglish ? '€/h: highest first' : '€/h: höchste zuerst',
+        isEnglish
+            ? '$currencySymbol/h: highest first'
+            : '$currencySymbol/h: höchste zuerst',
       _ => key,
     };
   }

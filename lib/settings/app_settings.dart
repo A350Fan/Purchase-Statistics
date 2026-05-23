@@ -54,19 +54,65 @@ enum AppLanguage {
   }
 }
 
+enum AppCurrency {
+  eur,
+  usd,
+  gbp,
+  chf,
+  jpy;
+
+  String get storageValue {
+    return switch (this) {
+      AppCurrency.eur => 'eur',
+      AppCurrency.usd => 'usd',
+      AppCurrency.gbp => 'gbp',
+      AppCurrency.chf => 'chf',
+      AppCurrency.jpy => 'jpy',
+    };
+  }
+
+  String get symbol {
+    return switch (this) {
+      AppCurrency.eur => '€',
+      AppCurrency.usd => r'$',
+      AppCurrency.gbp => '£',
+      AppCurrency.chf => 'CHF',
+      AppCurrency.jpy => '¥',
+    };
+  }
+
+  static AppCurrency fromStorage(Object? value) {
+    return switch (value?.toString()) {
+      'eur' => AppCurrency.eur,
+      'usd' => AppCurrency.usd,
+      'gbp' => AppCurrency.gbp,
+      'chf' => AppCurrency.chf,
+      'jpy' => AppCurrency.jpy,
+      _ => AppCurrency.eur,
+    };
+  }
+}
+
 class AppSettings {
   final AppThemeMode themeMode;
   final AppLanguage language;
+  final AppCurrency currency;
 
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.german,
+    this.currency = AppCurrency.eur,
   });
 
-  AppSettings copyWith({AppThemeMode? themeMode, AppLanguage? language}) {
+  AppSettings copyWith({
+    AppThemeMode? themeMode,
+    AppLanguage? language,
+    AppCurrency? currency,
+  }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
       language: language ?? this.language,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -85,9 +131,10 @@ class AppSettings {
   bool operator ==(Object other) {
     return other is AppSettings &&
         other.themeMode == themeMode &&
-        other.language == language;
+        other.language == language &&
+        other.currency == currency;
   }
 
   @override
-  int get hashCode => Object.hash(themeMode, language);
+  int get hashCode => Object.hash(themeMode, language, currency);
 }

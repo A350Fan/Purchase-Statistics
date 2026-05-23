@@ -10,6 +10,8 @@ import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
+import '../settings/app_settings.dart';
+import '../settings/app_settings_controller.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 import 'charts_tab.dart';
@@ -133,8 +135,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return sortedPurchases;
   }
 
-  String _getSortLabel(PurchaseSortOption option, AppStrings strings) {
-    return strings.sortLabel(option.name);
+  String _getSortLabel(
+    PurchaseSortOption option,
+    AppStrings strings,
+    AppCurrency currency,
+  ) {
+    return strings.sortLabel(option.name, currency.symbol);
   }
 
   String _getPurchaseTypeLabel(SteamPurchaseType type, AppStrings strings) {
@@ -360,12 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${_formatDecimal(hours)} h';
   }
 
-  String _formatPricePerHour(double value) {
-    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';
+  String _formatPricePerHour(double value, AppCurrency currency) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}/h';
   }
 
-  String _formatCurrency(double value) {
-    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  String _formatCurrency(double value, AppCurrency currency) {
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
   }
 
   String _formatDecimal(double value) {
@@ -384,7 +390,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Widget _buildPurchaseCard(SteamPurchase purchase, SteamStatistics stats) {
+  Widget _buildPurchaseCard(
+    SteamPurchase purchase,
+    SteamStatistics stats,
+    AppCurrency currency,
+  ) {
     final strings = AppStrings.of(context);
     final discountText = purchase.discount == null
         ? null
@@ -393,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pricePerHour = stats.pricePerHourForPurchase(purchase);
     final pricePerHourText = pricePerHour == null
         ? null
-        : _formatPricePerHour(pricePerHour);
+        : _formatPricePerHour(pricePerHour, currency);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -411,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
               final dataSection = _buildPurchaseDataSection(
                 strings: strings,
-                priceText: _formatCurrency(purchase.price),
+                priceText: _formatCurrency(purchase.price, currency),
                 discountText: discountText,
                 playtimeText: playtimeText,
                 pricePerHourText: pricePerHourText,
@@ -608,6 +618,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases(stats);
 
@@ -710,8 +722,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 StatCard(
                                   title: strings.totalSpent,
-                                  value:
-                                      '${stats.totalSpent.toStringAsFixed(2)} €',
+                                  value: _formatCurrency(
+                                    stats.totalSpent,
+                                    currency,
+                                  ),
                                 ),
                                 StatCard(
                                   title: strings.averageDiscount,
@@ -726,11 +740,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 StatCard(
-                                  title: strings.averagePricePerHour,
+                                  title: strings.averagePricePerHour(
+                                    currency.symbol,
+                                  ),
                                   value: stats.pricePerHour == null
                                       ? '-'
                                       : _formatPricePerHour(
                                           stats.pricePerHour!,
+                                          currency,
                                         ),
                                 ),
                               ]),
@@ -765,7 +782,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       return DropdownMenuItem(
                                         value: option,
                                         child: Text(
-                                          _getSortLabel(option, strings),
+                                          _getSortLabel(
+                                            option,
+                                            strings,
+                                            currency,
+                                          ),
                                         ),
                                       );
                                     }).toList(),
@@ -786,7 +807,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: sortedPurchases.length,
                                 itemBuilder: (context, index) {
                                   final purchase = sortedPurchases[index];
-                                  return _buildPurchaseCard(purchase, stats);
+                                  return _buildPurchaseCard(
+                                    purchase,
+                                    stats,
+                                    currency,
+                                  );
                                 },
                               ),
                             const SliverToBoxAdapter(

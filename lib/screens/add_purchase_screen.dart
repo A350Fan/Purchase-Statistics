@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
 import '../models/steam_purchase.dart';
+import '../settings/app_settings.dart';
+import '../settings/app_settings_controller.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
   final SteamPurchase? initialPurchase;
@@ -135,6 +137,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final formattedDate =
         '${_purchaseDate.day.toString().padLeft(2, '0')}.'
         '${_purchaseDate.month.toString().padLeft(2, '0')}.'
@@ -260,7 +264,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   controller: _priceController,
                                   decoration: InputDecoration(
                                     labelText: strings.purchasePrice,
-                                    suffixText: '€',
+                                    suffixText: currency.symbol,
                                     border: const OutlineInputBorder(),
                                   ),
                                   keyboardType:
@@ -293,7 +297,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   controller: _originalPriceController,
                                   decoration: InputDecoration(
                                     labelText: strings.originalPriceOptional,
-                                    suffixText: '€',
+                                    suffixText: currency.symbol,
                                     border: const OutlineInputBorder(),
                                   ),
                                   keyboardType:

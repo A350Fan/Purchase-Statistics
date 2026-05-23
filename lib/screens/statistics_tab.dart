@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
+import '../settings/app_settings.dart';
+import '../settings/app_settings_controller.dart';
 
 class StatisticsTab extends StatefulWidget {
   final List<SteamPurchase> purchases;
@@ -19,6 +21,8 @@ class _StatisticsTabState extends State<StatisticsTab> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final stats = SteamStatistics(widget.purchases);
 
     if (widget.purchases.isEmpty) {
@@ -54,6 +58,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
           annualRows,
           annualSummary,
           maxAnnualSpending,
+          currency,
         );
         final quarterCard = _buildQuarterCard(
           context,
@@ -63,6 +68,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
           quarterRows,
           quarterSummary,
           maxQuarterSpending,
+          currency,
         );
 
         return ListView(
@@ -125,6 +131,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
     List<AnnualStatistics> rows,
     AnnualStatisticsSummary summary,
     double maxSpending,
+    AppCurrency currency,
   ) {
     return Card(
       child: Padding(
@@ -158,7 +165,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                         _headerCell(context, strings.averageDiscount),
                         _headerCell(context, strings.cumulative),
                         _headerCell(context, strings.playtime),
-                        _headerCell(context, '€/h'),
+                        _headerCell(context, '${currency.symbol}/h'),
                       ],
                     ),
                     ...rows.map((row) {
@@ -167,7 +174,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           _tableCell(context, row.year.toString()),
                           _tableCell(
                             context,
-                            _formatCurrency(row.spending, zeroAsDash: true),
+                            _formatCurrency(
+                              row.spending,
+                              currency,
+                              zeroAsDash: true,
+                            ),
                             alignment: Alignment.centerRight,
                             backgroundColor: _spendingColor(
                               row.spending,
@@ -184,7 +195,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatCurrency(row.cumulativeSpending),
+                            _formatCurrency(row.cumulativeSpending, currency),
                             alignment: Alignment.centerRight,
                           ),
                           _tableCell(
@@ -194,7 +205,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPricePerHour(row.pricePerHour, strings),
+                            _formatPricePerHour(
+                              row.pricePerHour,
+                              strings,
+                              currency,
+                            ),
                             alignment: Alignment.centerRight,
                           ),
                         ],
@@ -209,18 +224,18 @@ class _StatisticsTabState extends State<StatisticsTab> {
             _summaryRow(
               context,
               strings.average,
-              _formatCurrency(summary.averageSpending),
+              _formatCurrency(summary.averageSpending, currency),
               trailing: _formatPercent(summary.averageDiscount, strings),
             ),
             _summaryRow(
               context,
               strings.total,
-              _formatCurrency(summary.totalSpending),
+              _formatCurrency(summary.totalSpending, currency),
             ),
             _summaryRow(
               context,
               strings.totalOriginalPrice,
-              _formatCurrency(summary.totalOriginalPrice),
+              _formatCurrency(summary.totalOriginalPrice, currency),
             ),
             _summaryRow(
               context,
@@ -229,8 +244,8 @@ class _StatisticsTabState extends State<StatisticsTab> {
             ),
             _summaryRow(
               context,
-              strings.averagePricePerHour,
-              _formatPricePerHour(summary.pricePerHour, strings),
+              strings.averagePricePerHour(currency.symbol),
+              _formatPricePerHour(summary.pricePerHour, strings, currency),
             ),
           ],
         ),
@@ -246,6 +261,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
     List<QuarterlyStatistics> rows,
     QuarterlyStatisticsSummary summary,
     double maxSpending,
+    AppCurrency currency,
   ) {
     return Card(
       child: Padding(
@@ -304,7 +320,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                         _headerCell(context, strings.averageDiscount),
                         _headerCell(context, strings.cumulative),
                         _headerCell(context, strings.playtime),
-                        _headerCell(context, '€/h'),
+                        _headerCell(context, '${currency.symbol}/h'),
                       ],
                     ),
                     ...rows.map((row) {
@@ -317,7 +333,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatCurrency(row.spending, zeroAsDash: true),
+                            _formatCurrency(
+                              row.spending,
+                              currency,
+                              zeroAsDash: true,
+                            ),
                             alignment: Alignment.centerRight,
                             backgroundColor: _spendingColor(
                               row.spending,
@@ -336,6 +356,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                             context,
                             _formatCurrency(
                               row.cumulativeSpending,
+                              currency,
                               zeroAsDash: true,
                             ),
                             alignment: Alignment.centerRight,
@@ -347,7 +368,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPricePerHour(row.pricePerHour, strings),
+                            _formatPricePerHour(
+                              row.pricePerHour,
+                              strings,
+                              currency,
+                            ),
                             alignment: Alignment.centerRight,
                           ),
                         ],
@@ -362,13 +387,13 @@ class _StatisticsTabState extends State<StatisticsTab> {
             _summaryRow(
               context,
               summary.isProjected ? strings.projectedAverage : strings.average,
-              _formatCurrency(summary.averageQuarterSpending),
+              _formatCurrency(summary.averageQuarterSpending, currency),
               trailing: _formatPercent(summary.averageDiscount, strings),
             ),
             _summaryRow(
               context,
               summary.isProjected ? strings.projectedTotal : strings.total,
-              _formatCurrency(summary.projectedSpending),
+              _formatCurrency(summary.projectedSpending, currency),
             ),
             _summaryRow(
               context,
@@ -377,14 +402,14 @@ class _StatisticsTabState extends State<StatisticsTab> {
             ),
             _summaryRow(
               context,
-              strings.averagePricePerHour,
-              _formatPricePerHour(summary.pricePerHour, strings),
+              strings.averagePricePerHour(currency.symbol),
+              _formatPricePerHour(summary.pricePerHour, strings, currency),
             ),
             if (summary.isProjected)
               _summaryRow(
                 context,
                 strings.soFar,
-                _formatCurrency(summary.actualSpending),
+                _formatCurrency(summary.actualSpending, currency),
               ),
             const SizedBox(height: 12),
             Text(
@@ -396,7 +421,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              strings.pricePerHourDataNote,
+              strings.pricePerHourDataNote(currency.symbol),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -483,12 +508,16 @@ class _StatisticsTabState extends State<StatisticsTab> {
     );
   }
 
-  String _formatCurrency(double value, {bool zeroAsDash = false}) {
+  String _formatCurrency(
+    double value,
+    AppCurrency currency, {
+    bool zeroAsDash = false,
+  }) {
     if (zeroAsDash && value.abs() < 0.005) {
-      return '- €';
+      return '- ${currency.symbol}';
     }
 
-    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}';
   }
 
   String _formatPercent(double? value, AppStrings strings) {
@@ -512,12 +541,16 @@ class _StatisticsTabState extends State<StatisticsTab> {
     return '$formattedValue h';
   }
 
-  String _formatPricePerHour(double? value, AppStrings strings) {
+  String _formatPricePerHour(
+    double? value,
+    AppStrings strings,
+    AppCurrency currency,
+  ) {
     if (value == null) {
       return strings.notAvailable;
     }
 
-    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}/h';
   }
 
   Color? _spendingColor(double value, double maxSpending) {

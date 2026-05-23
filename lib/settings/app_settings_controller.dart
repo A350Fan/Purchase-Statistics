@@ -38,6 +38,10 @@ class AppSettingsController extends ChangeNotifier {
     await _updateSettings(_settings.copyWith(language: language));
   }
 
+  Future<void> setCurrency(AppCurrency currency) async {
+    await _updateSettings(_settings.copyWith(currency: currency));
+  }
+
   Future<void> _updateSettings(AppSettings settings) async {
     if (settings == _settings) {
       return;
@@ -62,5 +66,11 @@ class AppSettingsScope extends InheritedNotifier<AppSettingsController> {
 
     assert(scope != null, 'No AppSettingsScope found in context.');
     return scope!.notifier!;
+  }
+
+  static AppSettingsController? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<AppSettingsScope>()
+        ?.notifier;
   }
 }

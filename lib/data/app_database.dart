@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -73,6 +73,12 @@ class AppDatabase {
     if (oldVersion < 4) {
       await _createSettingsTable(db);
     }
+
+    if (oldVersion >= 4 && oldVersion < 5) {
+      await db.execute(
+        "ALTER TABLE app_settings ADD COLUMN currency TEXT NOT NULL DEFAULT 'eur'",
+      );
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -80,7 +86,8 @@ class AppDatabase {
       CREATE TABLE IF NOT EXISTS app_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         theme_mode TEXT NOT NULL,
-        language TEXT NOT NULL
+        language TEXT NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'eur'
       )
     ''');
   }
