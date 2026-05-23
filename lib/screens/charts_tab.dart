@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 
@@ -19,10 +20,11 @@ class _ChartsTabState extends State<ChartsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final stats = SteamStatistics(widget.purchases);
 
     if (widget.purchases.isEmpty) {
-      return const Center(child: Text('Noch keine Diagrammdaten vorhanden.'));
+      return Center(child: Text(strings.noChartData));
     }
 
     final years = stats.years;
@@ -33,7 +35,7 @@ class _ChartsTabState extends State<ChartsTab> {
     final quarterRows = stats.quarterlyStatisticsForYear(selectedYear);
     final chartMetrics = [
       _ChartMetric(
-        title: 'Ausgaben pro Jahr',
+        title: strings.annualSpendingChart,
         points: annualRows.map((row) {
           return _ChartPoint(
             xLabel: row.year.toString(),
@@ -43,7 +45,7 @@ class _ChartsTabState extends State<ChartsTab> {
         }).toList(),
       ),
       _ChartMetric(
-        title: 'Ausgaben pro Quartal',
+        title: strings.quarterlySpendingChart,
         points: quarterRows.map((row) {
           return _ChartPoint(
             xLabel: row.quarter.toString(),
@@ -53,7 +55,7 @@ class _ChartsTabState extends State<ChartsTab> {
         }).toList(),
       ),
       _ChartMetric(
-        title: 'Rabatt pro Jahr',
+        title: strings.annualDiscountChart,
         percentScale: true,
         points: annualRows.map((row) {
           return _ChartPoint(
@@ -66,7 +68,7 @@ class _ChartsTabState extends State<ChartsTab> {
         }).toList(),
       ),
       _ChartMetric(
-        title: 'Rabatt pro Quartal',
+        title: strings.quarterlyDiscountChart,
         percentScale: true,
         points: quarterRows.map((row) {
           return _ChartPoint(
@@ -79,7 +81,7 @@ class _ChartsTabState extends State<ChartsTab> {
         }).toList(),
       ),
       _ChartMetric(
-        title: 'Gesamtausgaben',
+        title: strings.cumulativeSpendingChart,
         points: annualRows.map((row) {
           return _ChartPoint(
             xLabel: row.year.toString(),
@@ -89,7 +91,7 @@ class _ChartsTabState extends State<ChartsTab> {
         }).toList(),
       ),
       _ChartMetric(
-        title: 'Gesamtausgaben im gewählten Jahr',
+        title: strings.selectedYearCumulativeSpendingChart,
         points: quarterRows.map((row) {
           return _ChartPoint(
             xLabel: row.quarter.toString(),
@@ -111,7 +113,7 @@ class _ChartsTabState extends State<ChartsTab> {
         final yearPicker = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Jahr', style: Theme.of(context).textTheme.labelLarge),
+            Text(strings.year, style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(width: 12),
             DropdownButton<int>(
               value: selectedYear,
@@ -134,7 +136,7 @@ class _ChartsTabState extends State<ChartsTab> {
           ],
         );
         final title = Text(
-          'Diagramme',
+          strings.chartsTab,
           style: Theme.of(context).textTheme.headlineMedium,
         );
 
@@ -156,7 +158,10 @@ class _ChartsTabState extends State<ChartsTab> {
                 return SizedBox(
                   width: chartWidth,
                   height: chartHeight,
-                  child: _ChartPanel(metric: metric),
+                  child: _ChartPanel(
+                    metric: metric,
+                    noDataLabel: strings.noData,
+                  ),
                 );
               }).toList(),
             ),
@@ -220,8 +225,9 @@ class _ChartPoint {
 
 class _ChartPanel extends StatelessWidget {
   final _ChartMetric metric;
+  final String noDataLabel;
 
-  const _ChartPanel({required this.metric});
+  const _ChartPanel({required this.metric, required this.noDataLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +266,7 @@ class _ChartPanel extends StatelessWidget {
                     )
                   : Center(
                       child: Text(
-                        'Keine Daten',
+                        noDataLabel,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 
@@ -17,10 +18,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final stats = SteamStatistics(widget.purchases);
 
     if (widget.purchases.isEmpty) {
-      return const Center(child: Text('Noch keine Statistikdaten vorhanden.'));
+      return Center(child: Text(strings.noStatisticsData));
     }
 
     final years = stats.years;
@@ -48,12 +50,14 @@ class _StatisticsTabState extends State<StatisticsTab> {
             annualCardWidth + cardSpacing + quarterCardMinWidth;
         final annualCard = _buildAnnualCard(
           context,
+          strings,
           annualRows,
           annualSummary,
           maxAnnualSpending,
         );
         final quarterCard = _buildQuarterCard(
           context,
+          strings,
           years,
           selectedYear,
           quarterRows,
@@ -65,7 +69,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Statistik',
+              strings.statisticsTab,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 16),
@@ -117,6 +121,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
 
   Widget _buildAnnualCard(
     BuildContext context,
+    AppStrings strings,
     List<AnnualStatistics> rows,
     AnnualStatisticsSummary summary,
     double maxSpending,
@@ -127,7 +132,10 @@ class _StatisticsTabState extends State<StatisticsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Jahreswerte', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              strings.annualValues,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -145,11 +153,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                   children: [
                     TableRow(
                       children: [
-                        _headerCell(context, 'Jahr'),
-                        _headerCell(context, 'Ausgaben'),
-                        _headerCell(context, 'Ø Rabatt'),
-                        _headerCell(context, 'Kumulativ'),
-                        _headerCell(context, 'Spielzeit'),
+                        _headerCell(context, strings.year),
+                        _headerCell(context, strings.spending),
+                        _headerCell(context, strings.averageDiscount),
+                        _headerCell(context, strings.cumulative),
+                        _headerCell(context, strings.playtime),
                         _headerCell(context, '€/h'),
                       ],
                     ),
@@ -168,7 +176,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPercent(row.averageDiscount),
+                            _formatPercent(row.averageDiscount, strings),
                             alignment: Alignment.centerRight,
                             backgroundColor: _discountColor(
                               row.averageDiscount,
@@ -186,7 +194,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPricePerHour(row.pricePerHour),
+                            _formatPricePerHour(row.pricePerHour, strings),
                             alignment: Alignment.centerRight,
                           ),
                         ],
@@ -200,29 +208,29 @@ class _StatisticsTabState extends State<StatisticsTab> {
             const Divider(),
             _summaryRow(
               context,
-              'Mittelwert',
+              strings.average,
               _formatCurrency(summary.averageSpending),
-              trailing: _formatPercent(summary.averageDiscount),
+              trailing: _formatPercent(summary.averageDiscount, strings),
             ),
             _summaryRow(
               context,
-              'Summe',
+              strings.total,
               _formatCurrency(summary.totalSpending),
             ),
             _summaryRow(
               context,
-              'Summe UVP',
+              strings.totalOriginalPrice,
               _formatCurrency(summary.totalOriginalPrice),
             ),
             _summaryRow(
               context,
-              'Spielzeit',
+              strings.playtime,
               _formatHours(summary.totalPlaytimeHours, zeroAsDash: true),
             ),
             _summaryRow(
               context,
-              'Ø €/h',
-              _formatPricePerHour(summary.pricePerHour),
+              strings.averagePricePerHour,
+              _formatPricePerHour(summary.pricePerHour, strings),
             ),
           ],
         ),
@@ -232,6 +240,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
 
   Widget _buildQuarterCard(
     BuildContext context,
+    AppStrings strings,
     List<int> years,
     int selectedYear,
     List<QuarterlyStatistics> rows,
@@ -248,7 +257,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
               children: [
                 Expanded(
                   child: Text(
-                    'Welches Jahr soll ausgewertet werden?',
+                    strings.selectYearQuestion,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -290,11 +299,11 @@ class _StatisticsTabState extends State<StatisticsTab> {
                   children: [
                     TableRow(
                       children: [
-                        _headerCell(context, 'Quartal'),
-                        _headerCell(context, 'Ausgaben'),
-                        _headerCell(context, 'Ø Rabatt'),
-                        _headerCell(context, 'Kumulativ'),
-                        _headerCell(context, 'Spielzeit'),
+                        _headerCell(context, strings.quarter),
+                        _headerCell(context, strings.spending),
+                        _headerCell(context, strings.averageDiscount),
+                        _headerCell(context, strings.cumulative),
+                        _headerCell(context, strings.playtime),
                         _headerCell(context, '€/h'),
                       ],
                     ),
@@ -317,7 +326,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPercent(row.averageDiscount),
+                            _formatPercent(row.averageDiscount, strings),
                             alignment: Alignment.centerRight,
                             backgroundColor: _discountColor(
                               row.averageDiscount,
@@ -338,7 +347,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
                           ),
                           _tableCell(
                             context,
-                            _formatPricePerHour(row.pricePerHour),
+                            _formatPricePerHour(row.pricePerHour, strings),
                             alignment: Alignment.centerRight,
                           ),
                         ],
@@ -352,42 +361,42 @@ class _StatisticsTabState extends State<StatisticsTab> {
             const Divider(),
             _summaryRow(
               context,
-              summary.isProjected ? 'Mittelwert*' : 'Mittelwert',
+              summary.isProjected ? strings.projectedAverage : strings.average,
               _formatCurrency(summary.averageQuarterSpending),
-              trailing: _formatPercent(summary.averageDiscount),
+              trailing: _formatPercent(summary.averageDiscount, strings),
             ),
             _summaryRow(
               context,
-              summary.isProjected ? 'Summe*' : 'Summe',
+              summary.isProjected ? strings.projectedTotal : strings.total,
               _formatCurrency(summary.projectedSpending),
             ),
             _summaryRow(
               context,
-              'Spielzeit',
+              strings.playtime,
               _formatHours(summary.totalPlaytimeHours, zeroAsDash: true),
             ),
             _summaryRow(
               context,
-              'Ø €/h',
-              _formatPricePerHour(summary.pricePerHour),
+              strings.averagePricePerHour,
+              _formatPricePerHour(summary.pricePerHour, strings),
             ),
             if (summary.isProjected)
               _summaryRow(
                 context,
-                'Bisher',
+                strings.soFar,
                 _formatCurrency(summary.actualSpending),
               ),
             const SizedBox(height: 12),
             Text(
-              '* laufendes Jahr wird hochgerechnet',
+              strings.runningYearProjection,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              'Ø Rabatt: nur Käufe mit bekanntem UVP',
+              strings.discountDataNote,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              '€/h: benötigt gespeicherte Spielzeit',
+              strings.pricePerHourDataNote,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -482,9 +491,9 @@ class _StatisticsTabState extends State<StatisticsTab> {
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
   }
 
-  String _formatPercent(double? value) {
+  String _formatPercent(double? value, AppStrings strings) {
     if (value == null) {
-      return 'N/V';
+      return strings.notAvailable;
     }
 
     return '${(value * 100).round()}%';
@@ -503,9 +512,9 @@ class _StatisticsTabState extends State<StatisticsTab> {
     return '$formattedValue h';
   }
 
-  String _formatPricePerHour(double? value) {
+  String _formatPricePerHour(double? value, AppStrings strings) {
     if (value == null) {
-      return 'N/V';
+      return strings.notAvailable;
     }
 
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €/h';

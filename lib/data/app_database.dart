@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -47,6 +47,8 @@ class AppDatabase {
         note TEXT
       )
     ''');
+
+    await _createSettingsTable(db);
   }
 
   static Future<void> _upgradeDatabase(
@@ -67,5 +69,19 @@ class AppDatabase {
       await db.execute('ALTER TABLE steam_purchases ADD COLUMN edition TEXT');
       await db.execute('ALTER TABLE steam_purchases ADD COLUMN dlc_name TEXT');
     }
+
+    if (oldVersion < 4) {
+      await _createSettingsTable(db);
+    }
+  }
+
+  static Future<void> _createSettingsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        theme_mode TEXT NOT NULL,
+        language TEXT NOT NULL
+      )
+    ''');
   }
 }

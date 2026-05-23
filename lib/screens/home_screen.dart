@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
+import '../l10n/app_strings.dart';
 import '../logic/steam_statistics.dart';
 import '../models/steam_purchase.dart';
 import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 import 'charts_tab.dart';
+import 'settings_screen.dart';
 import 'statistics_tab.dart';
 
 enum PurchaseSortOption {
@@ -131,44 +133,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return sortedPurchases;
   }
 
-  String _getSortLabel(PurchaseSortOption option) {
-    switch (option) {
-      case PurchaseSortOption.dateNewestFirst:
-        return 'Datum: neueste zuerst';
+  String _getSortLabel(PurchaseSortOption option, AppStrings strings) {
+    return strings.sortLabel(option.name);
+  }
 
-      case PurchaseSortOption.dateOldestFirst:
-        return 'Datum: älteste zuerst';
-
-      case PurchaseSortOption.priceHighestFirst:
-        return 'Preis: höchste zuerst';
-
-      case PurchaseSortOption.priceLowestFirst:
-        return 'Preis: niedrigste zuerst';
-
-      case PurchaseSortOption.nameAZ:
-        return 'Name: A-Z';
-
-      case PurchaseSortOption.nameZA:
-        return 'Name: Z-A';
-
-      case PurchaseSortOption.discountHighestFirst:
-        return 'Rabatt: höchste zuerst';
-
-      case PurchaseSortOption.discountLowestFirst:
-        return 'Rabatt: niedrigste zuerst';
-
-      case PurchaseSortOption.playtimeHighestFirst:
-        return 'Spielzeit: höchste zuerst';
-
-      case PurchaseSortOption.playtimeLowestFirst:
-        return 'Spielzeit: niedrigste zuerst';
-
-      case PurchaseSortOption.pricePerHourLowestFirst:
-        return '€/h: niedrigste zuerst';
-
-      case PurchaseSortOption.pricePerHourHighestFirst:
-        return '€/h: höchste zuerst';
-    }
+  String _getPurchaseTypeLabel(SteamPurchaseType type, AppStrings strings) {
+    return switch (type) {
+      SteamPurchaseType.game => strings.game,
+      SteamPurchaseType.dlc => strings.dlc,
+    };
   }
 
   Future<void> _openAddPurchaseScreen() async {
@@ -199,10 +172,18 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadPurchases();
   }
 
+  void _openSettingsScreen() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+
   Future<void> _importPurchasesFromCsv() async {
     if (_isCsvOperationRunning) {
       return;
     }
+
+    final strings = AppStrings.of(context);
 
     setState(() {
       _isCsvOperationRunning = true;
@@ -210,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Steam-Käufe importieren',
+        dialogTitle: strings.importCsv,
         type: FileType.custom,
         allowedExtensions: ['csv'],
         lockParentWindow: true,
@@ -224,21 +205,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final purchases = SteamPurchaseCsv.decode(csv);
 
       if (purchases.isEmpty) {
-        _showSnackBar('Die CSV enthält keine Käufe.');
+        _showSnackBar(strings.csvEmpty);
         return;
       }
 
       final importedCount = await _repository.addPurchases(purchases);
       await _loadPurchases();
-      _showSnackBar(
-        importedCount == 1
-            ? '1 Kauf wurde importiert.'
-            : '$importedCount Käufe wurden importiert.',
-      );
+      _showSnackBar(strings.importedPurchases(importedCount));
     } on SteamPurchaseCsvException catch (error) {
-      _showSnackBar('CSV konnte nicht importiert werden: $error');
+      _showSnackBar(strings.csvImportFailed(error));
     } catch (error) {
-      _showSnackBar('CSV konnte nicht importiert werden: $error');
+      _showSnackBar(strings.csvImportFailed(error));
     } finally {
       if (mounted) {
         setState(() {
@@ -271,6 +248,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final strings = AppStrings.of(context);
+
     setState(() {
       _isCsvOperationRunning = true;
     });
@@ -280,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final csv = SteamPurchaseCsv.encode(sortedPurchases);
       final fileName = 'steam_purchases_${_formatFileDate(DateTime.now())}.csv';
       final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Steam-Käufe exportieren',
+        dialogTitle: strings.exportCsv,
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -292,13 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      _showSnackBar(
-        sortedPurchases.length == 1
-            ? '1 Kauf wurde exportiert.'
-            : '${sortedPurchases.length} Käufe wurden exportiert.',
-      );
+      _showSnackBar(strings.exportedPurchases(sortedPurchases.length));
     } catch (error) {
-      _showSnackBar('CSV konnte nicht exportiert werden: $error');
+      _showSnackBar(strings.csvExportFailed(error));
     } finally {
       if (mounted) {
         setState(() {
@@ -309,22 +284,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _confirmDeletePurchase(SteamPurchase purchase) async {
+    final strings = AppStrings.of(context);
+
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Kauf löschen?'),
-          content: Text(
-            'Möchtest du "${purchase.displayName}" wirklich löschen?',
-          ),
+          title: Text(strings.deletePurchaseTitle),
+          content: Text(strings.deletePurchaseMessage(purchase.displayName)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Abbrechen'),
+              child: Text(strings.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Löschen'),
+              child: Text(strings.delete),
             ),
           ],
         );
@@ -343,6 +318,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final strings = AppStrings.of(context);
+
     await _repository.deletePurchase(purchase.id!);
     await _loadPurchases();
 
@@ -351,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${purchase.displayName}" wurde gelöscht.')),
+      SnackBar(content: Text(strings.deletedPurchase(purchase.displayName))),
     );
   }
 
@@ -408,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPurchaseCard(SteamPurchase purchase, SteamStatistics stats) {
+    final strings = AppStrings.of(context);
     final discountText = purchase.discount == null
         ? null
         : '${(purchase.discount! * 100).toStringAsFixed(1)} %';
@@ -427,14 +405,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 760;
-              final titleSection = _buildPurchaseTitleSection(purchase);
+              final titleSection = _buildPurchaseTitleSection(
+                purchase,
+                strings,
+              );
               final dataSection = _buildPurchaseDataSection(
+                strings: strings,
                 priceText: _formatCurrency(purchase.price),
                 discountText: discountText,
                 playtimeText: playtimeText,
                 pricePerHourText: pricePerHourText,
               );
-              final actions = _buildPurchaseActions(purchase);
+              final actions = _buildPurchaseActions(purchase, strings);
 
               if (isCompact) {
                 return Column(
@@ -470,7 +452,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPurchaseTitleSection(SteamPurchase purchase) {
+  Widget _buildPurchaseTitleSection(
+    SteamPurchase purchase,
+    AppStrings strings,
+  ) {
     final theme = Theme.of(context);
 
     return Column(
@@ -487,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 2),
         Text(
-          '${purchase.purchaseType.label} · ${_formatDate(purchase.purchaseDate)}',
+          '${_getPurchaseTypeLabel(purchase.purchaseType, strings)} · ${_formatDate(purchase.purchaseDate)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -499,6 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPurchaseDataSection({
+    required AppStrings strings,
     required String priceText,
     required String? discountText,
     required String? playtimeText,
@@ -507,10 +493,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final slots = [
-          _buildPurchaseDataSlot('Preis', priceText),
-          _buildPurchaseDataSlot('Rabatt', discountText),
-          _buildPurchaseDataSlot('Spielzeit', playtimeText),
-          _buildPurchaseDataSlot('Kosten', pricePerHourText),
+          _buildPurchaseDataSlot(strings.price, priceText),
+          _buildPurchaseDataSlot(strings.discount, discountText),
+          _buildPurchaseDataSlot(strings.playtime, playtimeText),
+          _buildPurchaseDataSlot(strings.cost, pricePerHourText),
         ];
 
         if (constraints.maxWidth < 440) {
@@ -601,17 +587,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPurchaseActions(SteamPurchase purchase) {
+  Widget _buildPurchaseActions(SteamPurchase purchase, AppStrings strings) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Bearbeiten',
+          tooltip: strings.edit,
           onPressed: () => _openEditPurchaseScreen(purchase),
           icon: const Icon(Icons.edit),
         ),
         IconButton(
-          tooltip: 'Löschen',
+          tooltip: strings.delete,
           onPressed: () => _confirmDeletePurchase(purchase),
           icon: const Icon(Icons.delete),
         ),
@@ -621,6 +607,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases(stats);
 
@@ -628,36 +615,44 @@ class _HomeScreenState extends State<HomeScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Steam Purchase Statistics'),
+          title: Text(strings.appTitle),
           actions: [
             IconButton(
-              tooltip: 'CSV importieren',
+              tooltip: strings.importCsv,
               onPressed: _isCsvOperationRunning
                   ? null
                   : _importPurchasesFromCsv,
               icon: const Icon(Icons.upload_file),
             ),
             IconButton(
-              tooltip: 'CSV exportieren',
+              tooltip: strings.exportCsv,
               onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
               icon: const Icon(Icons.download),
+            ),
+            IconButton(
+              tooltip: strings.openSettings,
+              onPressed: _openSettingsScreen,
+              icon: const Icon(Icons.settings),
             ),
           ],
 
           // Die TabBar hängt direkt unter der AppBar.
           // Übersicht, Zahlentabellen und Diagramme bleiben getrennt.
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.dashboard), text: 'Übersicht'),
-              Tab(icon: Icon(Icons.bar_chart), text: 'Statistik'),
-              Tab(icon: Icon(Icons.show_chart), text: 'Diagramme'),
+              Tab(icon: const Icon(Icons.dashboard), text: strings.overviewTab),
+              Tab(
+                icon: const Icon(Icons.bar_chart),
+                text: strings.statisticsTab,
+              ),
+              Tab(icon: const Icon(Icons.show_chart), text: strings.chartsTab),
             ],
           ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _openAddPurchaseScreen,
           icon: const Icon(Icons.add),
-          label: const Text('Kauf'),
+          label: Text(strings.purchaseFab),
         ),
 
         // Loading bleibt global, damit beide Tabs erst angezeigt werden,
@@ -683,7 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           slivers: [
                             SliverToBoxAdapter(
                               child: Text(
-                                'Dashboard',
+                                strings.dashboard,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.headlineMedium,
@@ -702,36 +697,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                               delegate: SliverChildListDelegate.fixed([
                                 StatCard(
-                                  title: 'Käufe',
+                                  title: strings.purchases,
                                   value: stats.totalPurchases.toString(),
                                 ),
                                 StatCard(
-                                  title: 'Spiele',
+                                  title: strings.games,
                                   value: stats.totalGames.toString(),
                                 ),
                                 StatCard(
-                                  title: 'DLCs',
+                                  title: strings.dlcs,
                                   value: stats.totalDlcs.toString(),
                                 ),
                                 StatCard(
-                                  title: 'Gesamtausgaben',
+                                  title: strings.totalSpent,
                                   value:
                                       '${stats.totalSpent.toStringAsFixed(2)} €',
                                 ),
                                 StatCard(
-                                  title: 'Ø Rabatt',
+                                  title: strings.averageDiscount,
                                   value: stats.averageDiscount == null
                                       ? '-'
                                       : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
                                 ),
                                 StatCard(
-                                  title: 'Spielzeit',
+                                  title: strings.playtime,
                                   value: _formatTotalPlaytime(
                                     stats.totalPlaytimeHours,
                                   ),
                                 ),
                                 StatCard(
-                                  title: 'Ø €/h',
+                                  title: strings.averagePricePerHour,
                                   value: stats.pricePerHour == null
                                       ? '-'
                                       : _formatPricePerHour(
@@ -747,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Row(
                                 children: [
                                   Text(
-                                    'Käufe',
+                                    strings.purchases,
                                     style: Theme.of(
                                       context,
                                     ).textTheme.headlineSmall,
@@ -769,7 +764,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ) {
                                       return DropdownMenuItem(
                                         value: option,
-                                        child: Text(_getSortLabel(option)),
+                                        child: Text(
+                                          _getSortLabel(option, strings),
+                                        ),
                                       );
                                     }).toList(),
                                   ),
@@ -780,13 +777,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: SizedBox(height: 8),
                             ),
                             if (_purchases.isEmpty)
-                              const SliverFillRemaining(
+                              SliverFillRemaining(
                                 hasScrollBody: false,
-                                child: Center(
-                                  child: Text(
-                                    'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.',
-                                  ),
-                                ),
+                                child: Center(child: Text(strings.noPurchases)),
                               )
                             else
                               SliverList.builder(

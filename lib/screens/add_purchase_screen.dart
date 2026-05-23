@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/steam_purchase.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
@@ -133,6 +134,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final formattedDate =
         '${_purchaseDate.day.toString().padLeft(2, '0')}.'
         '${_purchaseDate.month.toString().padLeft(2, '0')}.'
@@ -142,11 +144,18 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.isEditing ? 'Kauf bearbeiten' : 'Kauf hinzufügen'),
-          bottom: const TabBar(
+          title: Text(
+            widget.isEditing
+                ? strings.editPurchaseTitle
+                : strings.addPurchaseTitle,
+          ),
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.receipt_long), text: 'Kaufdaten'),
-              Tab(icon: Icon(Icons.timer), text: 'Spielzeit'),
+              Tab(
+                icon: const Icon(Icons.receipt_long),
+                text: strings.purchaseDataTab,
+              ),
+              Tab(icon: const Icon(Icons.timer), text: strings.playtime),
             ],
           ),
         ),
@@ -167,16 +176,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                               padding: const EdgeInsets.all(16),
                               children: [
                                 SegmentedButton<SteamPurchaseType>(
-                                  segments: const [
+                                  segments: [
                                     ButtonSegment(
                                       value: SteamPurchaseType.game,
-                                      icon: Icon(Icons.sports_esports),
-                                      label: Text('Spiel'),
+                                      icon: const Icon(Icons.sports_esports),
+                                      label: Text(strings.game),
                                     ),
                                     ButtonSegment(
                                       value: SteamPurchaseType.dlc,
-                                      icon: Icon(Icons.extension),
-                                      label: Text('DLC'),
+                                      icon: const Icon(Icons.extension),
+                                      label: Text(strings.dlc),
                                     ),
                                   ],
                                   selected: {_purchaseType},
@@ -192,14 +201,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   decoration: InputDecoration(
                                     labelText:
                                         _purchaseType == SteamPurchaseType.dlc
-                                        ? 'Zugehöriges Spiel'
-                                        : 'Spielname',
+                                        ? strings.associatedGame
+                                        : strings.gameName,
                                     border: const OutlineInputBorder(),
                                   ),
                                   textInputAction: TextInputAction.next,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Bitte Spielname eingeben';
+                                      return strings.enterGameName;
                                     }
 
                                     return null;
@@ -209,9 +218,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 if (_purchaseType == SteamPurchaseType.dlc) ...[
                                   TextFormField(
                                     controller: _dlcNameController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'DLC-Name',
-                                      border: OutlineInputBorder(),
+                                    decoration: InputDecoration(
+                                      labelText: strings.dlcName,
+                                      border: const OutlineInputBorder(),
                                     ),
                                     textInputAction: TextInputAction.next,
                                     validator: (value) {
@@ -222,7 +231,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
                                       if (value == null ||
                                           value.trim().isEmpty) {
-                                        return 'Bitte DLC-Name eingeben';
+                                        return strings.enterDlcName;
                                       }
 
                                       return null;
@@ -232,9 +241,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 ],
                                 TextFormField(
                                   controller: _editionController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Edition optional',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: strings.editionOptional,
+                                    border: const OutlineInputBorder(),
                                   ),
                                   textInputAction: TextInputAction.next,
                                 ),
@@ -242,15 +251,17 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 OutlinedButton.icon(
                                   onPressed: _pickPurchaseDate,
                                   icon: const Icon(Icons.calendar_month),
-                                  label: Text('Kaufdatum: $formattedDate'),
+                                  label: Text(
+                                    strings.purchaseDate(formattedDate),
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _priceController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Kaufpreis',
+                                  decoration: InputDecoration(
+                                    labelText: strings.purchasePrice,
                                     suffixText: '€',
-                                    border: OutlineInputBorder(),
+                                    border: const OutlineInputBorder(),
                                   ),
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
@@ -259,7 +270,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   textInputAction: TextInputAction.next,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Bitte Kaufpreis eingeben';
+                                      return strings.enterPurchasePrice;
                                     }
 
                                     final parsedValue = double.tryParse(
@@ -267,11 +278,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     );
 
                                     if (parsedValue == null) {
-                                      return 'Bitte gültige Zahl eingeben';
+                                      return strings.enterValidNumber;
                                     }
 
                                     if (parsedValue < 0) {
-                                      return 'Preis darf nicht negativ sein';
+                                      return strings.priceCannotBeNegative;
                                     }
 
                                     return null;
@@ -280,10 +291,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _originalPriceController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Originalpreis optional',
+                                  decoration: InputDecoration(
+                                    labelText: strings.originalPriceOptional,
                                     suffixText: '€',
-                                    border: OutlineInputBorder(),
+                                    border: const OutlineInputBorder(),
                                   ),
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
@@ -300,11 +311,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     );
 
                                     if (parsedValue == null) {
-                                      return 'Bitte gültige Zahl eingeben';
+                                      return strings.enterValidNumber;
                                     }
 
                                     if (parsedValue <= 0) {
-                                      return 'Originalpreis muss größer als 0 sein';
+                                      return strings
+                                          .originalPriceMustBePositive;
                                     }
 
                                     return null;
@@ -313,9 +325,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _noteController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Notiz optional',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: strings.noteOptional,
+                                    border: const OutlineInputBorder(),
                                   ),
                                   minLines: 2,
                                   maxLines: 4,
@@ -327,10 +339,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                               children: [
                                 TextFormField(
                                   controller: _playtimeHoursController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Spielzeit optional',
+                                  decoration: InputDecoration(
+                                    labelText: strings.playtimeOptional,
                                     suffixText: 'h',
-                                    border: OutlineInputBorder(),
+                                    border: const OutlineInputBorder(),
                                   ),
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
@@ -347,11 +359,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     );
 
                                     if (parsedValue == null) {
-                                      return 'Bitte gültige Zahl eingeben';
+                                      return strings.enterValidNumber;
                                     }
 
                                     if (parsedValue < 0) {
-                                      return 'Spielzeit darf nicht negativ sein';
+                                      return strings.playtimeCannotBeNegative;
                                     }
 
                                     return null;
@@ -371,8 +383,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                             icon: const Icon(Icons.save),
                             label: Text(
                               widget.isEditing
-                                  ? 'Änderungen speichern'
-                                  : 'Speichern',
+                                  ? strings.saveChanges
+                                  : strings.save,
                             ),
                           ),
                         ),
