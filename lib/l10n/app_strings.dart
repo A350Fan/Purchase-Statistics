@@ -211,6 +211,12 @@ class AppStrings {
   String get sortByOldest => isEnglish ? 'Oldest first' : 'Älteste zuerst';
   String get moveUp => isEnglish ? 'Move up' : 'Nach oben';
   String get moveDown => isEnglish ? 'Move down' : 'Nach unten';
+  String get collectionSortManual =>
+      isEnglish ? 'Manual order' : 'Manuelle Reihenfolge';
+  String get collectionSortReleaseAsc =>
+      isEnglish ? 'Release date: oldest first' : 'Release: älteste zuerst';
+  String get collectionSortReleaseDesc =>
+      isEnglish ? 'Release date: newest first' : 'Release: neueste zuerst';
   String get noAvailablePurchasesForCollection => isEnglish
       ? 'No purchases available to add.'
       : 'Keine Käufe zum Hinzufügen verfügbar.';

@@ -83,7 +83,10 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }
 
   @override
-  Future<List<CollectionItem>> getItemsForCollection(int collectionId) async {
+  Future<List<CollectionItem>> getItemsForCollection(
+    int collectionId, {
+    SteamCollectionSortMode sortMode = SteamCollectionSortMode.manual,
+  }) async {
     return [];
   }
 

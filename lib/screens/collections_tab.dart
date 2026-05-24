@@ -36,6 +36,18 @@ String _collectionRuleFieldLabel(
   };
 }
 
+String _collectionSortModeLabel(
+  SteamCollectionSortMode sortMode,
+  AppStrings strings,
+) {
+  return switch (sortMode) {
+    SteamCollectionSortMode.manual => strings.collectionSortManual,
+    SteamCollectionSortMode.releaseDateAsc => strings.collectionSortReleaseAsc,
+    SteamCollectionSortMode.releaseDateDesc =>
+      strings.collectionSortReleaseDesc,
+  };
+}
+
 class CollectionsTab extends StatefulWidget {
   final SteamCollectionRepository repository;
   final List<SteamPurchase> purchases;
@@ -381,7 +393,10 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       return;
     }
 
-    final items = await widget.repository.getItemsForCollection(collectionId);
+    final items = await widget.repository.getItemsForCollection(
+      collectionId,
+      sortMode: _collection.sortMode,
+    );
 
     if (!mounted) {
       return;
@@ -496,6 +511,10 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _moveItem(int index, int direction) async {
+    if (_collection.sortMode != SteamCollectionSortMode.manual) {
+      return;
+    }
+
     final collectionId = _collection.id;
     final targetIndex = index + direction;
 
@@ -546,6 +565,21 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     return purchasesById;
   }
 
+  Future<void> _updateSortMode(SteamCollectionSortMode sortMode) async {
+    if (_collection.sortMode == sortMode) {
+      return;
+    }
+
+    final updatedCollection = _collection.copyWith(sortMode: sortMode);
+
+    setState(() {
+      _collection = updatedCollection;
+    });
+
+    await widget.repository.updateCollection(updatedCollection);
+    await _loadItems(showLoading: false);
+  }
+
   Widget _buildHeader(AppStrings strings) {
     final theme = Theme.of(context);
     final description = _collection.description;
@@ -580,7 +614,33 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        Text(strings.purchases, style: theme.textTheme.headlineSmall),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                strings.purchases,
+                style: theme.textTheme.headlineSmall,
+              ),
+            ),
+            const SizedBox(width: 12),
+            DropdownButton<SteamCollectionSortMode>(
+              value: _collection.sortMode,
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+
+                _updateSortMode(value);
+              },
+              items: SteamCollectionSortMode.values.map((sortMode) {
+                return DropdownMenuItem(
+                  value: sortMode,
+                  child: Text(_collectionSortModeLabel(sortMode, strings)),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -593,6 +653,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     AppCurrency currency,
   ) {
     final purchase = purchasesById[item.purchaseId];
+    final canMoveItems = _collection.sortMode == SteamCollectionSortMode.manual;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -613,18 +674,20 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: strings.moveUp,
-              onPressed: index == 0 ? null : () => _moveItem(index, -1),
-              icon: const Icon(Icons.arrow_upward),
-            ),
-            IconButton(
-              tooltip: strings.moveDown,
-              onPressed: index == _items.length - 1
-                  ? null
-                  : () => _moveItem(index, 1),
-              icon: const Icon(Icons.arrow_downward),
-            ),
+            if (canMoveItems) ...[
+              IconButton(
+                tooltip: strings.moveUp,
+                onPressed: index == 0 ? null : () => _moveItem(index, -1),
+                icon: const Icon(Icons.arrow_upward),
+              ),
+              IconButton(
+                tooltip: strings.moveDown,
+                onPressed: index == _items.length - 1
+                    ? null
+                    : () => _moveItem(index, 1),
+                icon: const Icon(Icons.arrow_downward),
+              ),
+            ],
             IconButton(
               tooltip: strings.removeFromCollection,
               onPressed: () => _removeItem(item),

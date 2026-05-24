@@ -35,9 +35,11 @@ void main() {
   });
 
   test('stores and reloads Steam metadata values', () async {
-    const metadata = SteamGameMetadata(
+    final metadata = SteamGameMetadata(
       steamAppId: 620,
       name: 'Portal 2',
+      releaseDate: DateTime.utc(2011, 4, 18),
+      releaseDateText: 'Apr 18, 2011',
       genres: ['Action', 'Adventure'],
       tags: ['Puzzle', 'Co-op'],
       developers: ['Valve'],
@@ -50,6 +52,8 @@ void main() {
 
     expect(storedMetadata, isNotNull);
     expect(storedMetadata!.name, 'Portal 2');
+    expect(storedMetadata.releaseDate, DateTime.utc(2011, 4, 18));
+    expect(storedMetadata.releaseDateText, 'Apr 18, 2011');
     expect(storedMetadata.genres, ['Action', 'Adventure']);
     expect(storedMetadata.tags, ['Co-op', 'Puzzle']);
     expect(storedMetadata.developers, ['Valve']);
@@ -83,6 +87,8 @@ Future<void> _createTestSchema(Database db) async {
     CREATE TABLE steam_game_metadata (
       steam_app_id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
+      release_date TEXT,
+      release_date_text TEXT,
       updated_at TEXT NOT NULL
     )
   ''');

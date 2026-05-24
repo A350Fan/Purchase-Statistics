@@ -1,7 +1,9 @@
 import 'steam_game_metadata.dart';
 
 enum SteamCollectionSortMode {
-  manual('manual');
+  manual('manual'),
+  releaseDateAsc('release_date_asc'),
+  releaseDateDesc('release_date_desc');
 
   final String storageValue;
 

@@ -32,6 +32,8 @@ class SteamCollectionMetadataRule {
 class SteamGameMetadata {
   final int steamAppId;
   final String name;
+  final DateTime? releaseDate;
+  final String? releaseDateText;
   final List<String> genres;
   final List<String> tags;
   final List<String> developers;
@@ -40,6 +42,8 @@ class SteamGameMetadata {
   const SteamGameMetadata({
     required this.steamAppId,
     required this.name,
+    this.releaseDate,
+    this.releaseDateText,
     this.genres = const [],
     this.tags = const [],
     this.developers = const [],

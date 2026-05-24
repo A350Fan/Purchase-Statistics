@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 10,
+      version: 11,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -127,6 +127,14 @@ class AppDatabase {
     if (oldVersion < 10) {
       await _createSteamMetadataRuleLookupIndex(db);
     }
+
+    if (oldVersion >= 9 && oldVersion < 11) {
+      await _addSteamGameMetadataReleaseDateColumns(db);
+    }
+
+    if (oldVersion < 11) {
+      await _createSteamMetadataReleaseDateIndex(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -219,6 +227,8 @@ class AppDatabase {
       CREATE TABLE IF NOT EXISTS steam_game_metadata (
         steam_app_id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
+        release_date TEXT,
+        release_date_text TEXT,
         updated_at TEXT NOT NULL
       )
     ''');
@@ -241,12 +251,31 @@ class AppDatabase {
     ''');
 
     await _createSteamMetadataRuleLookupIndex(db);
+    await _createSteamMetadataReleaseDateIndex(db);
   }
 
   static Future<void> _createSteamMetadataRuleLookupIndex(Database db) async {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_steam_metadata_values_rule_lookup
       ON steam_game_metadata_values(field, value, steam_app_id)
+    ''');
+  }
+
+  static Future<void> _addSteamGameMetadataReleaseDateColumns(
+    Database db,
+  ) async {
+    await db.execute(
+      'ALTER TABLE steam_game_metadata ADD COLUMN release_date TEXT',
+    );
+    await db.execute(
+      'ALTER TABLE steam_game_metadata ADD COLUMN release_date_text TEXT',
+    );
+  }
+
+  static Future<void> _createSteamMetadataReleaseDateIndex(Database db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_steam_game_metadata_release_date
+      ON steam_game_metadata(release_date)
     ''');
   }
 

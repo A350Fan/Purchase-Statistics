@@ -11,6 +11,10 @@ void main() {
             "data": {
               "steam_appid": 620,
               "name": "Portal 2",
+              "release_date": {
+                "coming_soon": false,
+                "date": "Apr 18, 2011"
+              },
               "developers": ["Valve"],
               "publishers": ["Valve"],
               "genres": [
@@ -33,10 +37,34 @@ void main() {
       expect(metadata, isNotNull);
       expect(metadata!.steamAppId, 620);
       expect(metadata.name, 'Portal 2');
+      expect(metadata.releaseDate, DateTime.utc(2011, 4, 18));
+      expect(metadata.releaseDateText, 'Apr 18, 2011');
       expect(metadata.genres, ['Action', 'Adventure']);
       expect(metadata.tags, ['Single-player', 'Co-op', 'Puzzle', 'Sci-fi']);
       expect(metadata.developers, ['Valve']);
       expect(metadata.publishers, ['Valve']);
+    });
+
+    test('parses localized Steam release date text', () {
+      final metadata = SteamGameMetadataResponseParser.parse('''
+        {
+          "620": {
+            "success": true,
+            "data": {
+              "steam_appid": 620,
+              "name": "Portal 2",
+              "release_date": {
+                "coming_soon": false,
+                "date": "18. Apr. 2011"
+              }
+            }
+          }
+        }
+      ''', requestedSteamAppId: 620);
+
+      expect(metadata, isNotNull);
+      expect(metadata!.releaseDate, DateTime.utc(2011, 4, 18));
+      expect(metadata.releaseDateText, '18. Apr. 2011');
     });
 
     test('returns null for failed appdetails response', () {

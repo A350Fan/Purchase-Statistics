@@ -143,7 +143,7 @@ class SteamCollectionRepository {
         FROM $_purchasesTable p
         LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
         WHERE ${_titleContainsWhereClause('p', 'm')}
-        ORDER BY p.purchase_date DESC, p.id DESC
+        ORDER BY ${_automaticPurchaseOrderBy(collection.sortMode)}
         ''', List.filled(4, normalizedRuleValue));
 
       return maps.map(SteamPurchase.fromMap).toList();
@@ -161,9 +161,10 @@ class SteamCollectionRepository {
       FROM $_purchasesTable p
       INNER JOIN $_metadataValuesTable mv
         ON mv.steam_app_id = p.steam_app_id
+      LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
       WHERE mv.field = ?
         AND LOWER(TRIM(mv.value)) = LOWER(TRIM(?))
-      ORDER BY p.purchase_date DESC, p.id DESC
+      ORDER BY ${_automaticPurchaseOrderBy(collection.sortMode)}
       ''',
       [metadataRule.field.storageValue, metadataRule.value],
     );
@@ -198,8 +199,28 @@ class SteamCollectionRepository {
     return db.delete(collectionsTable, where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<CollectionItem>> getItemsForCollection(int collectionId) async {
+  Future<List<CollectionItem>> getItemsForCollection(
+    int collectionId, {
+    SteamCollectionSortMode sortMode = SteamCollectionSortMode.manual,
+  }) async {
     final db = await _databaseProvider();
+
+    if (sortMode != SteamCollectionSortMode.manual) {
+      final maps = await db.rawQuery(
+        '''
+        SELECT ci.*
+        FROM $collectionItemsTable ci
+        INNER JOIN $_purchasesTable p ON p.id = ci.purchase_id
+        LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
+        WHERE ci.collection_id = ?
+        ORDER BY ${_collectionItemOrderBy(sortMode)}
+        ''',
+        [collectionId],
+      );
+
+      return maps.map(CollectionItem.fromMap).toList();
+    }
+
     final maps = await db.query(
       collectionItemsTable,
       where: 'collection_id = ?',
@@ -369,6 +390,58 @@ class SteamCollectionRepository {
 
   String _normalizeRuleValue(String value) {
     return value.trim().toLowerCase();
+  }
+
+  String _automaticPurchaseOrderBy(SteamCollectionSortMode sortMode) {
+    return switch (sortMode) {
+      SteamCollectionSortMode.releaseDateAsc => _releaseDateOrderBy(
+        purchaseAlias: 'p',
+        metadataAlias: 'm',
+        descending: false,
+      ),
+      SteamCollectionSortMode.releaseDateDesc => _releaseDateOrderBy(
+        purchaseAlias: 'p',
+        metadataAlias: 'm',
+        descending: true,
+      ),
+      SteamCollectionSortMode.manual => 'p.purchase_date DESC, p.id DESC',
+    };
+  }
+
+  String _collectionItemOrderBy(SteamCollectionSortMode sortMode) {
+    return switch (sortMode) {
+      SteamCollectionSortMode.releaseDateAsc => _releaseDateOrderBy(
+        purchaseAlias: 'p',
+        metadataAlias: 'm',
+        descending: false,
+        fallback: 'ci.custom_order ASC, ci.created_at ASC, ci.id ASC',
+      ),
+      SteamCollectionSortMode.releaseDateDesc => _releaseDateOrderBy(
+        purchaseAlias: 'p',
+        metadataAlias: 'm',
+        descending: true,
+        fallback: 'ci.custom_order ASC, ci.created_at ASC, ci.id ASC',
+      ),
+      SteamCollectionSortMode.manual =>
+        'ci.custom_order ASC, ci.created_at ASC, ci.id ASC',
+    };
+  }
+
+  String _releaseDateOrderBy({
+    required String purchaseAlias,
+    required String metadataAlias,
+    required bool descending,
+    String? fallback,
+  }) {
+    final direction = descending ? 'DESC' : 'ASC';
+    final fallbackOrder =
+        fallback ?? '$purchaseAlias.purchase_date DESC, $purchaseAlias.id DESC';
+
+    return '''
+      $metadataAlias.release_date IS NULL ASC,
+      $metadataAlias.release_date $direction,
+      $fallbackOrder
+    ''';
   }
 
   Future<int> _nextCustomOrder(

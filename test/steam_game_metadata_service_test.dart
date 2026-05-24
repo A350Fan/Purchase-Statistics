@@ -115,6 +115,8 @@ Future<void> _createTestSchema(Database db) async {
     CREATE TABLE steam_game_metadata (
       steam_app_id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
+      release_date TEXT,
+      release_date_text TEXT,
       updated_at TEXT NOT NULL
     )
   ''');

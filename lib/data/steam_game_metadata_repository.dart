@@ -49,6 +49,10 @@ class SteamGameMetadataRepository {
     return SteamGameMetadata(
       steamAppId: steamAppId,
       name: metadataRows.single['name'] as String,
+      releaseDate: _parseOptionalDate(metadataRows.single['release_date']),
+      releaseDateText: _nullableString(
+        metadataRows.single['release_date_text'],
+      ),
       genres: valuesByField[SteamMetadataField.genre]!,
       tags: valuesByField[SteamMetadataField.tag]!,
       developers: valuesByField[SteamMetadataField.developer]!,
@@ -63,6 +67,8 @@ class SteamGameMetadataRepository {
       await transaction.insert(metadataTable, {
         'steam_app_id': metadata.steamAppId,
         'name': metadata.name,
+        'release_date': metadata.releaseDate?.toIso8601String(),
+        'release_date_text': _emptyToNull(metadata.releaseDateText),
         'updated_at': _now().toIso8601String(),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
       await transaction.delete(
@@ -121,5 +127,35 @@ class SteamGameMetadataRepository {
         'value': trimmedValue,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
+  }
+
+  DateTime? _parseOptionalDate(Object? value) {
+    final stringValue = _nullableString(value);
+
+    if (stringValue == null) {
+      return null;
+    }
+
+    return DateTime.tryParse(stringValue);
+  }
+
+  String? _nullableString(Object? value) {
+    final stringValue = value?.toString().trim();
+
+    if (stringValue == null || stringValue.isEmpty) {
+      return null;
+    }
+
+    return stringValue;
+  }
+
+  String? _emptyToNull(String? value) {
+    final trimmedValue = value?.trim();
+
+    if (trimmedValue == null || trimmedValue.isEmpty) {
+      return null;
+    }
+
+    return trimmedValue;
   }
 }

@@ -83,9 +83,13 @@ class SteamGameMetadataResponseParser {
       return null;
     }
 
+    final releaseDateText = _parseReleaseDateText(data['release_date']);
+
     return SteamGameMetadata(
       steamAppId: _parseSteamAppId(data['steam_appid']) ?? requestedSteamAppId,
       name: name,
+      releaseDate: _parseReleaseDate(releaseDateText),
+      releaseDateText: releaseDateText,
       genres: _parseDescriptionList(data['genres']),
       tags: [
         ..._parseDescriptionList(data['categories']),
@@ -102,6 +106,150 @@ class SteamGameMetadataResponseParser {
     }
 
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static String? _parseReleaseDateText(Object? value) {
+    if (value is Map<String, Object?>) {
+      final date = value['date']?.toString().trim();
+
+      if (date == null || date.isEmpty) {
+        return null;
+      }
+
+      return date;
+    }
+
+    final date = value?.toString().trim();
+
+    if (date == null || date.isEmpty) {
+      return null;
+    }
+
+    return date;
+  }
+
+  static DateTime? _parseReleaseDate(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final trimmedValue = value.trim();
+
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    final isoDate = DateTime.tryParse(trimmedValue);
+
+    if (isoDate != null) {
+      return DateTime.utc(isoDate.year, isoDate.month, isoDate.day);
+    }
+
+    final numericDate = RegExp(
+      r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$',
+    ).firstMatch(trimmedValue);
+
+    if (numericDate != null) {
+      return _dateFromParts(
+        year: int.tryParse(numericDate.group(3)!),
+        month: int.tryParse(numericDate.group(2)!),
+        day: int.tryParse(numericDate.group(1)!),
+      );
+    }
+
+    final normalizedValue = trimmedValue
+        .toLowerCase()
+        .replaceAll(',', ' ')
+        .replaceAll('.', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final tokens = normalizedValue.split(' ');
+    final yearIndex = tokens.indexWhere(
+      (token) => RegExp(r'^\d{4}$').hasMatch(token),
+    );
+
+    if (yearIndex == -1) {
+      return null;
+    }
+
+    final year = int.tryParse(tokens[yearIndex]);
+
+    if (tokens.length == 1) {
+      return _dateFromParts(year: year, month: 1, day: 1);
+    }
+
+    if (yearIndex >= 2) {
+      final day = int.tryParse(tokens[yearIndex - 2]);
+      final month = _parseMonth(tokens[yearIndex - 1]);
+
+      if (day != null && month != null) {
+        return _dateFromParts(year: year, month: month, day: day);
+      }
+    }
+
+    if (yearIndex >= 1) {
+      final month = _parseMonth(tokens[yearIndex - 1]);
+
+      if (month != null) {
+        return _dateFromParts(year: year, month: month, day: 1);
+      }
+    }
+
+    if (yearIndex + 2 < tokens.length) {
+      final month = _parseMonth(tokens[yearIndex + 1]);
+      final day = int.tryParse(tokens[yearIndex + 2]);
+
+      if (month != null && day != null) {
+        return _dateFromParts(year: year, month: month, day: day);
+      }
+    }
+
+    if (yearIndex >= 2) {
+      final month = _parseMonth(tokens[yearIndex - 2]);
+      final day = int.tryParse(tokens[yearIndex - 1]);
+
+      if (month != null && day != null) {
+        return _dateFromParts(year: year, month: month, day: day);
+      }
+    }
+
+    return _dateFromParts(year: year, month: 1, day: 1);
+  }
+
+  static DateTime? _dateFromParts({
+    required int? year,
+    required int? month,
+    required int? day,
+  }) {
+    if (year == null ||
+        month == null ||
+        day == null ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31) {
+      return null;
+    }
+
+    return DateTime.utc(year, month, day);
+  }
+
+  static int? _parseMonth(String value) {
+    return switch (value) {
+      'jan' || 'january' || 'januar' => 1,
+      'feb' || 'february' || 'februar' => 2,
+      'mar' || 'march' || 'mär' || 'maerz' || 'märz' => 3,
+      'apr' || 'april' => 4,
+      'may' || 'mai' => 5,
+      'jun' || 'june' || 'juni' => 6,
+      'jul' || 'july' || 'juli' => 7,
+      'aug' || 'august' => 8,
+      'sep' || 'sept' || 'september' => 9,
+      'oct' || 'october' || 'okt' || 'oktober' => 10,
+      'nov' || 'november' => 11,
+      'dec' || 'december' || 'dez' || 'dezember' => 12,
+      _ => null,
+    };
   }
 
   static List<String> _parseDescriptionList(Object? value) {

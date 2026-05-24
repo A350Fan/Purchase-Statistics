@@ -216,6 +216,60 @@ void main() {
       expect(count, 2);
     });
 
+    test('sorts automatic collection purchases by release date', () async {
+      final firstId = await _insertPurchase(
+        db,
+        gameName: "Assassin's Creed",
+        steamAppId: 15100,
+      );
+      final secondId = await _insertPurchase(
+        db,
+        gameName: "Assassin's Creed II",
+        steamAppId: 33230,
+      );
+      final thirdId = await _insertPurchase(
+        db,
+        gameName: "Assassin's Creed Odyssey",
+        steamAppId: 812140,
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 15100,
+        releaseDate: DateTime.utc(2008, 4, 9),
+        values: const <SteamMetadataField, List<String>>{},
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 33230,
+        releaseDate: DateTime.utc(2010, 3, 4),
+        values: const <SteamMetadataField, List<String>>{},
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 812140,
+        releaseDate: DateTime.utc(2018, 10, 5),
+        values: const <SteamMetadataField, List<String>>{},
+      );
+      final collection = SteamCollection(
+        name: "Assassin's Creed",
+        sortMode: SteamCollectionSortMode.releaseDateAsc,
+        collectionType: SteamCollectionType.automatic,
+        ruleField: SteamCollectionRuleField.titleContains,
+        ruleValue: "assassin's creed",
+        createdAt: now,
+      );
+
+      final purchases = await repository.getPurchasesForAutomaticCollection(
+        collection,
+      );
+
+      expect(purchases.map((purchase) => purchase.id), [
+        firstId,
+        secondId,
+        thirdId,
+      ]);
+    });
+
     test('loads available metadata values for collection rules', () async {
       await _insertMetadataValues(
         db,
@@ -304,6 +358,50 @@ void main() {
       expect(reorderedItems.last.purchaseId, firstPurchaseId);
       expect(reorderedItems.first.customOrder, 0);
       expect(reorderedItems.last.customOrder, 1);
+    });
+
+    test('sorts manual collection items by release date', () async {
+      final olderPurchaseId = await _insertPurchase(
+        db,
+        gameName: 'Older Game',
+        steamAppId: 1,
+      );
+      final newerPurchaseId = await _insertPurchase(
+        db,
+        gameName: 'Newer Game',
+        steamAppId: 2,
+      );
+      final collectionId = await repository.insertCollection(
+        SteamCollection(name: 'Timeline', createdAt: now),
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 1,
+        releaseDate: DateTime.utc(2010, 1, 1),
+        values: const <SteamMetadataField, List<String>>{},
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 2,
+        releaseDate: DateTime.utc(2020, 1, 1),
+        values: const <SteamMetadataField, List<String>>{},
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: collectionId,
+        purchaseId: newerPurchaseId,
+      );
+      await repository.addPurchaseToCollection(
+        collectionId: collectionId,
+        purchaseId: olderPurchaseId,
+      );
+
+      final items = await repository.getItemsForCollection(
+        collectionId,
+        sortMode: SteamCollectionSortMode.releaseDateAsc,
+      );
+
+      expect(items.first.purchaseId, olderPurchaseId);
+      expect(items.last.purchaseId, newerPurchaseId);
     });
 
     test('does not duplicate purchase assignments', () async {
@@ -437,6 +535,8 @@ Future<void> _createTestSchema(Database db) async {
     CREATE TABLE steam_game_metadata (
       steam_app_id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
+      release_date TEXT,
+      release_date_text TEXT,
       updated_at TEXT NOT NULL
     )
   ''');
@@ -476,11 +576,15 @@ Future<int> _insertPurchase(
 Future<void> _insertMetadataValues(
   Database db, {
   required int steamAppId,
+  DateTime? releaseDate,
+  String? releaseDateText,
   required Map<SteamMetadataField, List<String>> values,
 }) async {
   await db.insert('steam_game_metadata', {
     'steam_app_id': steamAppId,
     'name': 'App $steamAppId',
+    'release_date': releaseDate?.toIso8601String(),
+    'release_date_text': releaseDateText,
     'updated_at': DateTime.utc(2026, 5, 23).toIso8601String(),
   });
 
