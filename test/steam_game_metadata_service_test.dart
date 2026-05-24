@@ -91,6 +91,61 @@ void main() {
     expect(metadata, isNull);
     expect(client.callCount, 0);
   });
+
+  test('refreshes missing metadata for unique linked purchases', () async {
+    await repository.upsertMetadata(
+      const SteamGameMetadata(steamAppId: 620, name: 'Portal 2'),
+    );
+    final client = _MappedSteamGameMetadataClient({
+      400: const SteamGameMetadata(steamAppId: 400, name: 'Portal'),
+    });
+    final service = SteamGameMetadataService(
+      client: client,
+      repository: repository,
+    );
+
+    final result = await service.refreshMetadataForPurchases(
+      purchases: [
+        SteamPurchase(
+          id: 1,
+          purchaseDate: DateTime(2026, 5, 24),
+          gameName: 'Portal 2',
+          steamAppId: 620,
+          price: 9.99,
+        ),
+        SteamPurchase(
+          id: 2,
+          purchaseDate: DateTime(2026, 5, 24),
+          gameName: 'Portal',
+          steamAppId: 400,
+          price: 1.99,
+        ),
+        SteamPurchase(
+          id: 3,
+          purchaseDate: DateTime(2026, 5, 24),
+          gameName: 'Portal duplicate',
+          steamAppId: 400,
+          price: 1.99,
+        ),
+        SteamPurchase(
+          id: 4,
+          purchaseDate: DateTime(2026, 5, 24),
+          gameName: 'Manual',
+          price: 1.99,
+        ),
+      ],
+      language: 'german',
+      countryCode: 'DE',
+      onlyMissing: true,
+    );
+
+    expect(result.attempted, 1);
+    expect(result.refreshed, 1);
+    expect(result.skipped, 1);
+    expect(result.failed, 0);
+    expect(client.requestedSteamAppIds, [400]);
+    expect((await repository.getMetadata(400))?.name, 'Portal');
+  });
 }
 
 class _FakeSteamGameMetadataClient implements SteamGameMetadataClient {
@@ -107,6 +162,24 @@ class _FakeSteamGameMetadataClient implements SteamGameMetadataClient {
   }) async {
     callCount++;
     return metadata;
+  }
+}
+
+class _MappedSteamGameMetadataClient implements SteamGameMetadataClient {
+  final Map<int, SteamGameMetadata> metadataBySteamAppId;
+  final List<int> requestedSteamAppIds = [];
+
+  _MappedSteamGameMetadataClient(this.metadataBySteamAppId);
+
+  @override
+  Future<SteamGameMetadata?> fetchMetadata({
+    required int steamAppId,
+    required String language,
+    required String countryCode,
+  }) async {
+    requestedSteamAppIds.add(steamAppId);
+
+    return metadataBySteamAppId[steamAppId];
   }
 }
 

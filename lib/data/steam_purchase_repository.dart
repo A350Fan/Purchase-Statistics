@@ -68,6 +68,38 @@ class SteamPurchaseRepository {
     );
   }
 
+  Future<int> updateSteamAppIds(Map<int, int> steamAppIdsByPurchaseId) async {
+    if (steamAppIdsByPurchaseId.isEmpty) {
+      return 0;
+    }
+
+    final db = await AppDatabase.instance;
+
+    return db.transaction((transaction) async {
+      final batch = transaction.batch();
+
+      for (final entry in steamAppIdsByPurchaseId.entries) {
+        batch.update(
+          _tableName,
+          {'steam_app_id': entry.value},
+          where: 'id = ? AND steam_app_id IS NULL',
+          whereArgs: [entry.key],
+        );
+      }
+
+      final results = await batch.commit();
+      var updatedCount = 0;
+
+      for (final result in results) {
+        if (result is int) {
+          updatedCount += result;
+        }
+      }
+
+      return updatedCount;
+    });
+  }
+
   Future<void> deletePurchase(int id) async {
     final db = await AppDatabase.instance;
 

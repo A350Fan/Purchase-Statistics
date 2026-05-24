@@ -50,6 +50,77 @@ class AppStrings {
   String get exportCsv => isEnglish ? 'Export CSV' : 'CSV exportieren';
   String get openSettings => isEnglish ? 'Settings' : 'Einstellungen';
   String get moreActions => isEnglish ? 'More actions' : 'Weitere Aktionen';
+  String get automation => isEnglish ? 'Automation' : 'Automatisierung';
+  String get autoLinkSteamApps =>
+      isEnglish ? 'Auto-link Steam apps' : 'Steam-Apps automatisch verknüpfen';
+  String get refreshMissingMetadata =>
+      isEnglish ? 'Load missing metadata' : 'Fehlende Metadaten laden';
+  String get refreshAllMetadata =>
+      isEnglish ? 'Refresh all metadata' : 'Alle Metadaten aktualisieren';
+  String get createSmartCollections =>
+      isEnglish ? 'Create smart collections' : 'Smart-Kollektionen anlegen';
+  String get findingSteamAppLinks => isEnglish
+      ? 'Searching Steam app matches...'
+      : 'Steam-App-Treffer werden gesucht...';
+  String get applyingSteamAppLinks => isEnglish
+      ? 'Applying Steam app links...'
+      : 'Steam-App-Verknüpfungen werden gespeichert...';
+  String get refreshingMissingMetadata => isEnglish
+      ? 'Loading missing Steam metadata...'
+      : 'Fehlende Steam-Metadaten werden geladen...';
+  String get refreshingSteamMetadata => isEnglish
+      ? 'Refreshing Steam metadata...'
+      : 'Steam-Metadaten werden aktualisiert...';
+  String get creatingSmartCollections => isEnglish
+      ? 'Creating smart collections...'
+      : 'Smart-Kollektionen werden angelegt...';
+  String get noSteamAppLinkCandidates => isEnglish
+      ? 'No Steam app matches found for unlinked purchases.'
+      : 'Keine Steam-App-Treffer für unverknüpfte Käufe gefunden.';
+  String linkedSteamApps(int count) {
+    if (isEnglish) {
+      return count == 1
+          ? '1 Steam app was linked.'
+          : '$count Steam apps were linked.';
+    }
+
+    return count == 1
+        ? '1 Steam-App wurde verknüpft.'
+        : '$count Steam-Apps wurden verknüpft.';
+  }
+
+  String refreshedSteamMetadata({
+    required int refreshed,
+    required int skipped,
+    required int failed,
+  }) {
+    if (isEnglish) {
+      return 'Metadata refreshed: $refreshed, skipped: $skipped, failed: $failed.';
+    }
+
+    return 'Metadaten aktualisiert: $refreshed, übersprungen: $skipped, fehlgeschlagen: $failed.';
+  }
+
+  String createdSmartCollections(int count) {
+    if (isEnglish) {
+      return count == 1
+          ? '1 smart collection was created.'
+          : '$count smart collections were created.';
+    }
+
+    return count == 1
+        ? '1 Smart-Kollektion wurde angelegt.'
+        : '$count Smart-Kollektionen wurden angelegt.';
+  }
+
+  String get steamAppLinkReviewTitle =>
+      isEnglish ? 'Review Steam app links' : 'Steam-App-Verknüpfungen prüfen';
+  String get steamAppLinkReviewDescription => isEnglish
+      ? 'Only selected matches will be written. High-confidence matches are preselected.'
+      : 'Nur ausgewählte Treffer werden gespeichert. Sehr sichere Treffer sind vorausgewählt.';
+  String get confidence => isEnglish ? 'Confidence' : 'Sicherheit';
+  String get linkSelectedSteamApps =>
+      isEnglish ? 'Link selected' : 'Ausgewählte verknüpfen';
   String get edit => isEnglish ? 'Edit' : 'Bearbeiten';
   String get delete => isEnglish ? 'Delete' : 'Löschen';
   String get undo => isEnglish ? 'Undo' : 'Rückgängig';
@@ -141,6 +212,26 @@ class AppStrings {
   String get statusReviewDescription => isEnglish
       ? 'Games with plenty of playtime but no status. They probably should not be backlog anymore.'
       : 'Spiele mit viel Spielzeit, aber ohne Status. Die gehören wahrscheinlich nicht mehr in den Backlog.';
+  String get smartCollectionBacklogPriority =>
+      isEnglish ? 'Smart: Play next' : 'Smart: Als Nächstes angehen';
+  String get smartCollectionBacklogPriorityDescription => isEnglish
+      ? 'Created from the current backlog priority insights.'
+      : 'Aus den aktuellen Backlog-Prioritäten erstellt.';
+  String get smartCollectionExpensiveUnplayed =>
+      isEnglish ? 'Smart: Expensive and unplayed' : 'Smart: Teuer & ungespielt';
+  String get smartCollectionExpensiveUnplayedDescription => isEnglish
+      ? 'Unplayed backlog games sorted by tied-up value.'
+      : 'Ungespielte Backlog-Spiele mit hohem gebundenem Wert.';
+  String get smartCollectionStartedBacklog =>
+      isEnglish ? 'Smart: Started backlog' : 'Smart: Angefangener Backlog';
+  String get smartCollectionStartedBacklogDescription => isEnglish
+      ? 'Started games that are still open.'
+      : 'Angefangene Spiele, die noch offen sind.';
+  String get smartCollectionHighCostPerHour =>
+      isEnglish ? 'Smart: High cost per hour' : 'Smart: Hohe Kosten pro Stunde';
+  String get smartCollectionHighCostPerHourDescription => isEnglish
+      ? 'Backlog games where the current value per played hour is still high.'
+      : 'Backlog-Spiele mit aktuell hohen Kosten pro gespielter Stunde.';
   String get priority => isEnglish ? 'Priority' : 'Priorität';
   String get priorityHigh => isEnglish ? 'High' : 'Hoch';
   String get priorityMedium => isEnglish ? 'Medium' : 'Mittel';
@@ -270,6 +361,13 @@ class AppStrings {
   String get metadataTag => isEnglish ? 'Tag' : 'Tag';
   String get metadataDeveloper => isEnglish ? 'Developer' : 'Entwickler';
   String get metadataPublisher => isEnglish ? 'Publisher' : 'Publisher';
+  String get metadataPreview =>
+      isEnglish ? 'Steam metadata' : 'Steam-Metadaten';
+  String get loadingMetadata =>
+      isEnglish ? 'Loading metadata...' : 'Metadaten werden geladen...';
+  String get noMetadataPreview => isEnglish
+      ? 'No metadata cached for this Steam app yet.'
+      : 'Für diese Steam-App sind noch keine Metadaten gespeichert.';
   String automaticCollectionRule(String field, String value) {
     return '$field: $value';
   }

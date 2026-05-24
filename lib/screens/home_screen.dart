@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -6,11 +7,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
+import '../data/steam_app_linking_service.dart';
 import '../data/steam_game_metadata_service.dart';
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
+import '../logic/steam_insights.dart';
 import '../logic/steam_statistics.dart';
+import '../models/steam_collection.dart';
 import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
@@ -38,18 +42,28 @@ enum PurchaseSortOption {
   pricePerHourHighestFirst,
 }
 
-enum _HomeAction { importCsv, exportCsv, settings }
+enum _HomeAction {
+  autoLinkSteamApps,
+  refreshMissingMetadata,
+  refreshAllMetadata,
+  createSmartCollections,
+  importCsv,
+  exportCsv,
+  settings,
+}
 
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
   final SteamCollectionRepository? collectionRepository;
   final SteamGameMetadataService? metadataService;
+  final SteamAppLinkingService? appLinkingService;
 
   const HomeScreen({
     super.key,
     this.repository,
     this.collectionRepository,
     this.metadataService,
+    this.appLinkingService,
   });
 
   @override
@@ -61,6 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
   late final SteamGameMetadataService _metadataService;
+  late final SteamAppLinkingService _appLinkingService;
   late final TabController _tabController;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
   final _purchaseSearchController = TextEditingController();
@@ -68,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen>
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
   bool _isCsvOperationRunning = false;
+  bool _isAutomationRunning = false;
   int _selectedTabIndex = 0;
   PurchaseSortOption _sortOption = PurchaseSortOption.dateNewestFirst;
   PurchaseFilters _purchaseFilters = const PurchaseFilters();
@@ -79,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen>
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
     _metadataService = widget.metadataService ?? SteamGameMetadataService();
+    _appLinkingService = widget.appLinkingService ?? SteamAppLinkingService();
     _tabController = TabController(length: 5, vsync: this)
       ..addListener(_handleTabSelectionChanged);
     _loadPurchases();
@@ -343,6 +360,7 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (context) => AddPurchaseScreen(
           existingPurchases: _purchases,
           collectionRepository: _collectionRepository,
+          metadataService: _metadataService,
         ),
       ),
     );
@@ -385,6 +403,7 @@ class _HomeScreenState extends State<HomeScreen>
           initialPurchase: purchase,
           existingPurchases: _purchases,
           collectionRepository: _collectionRepository,
+          metadataService: _metadataService,
         ),
       ),
     );
@@ -431,6 +450,238 @@ class _HomeScreenState extends State<HomeScreen>
     Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
+  }
+
+  Future<T?> _runAutomation<T>({
+    required String message,
+    required Future<T> Function() action,
+  }) async {
+    if (_isAutomationRunning) {
+      return null;
+    }
+
+    setState(() {
+      _isAutomationRunning = true;
+    });
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: Text(message)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    try {
+      return await action();
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() {
+          _isAutomationRunning = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _autoLinkSteamApps() async {
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+    final candidates = await _runAutomation(
+      message: strings.findingSteamAppLinks,
+      action: () {
+        return _appLinkingService.findCandidates(
+          purchases: _purchases,
+          language: _steamLanguage(strings),
+          countryCode: _steamCountryCode(currency),
+        );
+      },
+    );
+
+    if (!mounted || candidates == null) {
+      return;
+    }
+
+    if (candidates.isEmpty) {
+      _showSnackBar(strings.noSteamAppLinkCandidates);
+      return;
+    }
+
+    final selectedCandidates = await showDialog<List<SteamAppLinkCandidate>>(
+      context: context,
+      builder: (context) {
+        return _SteamAppLinkReviewDialog(candidates: candidates);
+      },
+    );
+
+    if (!mounted || selectedCandidates == null || selectedCandidates.isEmpty) {
+      return;
+    }
+
+    final updatedCount = await _runAutomation(
+      message: strings.applyingSteamAppLinks,
+      action: () async {
+        final steamAppIdsByPurchaseId = <int, int>{
+          for (final candidate in selectedCandidates)
+            if (candidate.purchase.id != null)
+              candidate.purchase.id!: candidate.suggestion.appId,
+        };
+        final updated = await _repository.updateSteamAppIds(
+          steamAppIdsByPurchaseId,
+        );
+        final linkedPurchases = selectedCandidates.map((candidate) {
+          return candidate.purchase.copyWith(
+            steamAppId: candidate.suggestion.appId,
+          );
+        });
+
+        await _metadataService.refreshMetadataForPurchases(
+          purchases: linkedPurchases,
+          language: _steamLanguage(strings),
+          countryCode: _steamCountryCode(currency),
+          onlyMissing: true,
+        );
+
+        return updated;
+      },
+    );
+
+    if (!mounted || updatedCount == null) {
+      return;
+    }
+
+    await _loadPurchases();
+    await _collectionsTabKey.currentState?.refresh();
+    _showSnackBar(strings.linkedSteamApps(updatedCount));
+  }
+
+  Future<void> _refreshMetadataForLinkedPurchases({
+    required bool onlyMissing,
+  }) async {
+    final strings = AppStrings.of(context);
+    final currency =
+        AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
+    final result = await _runAutomation(
+      message: onlyMissing
+          ? strings.refreshingMissingMetadata
+          : strings.refreshingSteamMetadata,
+      action: () {
+        return _metadataService.refreshMetadataForPurchases(
+          purchases: _purchases,
+          language: _steamLanguage(strings),
+          countryCode: _steamCountryCode(currency),
+          onlyMissing: onlyMissing,
+        );
+      },
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _collectionsTabKey.currentState?.refresh();
+    _showSnackBar(
+      strings.refreshedSteamMetadata(
+        refreshed: result.refreshed,
+        skipped: result.skipped,
+        failed: result.failed,
+      ),
+    );
+  }
+
+  Future<void> _createSmartCollectionPresets() async {
+    final strings = AppStrings.of(context);
+    final createdCount = await _runAutomation(
+      message: strings.creatingSmartCollections,
+      action: () async {
+        final existingCollections = await _collectionRepository
+            .getCollections();
+        final existingNames = existingCollections.map((collection) {
+          return _normalizeSearchText(collection.name);
+        }).toSet();
+        final insights = SteamInsights(_purchases);
+        final presets = [
+          _SmartCollectionPreset(
+            name: strings.smartCollectionBacklogPriority,
+            description: strings.smartCollectionBacklogPriorityDescription,
+            purchases: insights.backlogPriority.map((item) => item.purchase),
+          ),
+          _SmartCollectionPreset(
+            name: strings.smartCollectionExpensiveUnplayed,
+            description: strings.smartCollectionExpensiveUnplayedDescription,
+            purchases: insights.expensiveUnplayedGames.map(
+              (item) => item.purchase,
+            ),
+          ),
+          _SmartCollectionPreset(
+            name: strings.smartCollectionStartedBacklog,
+            description: strings.smartCollectionStartedBacklogDescription,
+            purchases: insights.startedBacklog.map((item) => item.purchase),
+          ),
+          _SmartCollectionPreset(
+            name: strings.smartCollectionHighCostPerHour,
+            description: strings.smartCollectionHighCostPerHourDescription,
+            purchases: insights.highCostPerHourGames.map(
+              (item) => item.purchase,
+            ),
+          ),
+        ];
+        var created = 0;
+
+        for (final preset in presets) {
+          final normalizedName = _normalizeSearchText(preset.name);
+
+          if (existingNames.contains(normalizedName)) {
+            continue;
+          }
+
+          final collectionId = await _collectionRepository.insertCollection(
+            SteamCollection.create(
+              name: preset.name,
+              description: preset.description,
+            ),
+          );
+          existingNames.add(normalizedName);
+          created++;
+
+          for (final purchase in preset.purchases) {
+            final purchaseId = purchase.id;
+
+            if (purchaseId == null) {
+              continue;
+            }
+
+            await _collectionRepository.addPurchaseToCollection(
+              collectionId: collectionId,
+              purchaseId: purchaseId,
+            );
+          }
+        }
+
+        return created;
+      },
+    );
+
+    if (!mounted || createdCount == null) {
+      return;
+    }
+
+    await _collectionsTabKey.currentState?.refresh();
+    _showSnackBar(strings.createdSmartCollections(createdCount));
   }
 
   Future<void> _importPurchasesFromCsv() async {
@@ -1086,6 +1337,80 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  void _handleHomeAction(_HomeAction action) {
+    switch (action) {
+      case _HomeAction.autoLinkSteamApps:
+        _autoLinkSteamApps();
+        break;
+      case _HomeAction.refreshMissingMetadata:
+        _refreshMetadataForLinkedPurchases(onlyMissing: true);
+        break;
+      case _HomeAction.refreshAllMetadata:
+        _refreshMetadataForLinkedPurchases(onlyMissing: false);
+        break;
+      case _HomeAction.createSmartCollections:
+        _createSmartCollectionPresets();
+        break;
+      case _HomeAction.importCsv:
+        _importPurchasesFromCsv();
+        break;
+      case _HomeAction.exportCsv:
+        _exportPurchasesToCsv();
+        break;
+      case _HomeAction.settings:
+        _openSettingsScreen();
+        break;
+    }
+  }
+
+  PopupMenuItem<_HomeAction> _buildHomeActionMenuItem({
+    required _HomeAction action,
+    required IconData icon,
+    required String label,
+    bool enabled = true,
+  }) {
+    return PopupMenuItem(
+      value: action,
+      enabled: enabled,
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(label),
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<_HomeAction>> _buildAutomationMenuItems(
+    AppStrings strings,
+  ) {
+    return [
+      _buildHomeActionMenuItem(
+        action: _HomeAction.autoLinkSteamApps,
+        icon: Icons.link,
+        label: strings.autoLinkSteamApps,
+        enabled: !_isAutomationRunning,
+      ),
+      _buildHomeActionMenuItem(
+        action: _HomeAction.refreshMissingMetadata,
+        icon: Icons.cloud_download,
+        label: strings.refreshMissingMetadata,
+        enabled: !_isAutomationRunning,
+      ),
+      _buildHomeActionMenuItem(
+        action: _HomeAction.refreshAllMetadata,
+        icon: Icons.sync,
+        label: strings.refreshAllMetadata,
+        enabled: !_isAutomationRunning,
+      ),
+      _buildHomeActionMenuItem(
+        action: _HomeAction.createSmartCollections,
+        icon: Icons.auto_awesome_motion,
+        label: strings.createSmartCollections,
+        enabled: !_isAutomationRunning,
+      ),
+    ];
+  }
+
   List<Widget> _buildAppBarActions(AppStrings strings) {
     final isCompact = MediaQuery.sizeOf(context).width < 520;
 
@@ -1094,46 +1419,27 @@ class _HomeScreenState extends State<HomeScreen>
         PopupMenuButton<_HomeAction>(
           tooltip: strings.moreActions,
           icon: const Icon(Icons.more_vert),
-          onSelected: (action) {
-            switch (action) {
-              case _HomeAction.importCsv:
-                _importPurchasesFromCsv();
-                break;
-              case _HomeAction.exportCsv:
-                _exportPurchasesToCsv();
-                break;
-              case _HomeAction.settings:
-                _openSettingsScreen();
-                break;
-            }
-          },
+          onSelected: _handleHomeAction,
           itemBuilder: (context) {
             return [
-              PopupMenuItem(
-                value: _HomeAction.importCsv,
+              ..._buildAutomationMenuItems(strings),
+              const PopupMenuDivider(),
+              _buildHomeActionMenuItem(
+                action: _HomeAction.importCsv,
+                icon: Icons.upload_file,
+                label: strings.importCsv,
                 enabled: !_isCsvOperationRunning,
-                child: ListTile(
-                  leading: const Icon(Icons.upload_file),
-                  title: Text(strings.importCsv),
-                  contentPadding: EdgeInsets.zero,
-                ),
               ),
-              PopupMenuItem(
-                value: _HomeAction.exportCsv,
+              _buildHomeActionMenuItem(
+                action: _HomeAction.exportCsv,
+                icon: Icons.download,
+                label: strings.exportCsv,
                 enabled: !_isCsvOperationRunning,
-                child: ListTile(
-                  leading: const Icon(Icons.download),
-                  title: Text(strings.exportCsv),
-                  contentPadding: EdgeInsets.zero,
-                ),
               ),
-              PopupMenuItem(
-                value: _HomeAction.settings,
-                child: ListTile(
-                  leading: const Icon(Icons.settings),
-                  title: Text(strings.openSettings),
-                  contentPadding: EdgeInsets.zero,
-                ),
+              _buildHomeActionMenuItem(
+                action: _HomeAction.settings,
+                icon: Icons.settings,
+                label: strings.openSettings,
               ),
             ];
           },
@@ -1142,6 +1448,12 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return [
+      PopupMenuButton<_HomeAction>(
+        tooltip: strings.automation,
+        icon: const Icon(Icons.auto_awesome),
+        onSelected: _handleHomeAction,
+        itemBuilder: (context) => _buildAutomationMenuItems(strings),
+      ),
       IconButton(
         tooltip: strings.importCsv,
         onPressed: _isCsvOperationRunning ? null : _importPurchasesFromCsv,
@@ -1318,6 +1630,119 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _SmartCollectionPreset {
+  final String name;
+  final String description;
+  final Iterable<SteamPurchase> purchases;
+
+  const _SmartCollectionPreset({
+    required this.name,
+    required this.description,
+    required this.purchases,
+  });
+}
+
+class _SteamAppLinkReviewDialog extends StatefulWidget {
+  final List<SteamAppLinkCandidate> candidates;
+
+  const _SteamAppLinkReviewDialog({required this.candidates});
+
+  @override
+  State<_SteamAppLinkReviewDialog> createState() =>
+      _SteamAppLinkReviewDialogState();
+}
+
+class _SteamAppLinkReviewDialogState extends State<_SteamAppLinkReviewDialog> {
+  late final Set<int> _selectedPurchaseIds = widget.candidates
+      .where((candidate) => candidate.isHighConfidence)
+      .map((candidate) => candidate.purchase.id)
+      .whereType<int>()
+      .toSet();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final selectedCandidates = widget.candidates.where((candidate) {
+      final purchaseId = candidate.purchase.id;
+
+      return purchaseId != null && _selectedPurchaseIds.contains(purchaseId);
+    }).toList();
+
+    return AlertDialog(
+      title: Text(strings.steamAppLinkReviewTitle),
+      content: SizedBox(
+        width: 680,
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(strings.steamAppLinkReviewDescription),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                itemCount: widget.candidates.length,
+                itemBuilder: (context, index) {
+                  final candidate = widget.candidates[index];
+                  final purchaseId = candidate.purchase.id;
+                  final isSelected =
+                      purchaseId != null &&
+                      _selectedPurchaseIds.contains(purchaseId);
+
+                  return CheckboxListTile(
+                    value: isSelected,
+                    onChanged: purchaseId == null
+                        ? null
+                        : (value) {
+                            setState(() {
+                              if (value == true) {
+                                _selectedPurchaseIds.add(purchaseId);
+                              } else {
+                                _selectedPurchaseIds.remove(purchaseId);
+                              }
+                            });
+                          },
+                    title: Text(
+                      candidate.purchase.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${candidate.suggestion.name} · '
+                      '${strings.steamApp}: ${candidate.suggestion.appId} · '
+                      '${strings.confidence}: '
+                      '${(candidate.confidence * 100).round()}%',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    secondary: Icon(
+                      candidate.isHighConfidence
+                          ? Icons.verified
+                          : Icons.help_outline,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+        FilledButton.icon(
+          onPressed: selectedCandidates.isEmpty
+              ? null
+              : () => Navigator.of(context).pop(selectedCandidates),
+          icon: const Icon(Icons.link),
+          label: Text(strings.linkSelectedSteamApps),
+        ),
+      ],
     );
   }
 }

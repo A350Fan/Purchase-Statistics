@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
+import '../data/steam_game_metadata_service.dart';
 import '../data/steam_store_search_repository.dart';
 import '../data/steam_store_search_text.dart';
 import '../l10n/app_strings.dart';
 import '../models/steam_collection.dart';
+import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
 import '../settings/app_settings.dart';
@@ -46,6 +48,7 @@ class AddPurchaseScreen extends StatefulWidget {
   final List<SteamPurchase> existingPurchases;
   final SteamStoreSearchSource? steamSearchSource;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameMetadataService? metadataService;
 
   const AddPurchaseScreen({
     super.key,
@@ -53,6 +56,7 @@ class AddPurchaseScreen extends StatefulWidget {
     this.existingPurchases = const [],
     this.steamSearchSource,
     this.collectionRepository,
+    this.metadataService,
   });
 
   bool get isEditing => initialPurchase != null;
@@ -81,6 +85,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _dlcNameLayerLink = LayerLink();
 
   late final SteamStoreSearchSource _steamSearchSource;
+  late final SteamGameMetadataService? _metadataService;
   late final List<String> _gameNameSuggestions;
   late final List<String> _dlcNameSuggestions;
 
@@ -104,6 +109,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   List<SteamCollection> _collections = [];
   Set<int> _selectedCollectionIds = {};
   bool _isLoadingCollections = false;
+  SteamGameMetadata? _metadataPreview;
+  bool _isMetadataPreviewLoading = false;
+  int _metadataPreviewGeneration = 0;
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
@@ -120,6 +128,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     _steamSearchSource =
         widget.steamSearchSource ?? SteamStoreSearchRepository();
+    _metadataService = widget.metadataService;
     _gameNameSuggestions = _uniqueNames(
       widget.existingPurchases.map((purchase) => purchase.gameName),
     );
@@ -187,6 +196,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     _startListeningForNameChanges();
     _loadCollectionSelection();
+    _scheduleInitialMetadataPreviewLoad();
   }
 
   @override
@@ -197,6 +207,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _dlcNameFocusLossTimer?.cancel();
     _gameNameController.removeListener(_handleGameNameChanged);
     _dlcNameController.removeListener(_handleDlcNameChanged);
+    _steamAppIdController.removeListener(_handleSteamAppIdChanged);
     _gameNameFocusNode.removeListener(_handleGameNameFocusChanged);
     _dlcNameFocusNode.removeListener(_handleDlcNameFocusChanged);
     _removeNameSuggestionsOverlay(_NameSuggestionField.game);
@@ -220,8 +231,20 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void _startListeningForNameChanges() {
     _gameNameController.addListener(_handleGameNameChanged);
     _dlcNameController.addListener(_handleDlcNameChanged);
+    _steamAppIdController.addListener(_handleSteamAppIdChanged);
     _gameNameFocusNode.addListener(_handleGameNameFocusChanged);
     _dlcNameFocusNode.addListener(_handleDlcNameFocusChanged);
+  }
+
+  void _scheduleInitialMetadataPreviewLoad() {
+    if (_metadataService == null ||
+        _parseOptionalInt(_steamAppIdController.text) == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMetadataPreview();
+    });
   }
 
   Future<void> _pickPurchaseDate() async {
@@ -378,6 +401,27 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _selectedDlcSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
     _scheduleSteamNameSearch(_NameSuggestionField.dlc);
+  }
+
+  void _handleSteamAppIdChanged() {
+    if (_metadataService == null || _isApplyingAutocompleteSelection) {
+      return;
+    }
+
+    Future<void>.microtask(() {
+      if (!mounted) {
+        return;
+      }
+
+      final steamAppId = _parseOptionalInt(_steamAppIdController.text);
+
+      if (steamAppId == null) {
+        _clearMetadataPreview();
+        return;
+      }
+
+      _loadMetadataPreview();
+    });
   }
 
   void _handleGameNameFocusChanged() {
@@ -762,6 +806,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
     _isApplyingAutocompleteSelection = false;
     _removeNameSuggestionsOverlay(field);
+    _loadMetadataPreview(refresh: suggestion.steamAppId != null);
   }
 
   String _nameForSelectedSuggestion(_NameSuggestionField field, String name) {
@@ -827,6 +872,69 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
   }
 
+  void _clearMetadataPreview() {
+    _metadataPreviewGeneration++;
+
+    if (_metadataPreview == null && !_isMetadataPreviewLoading) {
+      return;
+    }
+
+    setState(() {
+      _metadataPreview = null;
+      _isMetadataPreviewLoading = false;
+    });
+  }
+
+  Future<void> _loadMetadataPreview({bool refresh = false}) async {
+    final metadataService = _metadataService;
+    final steamAppId = _parseOptionalInt(_steamAppIdController.text);
+
+    if (metadataService == null || steamAppId == null) {
+      _clearMetadataPreview();
+      return;
+    }
+
+    final generation = ++_metadataPreviewGeneration;
+
+    setState(() {
+      _isMetadataPreviewLoading = true;
+    });
+
+    SteamGameMetadata? metadata;
+
+    try {
+      metadata = await metadataService.getMetadata(steamAppId);
+
+      if (metadata == null && refresh) {
+        if (!mounted || generation != _metadataPreviewGeneration) {
+          return;
+        }
+
+        final strings = AppStrings.of(context);
+        final currency =
+            AppSettingsScope.maybeOf(context)?.settings.currency ??
+            AppCurrency.eur;
+
+        metadata = await metadataService.refreshMetadata(
+          steamAppId: steamAppId,
+          language: _steamLanguage(strings),
+          countryCode: _steamCountryCode(currency),
+        );
+      }
+    } catch (_) {
+      metadata = null;
+    }
+
+    if (!mounted || generation != _metadataPreviewGeneration) {
+      return;
+    }
+
+    setState(() {
+      _metadataPreview = metadata;
+      _isMetadataPreviewLoading = false;
+    });
+  }
+
   Future<void> _openSteamAppLinkDialog() async {
     final strings = AppStrings.of(context);
     final currency =
@@ -866,6 +974,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _steamAppIdController.text = suggestion.appId.toString();
     });
     _isApplyingAutocompleteSelection = false;
+    _loadMetadataPreview(refresh: true);
   }
 
   String _initialSteamLinkQuery() {
@@ -960,6 +1069,109 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       );
       _isLoadingCollections = false;
     });
+  }
+
+  Widget _buildMetadataPreview(AppStrings strings) {
+    final steamAppId = _parseOptionalInt(_steamAppIdController.text);
+
+    if (_metadataService == null || steamAppId == null) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final metadata = _metadataPreview;
+    final previewChips = metadata == null
+        ? const <Widget>[]
+        : [
+            if (metadata.releaseDateText != null)
+              Chip(
+                avatar: const Icon(Icons.event, size: 16),
+                label: Text(strings.releaseDate(metadata.releaseDateText!)),
+                visualDensity: VisualDensity.compact,
+              ),
+            for (final genre in metadata.genres.take(3))
+              Chip(
+                avatar: const Icon(Icons.category, size: 16),
+                label: Text(genre),
+                visualDensity: VisualDensity.compact,
+              ),
+            for (final tag in metadata.tags.take(4))
+              Chip(
+                avatar: const Icon(Icons.sell, size: 16),
+                label: Text(tag),
+                visualDensity: VisualDensity.compact,
+              ),
+            for (final developer in metadata.developers.take(2))
+              Chip(
+                avatar: const Icon(Icons.code, size: 16),
+                label: Text(developer),
+                visualDensity: VisualDensity.compact,
+              ),
+          ];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withAlpha(14),
+          colorScheme.surface,
+        ),
+        border: Border.all(color: colorScheme.outline.withAlpha(42)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    strings.metadataPreview,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (_isMetadataPreviewLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (metadata == null)
+              Text(
+                _isMetadataPreviewLoading
+                    ? strings.loadingMetadata
+                    : strings.noMetadataPreview,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              )
+            else ...[
+              Text(
+                metadata.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (previewChips.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: previewChips),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCollectionsTab(AppStrings strings) {
@@ -1268,6 +1480,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                       onPressed: () {
                                         setState(() {
                                           _steamAppIdController.clear();
+                                          _metadataPreview = null;
+                                          _isMetadataPreviewLoading = false;
 
                                           if (_purchaseType ==
                                               SteamPurchaseType.dlc) {
@@ -1282,6 +1496,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     ),
                                   ],
                                 ),
+                                if (_metadataService != null &&
+                                    _parseOptionalInt(
+                                          _steamAppIdController.text,
+                                        ) !=
+                                        null) ...[
+                                  const SizedBox(height: 12),
+                                  _buildMetadataPreview(strings),
+                                ],
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _editionController,
