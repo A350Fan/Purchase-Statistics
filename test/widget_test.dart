@@ -153,7 +153,17 @@ void main() {
       tester.view.resetPhysicalSize();
     });
 
-    await tester.pumpWidget(_buildTestApp());
+    await tester.pumpWidget(
+      _buildTestApp(null, [
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.open,
+          price: 9.99,
+          originalPrice: 19.99,
+        ),
+      ]),
+    );
     await tester.pump(const Duration(seconds: 1));
 
     expect(tester.takeException(), isNull);
@@ -201,6 +211,85 @@ void main() {
     await tester.pump();
 
     expect(find.text('Portal 2'), findsOneWidget);
+  });
+
+  testWidgets('applies advanced purchase filters from the overview', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1400);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(
+      _buildTestApp(null, [
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.open,
+          price: 9.99,
+          originalPrice: 19.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          gameName: 'Stardew Valley',
+          gameStatus: SteamGameStatus.completed,
+          price: 4.99,
+          originalPrice: 14.99,
+          playtimeHours: 120,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 3),
+          purchaseType: SteamPurchaseType.dlc,
+          gameName: 'Portal 2',
+          dlcName: 'Soundtrack',
+          price: 2.99,
+        ),
+      ]),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Filter'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.tap(find.text('Offen'));
+    await tester.tap(find.text('Anwenden'));
+    await _pumpInteractionFrame(tester);
+
+    expect(find.text('Portal 2'), findsOneWidget);
+    expect(find.text('Stardew Valley'), findsNothing);
+    expect(find.text('Portal 2: Soundtrack'), findsNothing);
+    expect(find.text('Filter (1)'), findsOneWidget);
+
+    await tester.tap(find.text('Filter zurücksetzen'));
+    await tester.pump();
+
+    expect(find.text('Stardew Valley'), findsOneWidget);
+    expect(find.text('Portal 2: Soundtrack'), findsOneWidget);
+  });
+
+  testWidgets('purchase filter dialog fits in a narrow viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 850);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(_buildTestApp());
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Filter'));
+    await _pumpInteractionFrame(tester);
+
+    expect(find.text('Käufe filtern'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('settings menu changes theme and language', (

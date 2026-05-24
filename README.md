@@ -41,6 +41,7 @@ Implemented so far:
 - Optional playtime tracking
 - Optional notes
 - Sorting options for the purchase list
+- Advanced purchase filters
 - CSV import
 - CSV export
 - Dashboard overview cards
@@ -258,7 +259,6 @@ Possible next steps:
 - Improve Android layout
 - Add XLSX import
 - Add backup and restore
-- Add advanced filters
 - Add search
 - Add categories/tags
 - Add more chart types

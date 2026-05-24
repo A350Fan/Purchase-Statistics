@@ -48,11 +48,47 @@ class AppStrings {
   String get importCsv => isEnglish ? 'Import CSV' : 'CSV importieren';
   String get exportCsv => isEnglish ? 'Export CSV' : 'CSV exportieren';
   String get openSettings => isEnglish ? 'Settings' : 'Einstellungen';
+  String get moreActions => isEnglish ? 'More actions' : 'Weitere Aktionen';
   String get edit => isEnglish ? 'Edit' : 'Bearbeiten';
   String get delete => isEnglish ? 'Delete' : 'Löschen';
   String get undo => isEnglish ? 'Undo' : 'Rückgängig';
   String get purchaseSearch => isEnglish ? 'Search purchases' : 'Käufe suchen';
   String get clearSearch => isEnglish ? 'Clear search' : 'Suche löschen';
+  String get filters => isEnglish ? 'Filters' : 'Filter';
+  String activeFilterCount(int count) {
+    return isEnglish ? 'Filters ($count)' : 'Filter ($count)';
+  }
+
+  String get clearFilters =>
+      isEnglish ? 'Clear filters' : 'Filter zurücksetzen';
+  String get resetFilters => isEnglish ? 'Reset' : 'Zurücksetzen';
+  String get applyFilters => isEnglish ? 'Apply' : 'Anwenden';
+  String get purchaseFiltersTitle =>
+      isEnglish ? 'Filter purchases' : 'Käufe filtern';
+  String get status => isEnglish ? 'Status' : 'Status';
+  String statusFilterCount(int count) {
+    return isEnglish ? 'Status: $count selected' : 'Status: $count ausgewählt';
+  }
+
+  String get purchaseYearFilter => isEnglish ? 'Purchase year' : 'Kaufjahr';
+  String get allYears => isEnglish ? 'All years' : 'Alle Jahre';
+  String get priceRange => isEnglish ? 'Price range' : 'Preisbereich';
+  String get minPrice => isEnglish ? 'Min.' : 'Min.';
+  String get maxPrice => isEnglish ? 'Max.' : 'Max.';
+  String get priceRangeInvalid => isEnglish
+      ? 'Minimum must not be higher than maximum'
+      : 'Minimum darf nicht höher als Maximum sein';
+  String get playtimeFilter => isEnglish ? 'Playtime' : 'Spielzeit';
+  String get allPlaytime => isEnglish ? 'All' : 'Alle';
+  String get withFilter => isEnglish ? 'With' : 'Mit';
+  String get withoutFilter => isEnglish ? 'Without' : 'Ohne';
+  String get withPlaytime => isEnglish ? 'With playtime' : 'Mit Spielzeit';
+  String get withoutPlaytime =>
+      isEnglish ? 'Without playtime' : 'Ohne Spielzeit';
+  String get discountFilter => isEnglish ? 'Discount' : 'Rabatt';
+  String get allDiscounts => isEnglish ? 'All' : 'Alle';
+  String get withDiscount => isEnglish ? 'With discount' : 'Mit Rabatt';
+  String get withoutDiscount => isEnglish ? 'Without discount' : 'Ohne Rabatt';
   String get noPurchases => isEnglish
       ? 'No purchases yet. Add your first Steam purchase.'
       : 'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.';

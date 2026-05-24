@@ -18,6 +18,7 @@ import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 import 'charts_tab.dart';
 import 'collections_tab.dart';
+import 'purchase_filters.dart';
 import 'settings_screen.dart';
 import 'statistics_tab.dart';
 
@@ -35,6 +36,8 @@ enum PurchaseSortOption {
   pricePerHourLowestFirst,
   pricePerHourHighestFirst,
 }
+
+enum _HomeAction { importCsv, exportCsv, settings }
 
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
@@ -66,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isCsvOperationRunning = false;
   int _selectedTabIndex = 0;
   PurchaseSortOption _sortOption = PurchaseSortOption.dateNewestFirst;
+  PurchaseFilters _purchaseFilters = const PurchaseFilters();
 
   @override
   void initState() {
@@ -184,11 +188,19 @@ class _HomeScreenState extends State<HomeScreen>
   ) {
     final query = _normalizeSearchText(_purchaseSearchController.text);
 
-    if (query.isEmpty) {
+    if (query.isEmpty && !_purchaseFilters.hasFilters) {
       return purchases;
     }
 
     return purchases.where((purchase) {
+      if (!_purchaseFilters.matches(purchase)) {
+        return false;
+      }
+
+      if (query.isEmpty) {
+        return true;
+      }
+
       final gameStatus = purchase.purchaseType == SteamPurchaseType.game
           ? purchase.gameStatus
           : null;
@@ -213,6 +225,108 @@ class _HomeScreenState extends State<HomeScreen>
     AppCurrency currency,
   ) {
     return strings.sortLabel(option.name, currency.symbol);
+  }
+
+  List<int> _getPurchaseYears() {
+    final years = _purchases.map((purchase) => purchase.year).toSet().toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return years;
+  }
+
+  Future<void> _openPurchaseFiltersDialog(AppCurrency currency) async {
+    final filters = await showDialog<PurchaseFilters>(
+      context: context,
+      builder: (context) {
+        return PurchaseFiltersDialog(
+          initialFilters: _purchaseFilters,
+          availableYears: _getPurchaseYears(),
+          currency: currency,
+        );
+      },
+    );
+
+    if (filters == null) {
+      return;
+    }
+
+    setState(() {
+      _purchaseFilters = filters;
+    });
+  }
+
+  void _clearPurchaseFilters() {
+    setState(() {
+      _purchaseFilters = const PurchaseFilters();
+    });
+  }
+
+  List<String> _activeFilterLabels(AppStrings strings, AppCurrency currency) {
+    final labels = <String>[];
+
+    switch (_purchaseFilters.purchaseType) {
+      case PurchaseTypeFilterOption.all:
+        break;
+      case PurchaseTypeFilterOption.games:
+        labels.add(strings.game);
+        break;
+      case PurchaseTypeFilterOption.dlcs:
+        labels.add(strings.dlc);
+        break;
+    }
+
+    if (_purchaseFilters.statuses.length == 1) {
+      labels.add(
+        '${strings.status}: '
+        '${strings.gameStatusLabel(_purchaseFilters.statuses.single)}',
+      );
+    } else if (_purchaseFilters.statuses.length > 1) {
+      labels.add(strings.statusFilterCount(_purchaseFilters.statuses.length));
+    }
+
+    final year = _purchaseFilters.year;
+
+    if (year != null) {
+      labels.add('${strings.year}: $year');
+    }
+
+    final minPrice = _purchaseFilters.minPrice;
+    final maxPrice = _purchaseFilters.maxPrice;
+
+    if (minPrice != null && maxPrice != null) {
+      labels.add(
+        '${strings.price}: ${_formatCurrency(minPrice, currency)} - '
+        '${_formatCurrency(maxPrice, currency)}',
+      );
+    } else if (minPrice != null) {
+      labels.add('${strings.price}: >= ${_formatCurrency(minPrice, currency)}');
+    } else if (maxPrice != null) {
+      labels.add('${strings.price}: <= ${_formatCurrency(maxPrice, currency)}');
+    }
+
+    switch (_purchaseFilters.playtime) {
+      case PurchasePlaytimeFilterOption.all:
+        break;
+      case PurchasePlaytimeFilterOption.withPlaytime:
+        labels.add(strings.withPlaytime);
+        break;
+      case PurchasePlaytimeFilterOption.withoutPlaytime:
+        labels.add(strings.withoutPlaytime);
+        break;
+    }
+
+    switch (_purchaseFilters.discount) {
+      case PurchaseDiscountFilterOption.all:
+        break;
+      case PurchaseDiscountFilterOption.withDiscount:
+        labels.add(strings.withDiscount);
+        break;
+      case PurchaseDiscountFilterOption.withoutDiscount:
+        labels.add(strings.withoutDiscount);
+        break;
+    }
+
+    return labels;
   }
 
   String _getPurchaseTypeLabel(SteamPurchaseType type, AppStrings strings) {
@@ -771,18 +885,43 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildActiveFilterChips(AppStrings strings, AppCurrency currency) {
+    final labels = _activeFilterLabels(strings, currency);
+
+    if (labels.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final label in labels)
+          Chip(label: Text(label), visualDensity: VisualDensity.compact),
+        ActionChip(
+          avatar: const Icon(Icons.clear, size: 18),
+          label: Text(strings.clearFilters),
+          visualDensity: VisualDensity.compact,
+          onPressed: _clearPurchaseFilters,
+        ),
+      ],
+    );
+  }
+
   Widget _buildPurchaseListHeader(AppStrings strings, AppCurrency currency) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
+        Builder(
+          builder: (context) {
+            final isCompact = MediaQuery.sizeOf(context).width < 620;
             final title = Text(
               strings.purchases,
               style: Theme.of(context).textTheme.headlineSmall,
             );
             final sortMenu = DropdownButton<PurchaseSortOption>(
               value: _sortOption,
+              isExpanded: isCompact,
               onChanged: (value) {
                 if (value == null) {
                   return;
@@ -799,19 +938,45 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               }).toList(),
             );
+            final filterButton = Tooltip(
+              message: strings.filters,
+              child: OutlinedButton.icon(
+                onPressed: () => _openPurchaseFiltersDialog(currency),
+                icon: Icon(
+                  _purchaseFilters.hasFilters
+                      ? Icons.filter_alt
+                      : Icons.filter_alt_outlined,
+                ),
+                label: Text(
+                  _purchaseFilters.hasFilters
+                      ? strings.activeFilterCount(_purchaseFilters.activeCount)
+                      : strings.filters,
+                ),
+              ),
+            );
 
-            if (constraints.maxWidth < 620) {
+            if (isCompact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   title,
                   const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerLeft, child: sortMenu),
+                  SizedBox(width: double.infinity, child: sortMenu),
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerLeft, child: filterButton),
                 ],
               );
             }
 
-            return Row(children: [title, const Spacer(), sortMenu]);
+            return Row(
+              children: [
+                title,
+                const Spacer(),
+                filterButton,
+                const SizedBox(width: 12),
+                sortMenu,
+              ],
+            );
           },
         ),
         const SizedBox(height: 12),
@@ -838,6 +1003,10 @@ class _HomeScreenState extends State<HomeScreen>
             setState(() {});
           },
         ),
+        if (_purchaseFilters.hasFilters) ...[
+          const SizedBox(height: 8),
+          _buildActiveFilterChips(strings, currency),
+        ],
       ],
     );
   }
@@ -858,6 +1027,133 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  PreferredSizeWidget _buildTabBar(AppStrings strings) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kTextTabBarHeight),
+      child: Builder(
+        builder: (context) {
+          final showLabels = MediaQuery.sizeOf(context).width >= 520;
+
+          return TabBar(
+            controller: _tabController,
+            tabs: [
+              _buildTab(
+                icon: Icons.dashboard,
+                label: strings.overviewTab,
+                showLabel: showLabels,
+              ),
+              _buildTab(
+                icon: Icons.bar_chart,
+                label: strings.statisticsTab,
+                showLabel: showLabels,
+              ),
+              _buildTab(
+                icon: Icons.show_chart,
+                label: strings.chartsTab,
+                showLabel: showLabels,
+              ),
+              _buildTab(
+                icon: Icons.folder,
+                label: strings.collectionsTab,
+                showLabel: showLabels,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Tab _buildTab({
+    required IconData icon,
+    required String label,
+    required bool showLabel,
+  }) {
+    final tabIcon = Icon(icon);
+
+    if (showLabel) {
+      return Tab(icon: tabIcon, text: label);
+    }
+
+    return Tab(
+      icon: Tooltip(message: label, child: tabIcon),
+    );
+  }
+
+  List<Widget> _buildAppBarActions(AppStrings strings) {
+    final isCompact = MediaQuery.sizeOf(context).width < 520;
+
+    if (isCompact) {
+      return [
+        PopupMenuButton<_HomeAction>(
+          tooltip: strings.moreActions,
+          icon: const Icon(Icons.more_vert),
+          onSelected: (action) {
+            switch (action) {
+              case _HomeAction.importCsv:
+                _importPurchasesFromCsv();
+                break;
+              case _HomeAction.exportCsv:
+                _exportPurchasesToCsv();
+                break;
+              case _HomeAction.settings:
+                _openSettingsScreen();
+                break;
+            }
+          },
+          itemBuilder: (context) {
+            return [
+              PopupMenuItem(
+                value: _HomeAction.importCsv,
+                enabled: !_isCsvOperationRunning,
+                child: ListTile(
+                  leading: const Icon(Icons.upload_file),
+                  title: Text(strings.importCsv),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeAction.exportCsv,
+                enabled: !_isCsvOperationRunning,
+                child: ListTile(
+                  leading: const Icon(Icons.download),
+                  title: Text(strings.exportCsv),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeAction.settings,
+                child: ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: Text(strings.openSettings),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ];
+          },
+        ),
+      ];
+    }
+
+    return [
+      IconButton(
+        tooltip: strings.importCsv,
+        onPressed: _isCsvOperationRunning ? null : _importPurchasesFromCsv,
+        icon: const Icon(Icons.upload_file),
+      ),
+      IconButton(
+        tooltip: strings.exportCsv,
+        onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
+        icon: const Icon(Icons.download),
+      ),
+      IconButton(
+        tooltip: strings.openSettings,
+        onPressed: _openSettingsScreen,
+        icon: const Icon(Icons.settings),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -870,35 +1166,11 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(strings.appTitle),
-        actions: [
-          IconButton(
-            tooltip: strings.importCsv,
-            onPressed: _isCsvOperationRunning ? null : _importPurchasesFromCsv,
-            icon: const Icon(Icons.upload_file),
-          ),
-          IconButton(
-            tooltip: strings.exportCsv,
-            onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
-            icon: const Icon(Icons.download),
-          ),
-          IconButton(
-            tooltip: strings.openSettings,
-            onPressed: _openSettingsScreen,
-            icon: const Icon(Icons.settings),
-          ),
-        ],
+        actions: _buildAppBarActions(strings),
 
         // Die TabBar hängt direkt unter der AppBar.
         // Übersicht, Zahlen, Diagramme und Kollektionen bleiben getrennt.
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(icon: const Icon(Icons.dashboard), text: strings.overviewTab),
-            Tab(icon: const Icon(Icons.bar_chart), text: strings.statisticsTab),
-            Tab(icon: const Icon(Icons.show_chart), text: strings.chartsTab),
-            Tab(icon: const Icon(Icons.folder), text: strings.collectionsTab),
-          ],
-        ),
+        bottom: _buildTabBar(strings),
       ),
       floatingActionButton: _buildFloatingActionButton(strings),
 
