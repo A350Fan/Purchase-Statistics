@@ -6,6 +6,44 @@ import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import 'app_database.dart';
 
+class CollectionPurchaseMetadata {
+  final DateTime? releaseDate;
+  final String? releaseDateText;
+
+  const CollectionPurchaseMetadata({this.releaseDate, this.releaseDateText});
+
+  factory CollectionPurchaseMetadata.fromMap(Map<String, Object?> map) {
+    return CollectionPurchaseMetadata(
+      releaseDate: _parseOptionalDate(map['release_date']),
+      releaseDateText: _nullableString(map['release_date_text']),
+    );
+  }
+
+  bool get hasReleaseInfo =>
+      releaseDate != null ||
+      (releaseDateText != null && releaseDateText!.isNotEmpty);
+
+  static DateTime? _parseOptionalDate(Object? value) {
+    final text = _nullableString(value);
+
+    if (text == null) {
+      return null;
+    }
+
+    return DateTime.tryParse(text);
+  }
+
+  static String? _nullableString(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+
+    final text = value.trim();
+
+    return text.isEmpty ? null : text;
+  }
+}
+
 class SteamCollectionRepository {
   static const String collectionsTable = 'collections';
   static const String collectionItemsTable = 'collection_items';
@@ -229,6 +267,40 @@ class SteamCollectionRepository {
     );
 
     return maps.map(CollectionItem.fromMap).toList();
+  }
+
+  Future<Map<int, CollectionPurchaseMetadata>> getPurchaseMetadataByIds(
+    Iterable<int> purchaseIds,
+  ) async {
+    final ids = purchaseIds.toSet().toList();
+
+    if (ids.isEmpty) {
+      return {};
+    }
+
+    final db = await _databaseProvider();
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final rows = await db.rawQuery('''
+      SELECT
+        p.id AS purchase_id,
+        m.release_date,
+        m.release_date_text
+      FROM $_purchasesTable p
+      LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
+      WHERE p.id IN ($placeholders)
+      ''', ids);
+    final metadataByPurchaseId = <int, CollectionPurchaseMetadata>{};
+
+    for (final row in rows) {
+      final purchaseId = row['purchase_id'] as int;
+      final metadata = CollectionPurchaseMetadata.fromMap(row);
+
+      if (metadata.hasReleaseInfo) {
+        metadataByPurchaseId[purchaseId] = metadata;
+      }
+    }
+
+    return metadataByPurchaseId;
   }
 
   Future<Set<int>> getCollectionIdsForPurchase(int purchaseId) async {

@@ -91,6 +91,13 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }
 
   @override
+  Future<Map<int, CollectionPurchaseMetadata>> getPurchaseMetadataByIds(
+    Iterable<int> purchaseIds,
+  ) async {
+    return {};
+  }
+
+  @override
   Future<Set<int>> getCollectionIdsForPurchase(int purchaseId) async {
     return {};
   }

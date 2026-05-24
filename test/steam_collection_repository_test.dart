@@ -404,6 +404,45 @@ void main() {
       expect(items.last.purchaseId, newerPurchaseId);
     });
 
+    test('loads release metadata by purchase id', () async {
+      final purchaseWithMetadataId = await _insertPurchase(
+        db,
+        gameName: 'Portal 2',
+        steamAppId: 620,
+      );
+      final purchaseWithoutMetadataId = await _insertPurchase(
+        db,
+        gameName: 'Half-Life',
+        steamAppId: 70,
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 620,
+        releaseDate: DateTime.utc(2011, 4, 18),
+        releaseDateText: 'Apr 18, 2011',
+        values: const <SteamMetadataField, List<String>>{},
+      );
+
+      final metadataByPurchaseId = await repository.getPurchaseMetadataByIds([
+        purchaseWithMetadataId,
+        purchaseWithoutMetadataId,
+        purchaseWithMetadataId,
+      ]);
+
+      expect(
+        metadataByPurchaseId[purchaseWithMetadataId]?.releaseDate,
+        DateTime.utc(2011, 4, 18),
+      );
+      expect(
+        metadataByPurchaseId[purchaseWithMetadataId]?.releaseDateText,
+        'Apr 18, 2011',
+      );
+      expect(
+        metadataByPurchaseId.containsKey(purchaseWithoutMetadataId),
+        false,
+      );
+    });
+
     test('does not duplicate purchase assignments', () async {
       final purchaseId = await _insertPurchase(db, gameName: 'Portal');
       final collectionId = await repository.insertCollection(

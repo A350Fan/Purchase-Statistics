@@ -340,6 +340,10 @@ class AppStrings {
     return isEnglish ? 'Purchase date: $date' : 'Kaufdatum: $date';
   }
 
+  String releaseDate(String date) {
+    return 'Release: $date';
+  }
+
   String get purchasePrice => isEnglish ? 'Purchase price' : 'Kaufpreis';
   String get originalPriceOptional =>
       isEnglish ? 'Original price optional' : 'Originalpreis optional';

@@ -351,6 +351,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   late SteamCollection _collection;
   List<CollectionItem> _items = [];
   List<SteamPurchase> _automaticPurchases = [];
+  Map<int, CollectionPurchaseMetadata> _purchaseMetadataById = {};
   bool _isLoading = true;
 
   @override
@@ -372,6 +373,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     if (collectionId == null) {
       setState(() {
         _items = [];
+        _automaticPurchases = [];
+        _purchaseMetadataById = {};
         _isLoading = false;
       });
       return;
@@ -380,6 +383,10 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     if (_collection.isAutomatic) {
       final purchases = await widget.repository
           .getPurchasesForAutomaticCollection(_collection);
+      final metadataByPurchaseId = await widget.repository
+          .getPurchaseMetadataByIds(
+            purchases.map((purchase) => purchase.id).whereType<int>(),
+          );
 
       if (!mounted) {
         return;
@@ -388,6 +395,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       setState(() {
         _items = [];
         _automaticPurchases = purchases;
+        _purchaseMetadataById = metadataByPurchaseId;
         _isLoading = false;
       });
       return;
@@ -397,6 +405,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       collectionId,
       sortMode: _collection.sortMode,
     );
+    final metadataByPurchaseId = await widget.repository
+        .getPurchaseMetadataByIds(items.map((item) => item.purchaseId));
 
     if (!mounted) {
       return;
@@ -405,6 +415,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     setState(() {
       _items = items;
       _automaticPurchases = [];
+      _purchaseMetadataById = metadataByPurchaseId;
       _isLoading = false;
     });
   }
@@ -654,6 +665,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   ) {
     final purchase = purchasesById[item.purchaseId];
     final canMoveItems = _collection.sortMode == SteamCollectionSortMode.manual;
+    final subtitle = purchase == null
+        ? null
+        : _purchaseSubtitle(purchase, strings, currency);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -665,12 +679,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: purchase == null
+        subtitle: subtitle == null
             ? null
-            : Text(
-                '${_formatDate(purchase.purchaseDate)} · '
-                '${_formatCurrency(purchase.price, currency)}',
-              ),
+            : Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -704,6 +715,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     AppStrings strings,
     AppCurrency currency,
   ) {
+    final subtitle = _purchaseSubtitle(purchase, strings, currency);
+
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -714,12 +727,46 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          '${_formatDate(purchase.purchaseDate)} · '
-          '${_formatCurrency(purchase.price, currency)}',
-        ),
+        subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
       ),
     );
+  }
+
+  String _purchaseSubtitle(
+    SteamPurchase purchase,
+    AppStrings strings,
+    AppCurrency currency,
+  ) {
+    final releaseDate = _formatReleaseDate(
+      _purchaseMetadataById[purchase.id],
+      strings,
+    );
+    final parts = [
+      ?releaseDate,
+      _formatDate(purchase.purchaseDate),
+      _formatCurrency(purchase.price, currency),
+    ];
+
+    return parts.join(' · ');
+  }
+
+  String? _formatReleaseDate(
+    CollectionPurchaseMetadata? metadata,
+    AppStrings strings,
+  ) {
+    final releaseDate = metadata?.releaseDate;
+
+    if (releaseDate != null) {
+      return strings.releaseDate(_formatDate(releaseDate));
+    }
+
+    final releaseDateText = metadata?.releaseDateText;
+
+    if (releaseDateText == null || releaseDateText.isEmpty) {
+      return null;
+    }
+
+    return strings.releaseDate(releaseDateText);
   }
 
   String _formatDate(DateTime date) {
