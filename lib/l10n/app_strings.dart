@@ -63,6 +63,9 @@ class AppStrings {
   String get noCollectionItems => isEnglish
       ? 'No purchases in this collection yet.'
       : 'Noch keine Käufe in dieser Kollektion.';
+  String get noAutomaticCollectionItems => isEnglish
+      ? 'No purchases match this rule yet.'
+      : 'Noch keine Käufe passen zu dieser Regel.';
   String purchaseCount(int count) {
     if (isEnglish) {
       return count == 1 ? '1 purchase' : '$count purchases';
@@ -123,11 +126,26 @@ class AppStrings {
       isEnglish ? 'Create collection' : 'Kollektion erstellen';
   String get editCollectionTitle =>
       isEnglish ? 'Edit collection' : 'Kollektion bearbeiten';
+  String get collectionType => isEnglish ? 'Collection type' : 'Kollektionstyp';
+  String get manualCollection => isEnglish ? 'Manual' : 'Manuell';
+  String get automaticCollection => isEnglish ? 'Automatic' : 'Automatisch';
   String get collectionName => isEnglish ? 'Name' : 'Name';
   String get collectionDescriptionOptional =>
       isEnglish ? 'Description optional' : 'Beschreibung optional';
   String get enterCollectionName =>
       isEnglish ? 'Enter a collection name' : 'Bitte Namen eingeben';
+  String get metadataField => isEnglish ? 'Metadata field' : 'Metadatenfeld';
+  String get metadataValue => isEnglish ? 'Metadata value' : 'Metadatenwert';
+  String get enterMetadataValue =>
+      isEnglish ? 'Enter a metadata value' : 'Bitte Metadatenwert eingeben';
+  String get metadataGenre => isEnglish ? 'Genre' : 'Genre';
+  String get metadataTag => isEnglish ? 'Tag' : 'Tag';
+  String get metadataDeveloper => isEnglish ? 'Developer' : 'Entwickler';
+  String get metadataPublisher => isEnglish ? 'Publisher' : 'Publisher';
+  String automaticCollectionRule(String field, String value) {
+    return '$field: $value';
+  }
+
   String createdCollection(String collectionName) {
     return isEnglish
         ? '"$collectionName" was created.'

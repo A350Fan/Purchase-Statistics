@@ -861,10 +861,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _isLoadingCollections = true;
     });
 
-    final collections = await repository.getCollections();
+    final collections = (await repository.getCollections())
+        .where((collection) => collection.isManual)
+        .toList();
     final selectedCollectionIds = await repository.getCollectionIdsForPurchase(
       purchaseId,
     );
+    final manualCollectionIds = collections
+        .map((collection) => collection.id)
+        .whereType<int>()
+        .toSet();
 
     if (!mounted) {
       return;
@@ -872,7 +878,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     setState(() {
       _collections = collections;
-      _selectedCollectionIds = selectedCollectionIds;
+      _selectedCollectionIds = selectedCollectionIds.intersection(
+        manualCollectionIds,
+      );
       _isLoadingCollections = false;
     });
   }

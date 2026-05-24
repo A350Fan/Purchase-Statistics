@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -119,6 +119,14 @@ class AppDatabase {
       await _createSteamPurchaseMetadataIndexes(db);
       await _createSteamGameMetadataTables(db);
     }
+
+    if (oldVersion >= 7 && oldVersion < 10) {
+      await _addAutomaticCollectionColumns(db);
+    }
+
+    if (oldVersion < 10) {
+      await _createSteamMetadataRuleLookupIndex(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -149,6 +157,9 @@ class AppDatabase {
         name TEXT NOT NULL,
         description TEXT,
         sort_mode TEXT NOT NULL DEFAULT 'manual',
+        collection_type TEXT NOT NULL DEFAULT 'manual',
+        rule_field TEXT,
+        rule_value TEXT,
         created_at TEXT NOT NULL
       )
     ''');
@@ -177,6 +188,14 @@ class AppDatabase {
     ''');
 
     await _createCollectionItemUniqueIndex(db);
+  }
+
+  static Future<void> _addAutomaticCollectionColumns(Database db) async {
+    await db.execute(
+      "ALTER TABLE collections ADD COLUMN collection_type TEXT NOT NULL DEFAULT 'manual'",
+    );
+    await db.execute('ALTER TABLE collections ADD COLUMN rule_field TEXT');
+    await db.execute('ALTER TABLE collections ADD COLUMN rule_value TEXT');
   }
 
   static Future<void> _createCollectionItemUniqueIndex(Database db) async {
@@ -219,6 +238,15 @@ class AppDatabase {
     await db.execute('''
       CREATE UNIQUE INDEX IF NOT EXISTS idx_steam_metadata_values_unique
       ON steam_game_metadata_values(steam_app_id, field, value)
+    ''');
+
+    await _createSteamMetadataRuleLookupIndex(db);
+  }
+
+  static Future<void> _createSteamMetadataRuleLookupIndex(Database db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_steam_metadata_values_rule_lookup
+      ON steam_game_metadata_values(field, value, steam_app_id)
     ''');
   }
 

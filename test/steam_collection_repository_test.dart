@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/data/steam_collection_repository.dart';
 import 'package:purchase_statistics/models/steam_collection.dart';
+import 'package:purchase_statistics/models/steam_game_metadata.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -52,6 +53,7 @@ void main() {
       expect(collections.single.name, 'Favorites');
       expect(collections.single.description, 'Replay regularly');
       expect(collections.single.sortMode, SteamCollection.manualSortMode);
+      expect(collections.single.collectionType, SteamCollectionType.manual);
 
       await repository.updateCollection(
         collections.single.copyWith(name: 'Backlog', description: null),
@@ -60,6 +62,27 @@ void main() {
 
       expect(collections.single.name, 'Backlog');
       expect(collections.single.description, isNull);
+    });
+
+    test('creates automatic collections with metadata rules', () async {
+      final collectionId = await repository.insertCollection(
+        SteamCollection(
+          name: 'Puzzle',
+          description: 'Steam genre',
+          collectionType: SteamCollectionType.automatic,
+          ruleField: SteamMetadataField.genre,
+          ruleValue: 'Puzzle',
+          createdAt: now,
+        ),
+      );
+
+      final collections = await repository.getCollections();
+
+      expect(collections.single.id, collectionId);
+      expect(collections.single.collectionType, SteamCollectionType.automatic);
+      expect(collections.single.ruleField, SteamMetadataField.genre);
+      expect(collections.single.ruleValue, 'Puzzle');
+      expect(collections.single.metadataRule, isNotNull);
     });
 
     test('adds and removes purchases from a collection', () async {
@@ -117,6 +140,48 @@ void main() {
 
       expect(counts[firstCollectionId], 2);
       expect(counts[secondCollectionId], 1);
+    });
+
+    test('loads purchases for automatic collection rules', () async {
+      final portalId = await _insertPurchase(
+        db,
+        gameName: 'Portal 2',
+        steamAppId: 620,
+      );
+      await _insertPurchase(db, gameName: 'Half-Life', steamAppId: 70);
+      await _insertMetadataValues(
+        db,
+        steamAppId: 620,
+        values: {
+          SteamMetadataField.genre: ['Puzzle', 'Action'],
+        },
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 70,
+        values: {
+          SteamMetadataField.genre: ['Action'],
+        },
+      );
+      final collection = SteamCollection(
+        name: 'Puzzle',
+        collectionType: SteamCollectionType.automatic,
+        ruleField: SteamMetadataField.genre,
+        ruleValue: 'puzzle',
+        createdAt: now,
+      );
+
+      final purchases = await repository.getPurchasesForAutomaticCollection(
+        collection,
+      );
+      final count = await repository.countPurchasesForAutomaticCollection(
+        collection,
+      );
+
+      expect(purchases, hasLength(1));
+      expect(purchases.single.id, portalId);
+      expect(purchases.single.gameName, 'Portal 2');
+      expect(count, 1);
     });
 
     test('replaces collection assignments for a purchase', () async {
@@ -200,6 +265,27 @@ void main() {
       expect(items, hasLength(1));
     });
 
+    test('rejects manual assignments to automatic collections', () async {
+      final purchaseId = await _insertPurchase(db, gameName: 'Portal');
+      final collectionId = await repository.insertCollection(
+        SteamCollection(
+          name: 'Puzzle',
+          collectionType: SteamCollectionType.automatic,
+          ruleField: SteamMetadataField.genre,
+          ruleValue: 'Puzzle',
+          createdAt: now,
+        ),
+      );
+
+      await expectLater(
+        repository.addPurchaseToCollection(
+          collectionId: collectionId,
+          purchaseId: purchaseId,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('schema rejects duplicate purchase assignments', () async {
       final purchaseId = await _insertPurchase(db, gameName: 'Portal');
       final collectionId = await repository.insertCollection(
@@ -247,6 +333,7 @@ Future<void> _createTestSchema(Database db) async {
       game_name TEXT NOT NULL,
       edition TEXT,
       dlc_name TEXT,
+      steam_app_id INTEGER,
       price REAL NOT NULL,
       original_price REAL,
       playtime_hours REAL,
@@ -260,6 +347,9 @@ Future<void> _createTestSchema(Database db) async {
       name TEXT NOT NULL,
       description TEXT,
       sort_mode TEXT NOT NULL DEFAULT 'manual',
+      collection_type TEXT NOT NULL DEFAULT 'manual',
+      rule_field TEXT,
+      rule_value TEXT,
       created_at TEXT NOT NULL
     )
   ''');
@@ -281,13 +371,65 @@ Future<void> _createTestSchema(Database db) async {
     CREATE UNIQUE INDEX idx_collection_items_unique_purchase
     ON collection_items(collection_id, purchase_id)
   ''');
+
+  await db.execute('''
+    CREATE TABLE steam_game_metadata (
+      steam_app_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  ''');
+
+  await db.execute('''
+    CREATE TABLE steam_game_metadata_values (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      steam_app_id INTEGER NOT NULL,
+      field TEXT NOT NULL,
+      value TEXT NOT NULL,
+      FOREIGN KEY(steam_app_id)
+        REFERENCES steam_game_metadata(steam_app_id)
+        ON DELETE CASCADE
+    )
+  ''');
+
+  await db.execute('''
+    CREATE UNIQUE INDEX idx_steam_metadata_values_unique
+    ON steam_game_metadata_values(steam_app_id, field, value)
+  ''');
 }
 
-Future<int> _insertPurchase(Database db, {required String gameName}) {
+Future<int> _insertPurchase(
+  Database db, {
+  required String gameName,
+  int? steamAppId,
+}) {
   return db.insert('steam_purchases', {
     'purchase_date': DateTime.utc(2026, 5, 1).toIso8601String(),
     'purchase_type': 'game',
     'game_name': gameName,
+    'steam_app_id': steamAppId,
     'price': 9.99,
   });
+}
+
+Future<void> _insertMetadataValues(
+  Database db, {
+  required int steamAppId,
+  required Map<SteamMetadataField, List<String>> values,
+}) async {
+  await db.insert('steam_game_metadata', {
+    'steam_app_id': steamAppId,
+    'name': 'App $steamAppId',
+    'updated_at': DateTime.utc(2026, 5, 23).toIso8601String(),
+  });
+
+  for (final entry in values.entries) {
+    for (final value in entry.value) {
+      await db.insert('steam_game_metadata_values', {
+        'steam_app_id': steamAppId,
+        'field': entry.key.storageValue,
+        'value': value,
+      });
+    }
+  }
 }

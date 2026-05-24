@@ -46,6 +46,20 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }
 
   @override
+  Future<int> countPurchasesForAutomaticCollection(
+    SteamCollection collection,
+  ) async {
+    return 0;
+  }
+
+  @override
+  Future<List<SteamPurchase>> getPurchasesForAutomaticCollection(
+    SteamCollection collection,
+  ) async {
+    return [];
+  }
+
+  @override
   Future<int> insertCollection(SteamCollection collection) async {
     return 1;
   }

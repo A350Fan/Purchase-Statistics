@@ -4,11 +4,21 @@ import '../data/steam_collection_repository.dart';
 import '../l10n/app_strings.dart';
 import '../models/collection_item.dart';
 import '../models/steam_collection.dart';
+import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
 enum _PurchaseSelectionSortOption { name, newest, oldest }
+
+String _metadataFieldLabel(SteamMetadataField field, AppStrings strings) {
+  return switch (field) {
+    SteamMetadataField.genre => strings.metadataGenre,
+    SteamMetadataField.tag => strings.metadataTag,
+    SteamMetadataField.developer => strings.metadataDeveloper,
+    SteamMetadataField.publisher => strings.metadataPublisher,
+  };
+}
 
 class CollectionsTab extends StatefulWidget {
   final SteamCollectionRepository repository;
@@ -39,7 +49,8 @@ class CollectionsTabState extends State<CollectionsTab> {
   void didUpdateWidget(covariant CollectionsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.repository != widget.repository) {
+    if (oldWidget.repository != widget.repository ||
+        oldWidget.purchases != widget.purchases) {
       _loadCollections();
     }
   }
@@ -89,6 +100,22 @@ class CollectionsTabState extends State<CollectionsTab> {
 
     final collections = await widget.repository.getCollections();
     final itemCounts = await widget.repository.getItemCountsByCollection();
+    final automaticItemCountEntries = await Future.wait(
+      collections
+          .where(
+            (collection) => collection.isAutomatic && collection.id != null,
+          )
+          .map((collection) async {
+            final itemCount = await widget.repository
+                .countPurchasesForAutomaticCollection(collection);
+
+            return MapEntry(collection.id!, itemCount);
+          }),
+    );
+
+    for (final entry in automaticItemCountEntries) {
+      itemCounts[entry.key] = entry.value;
+    }
 
     if (!mounted) {
       return;
@@ -194,13 +221,19 @@ class CollectionsTabState extends State<CollectionsTab> {
     final strings = AppStrings.of(context);
     final description = collection.description;
     final itemCount = _collectionItemCounts[collection.id] ?? 0;
-    final subtitleParts = [strings.purchaseCount(itemCount), ?description];
+    final subtitleParts = [
+      collection.isAutomatic
+          ? strings.automaticCollection
+          : strings.manualCollection,
+      strings.purchaseCount(itemCount),
+      ?description,
+    ];
 
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ListTile(
-        leading: const Icon(Icons.folder),
+        leading: Icon(collection.isAutomatic ? Icons.rule : Icons.folder),
         title: Text(
           collection.name,
           maxLines: 1,
@@ -287,6 +320,7 @@ class CollectionDetailScreen extends StatefulWidget {
 class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   late SteamCollection _collection;
   List<CollectionItem> _items = [];
+  List<SteamPurchase> _automaticPurchases = [];
   bool _isLoading = true;
 
   @override
@@ -313,6 +347,22 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       return;
     }
 
+    if (_collection.isAutomatic) {
+      final purchases = await widget.repository
+          .getPurchasesForAutomaticCollection(_collection);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _items = [];
+        _automaticPurchases = purchases;
+        _isLoading = false;
+      });
+      return;
+    }
+
     final items = await widget.repository.getItemsForCollection(collectionId);
 
     if (!mounted) {
@@ -321,6 +371,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
     setState(() {
       _items = items;
+      _automaticPurchases = [];
       _isLoading = false;
     });
   }
@@ -346,6 +397,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     setState(() {
       _collection = collection;
     });
+    await _loadItems(showLoading: false);
     _showSnackBar(strings.updatedCollection(collection.name));
   }
 
@@ -477,6 +529,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   Widget _buildHeader(AppStrings strings) {
     final theme = Theme.of(context);
     final description = _collection.description;
+    final metadataRule = _collection.metadataRule;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,6 +541,18 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             description,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        if (metadataRule != null) ...[
+          const SizedBox(height: 12),
+          Chip(
+            avatar: const Icon(Icons.rule),
+            label: Text(
+              strings.automaticCollectionRule(
+                _metadataFieldLabel(metadataRule.field, strings),
+                metadataRule.value,
+              ),
             ),
           ),
         ],
@@ -548,6 +613,29 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     );
   }
 
+  Widget _buildAutomaticPurchaseCard(
+    SteamPurchase purchase,
+    AppStrings strings,
+    AppCurrency currency,
+  ) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ListTile(
+        leading: const Icon(Icons.receipt_long),
+        title: Text(
+          purchase.displayName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '${_formatDate(purchase.purchaseDate)} · '
+          '${_formatCurrency(purchase.price, currency)}',
+        ),
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
@@ -586,11 +674,13 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddPurchaseDialog,
-        icon: const Icon(Icons.add_link),
-        label: Text(strings.addPurchaseToCollection),
-      ),
+      floatingActionButton: _collection.isAutomatic
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _openAddPurchaseDialog,
+              icon: const Icon(Icons.add_link),
+              label: Text(strings.addPurchaseToCollection),
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -598,7 +688,17 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               children: [
                 _buildHeader(strings),
                 const SizedBox(height: 12),
-                if (_items.isEmpty)
+                if (_collection.isAutomatic && _automaticPurchases.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 48),
+                    child: Center(
+                      child: Text(strings.noAutomaticCollectionItems),
+                    ),
+                  )
+                else if (_collection.isAutomatic)
+                  for (final purchase in _automaticPurchases)
+                    _buildAutomaticPurchaseCard(purchase, strings, currency)
+                else if (_items.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 48),
                     child: Center(child: Text(strings.noCollectionItems)),
@@ -826,6 +926,9 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _ruleValueController = TextEditingController();
+  SteamCollectionType _collectionType = SteamCollectionType.manual;
+  SteamMetadataField _ruleField = SteamMetadataField.genre;
 
   bool get _isEditing => widget.initialCollection != null;
 
@@ -841,12 +944,16 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
 
     _nameController.text = initialCollection.name;
     _descriptionController.text = initialCollection.description ?? '';
+    _collectionType = initialCollection.collectionType;
+    _ruleField = initialCollection.ruleField ?? SteamMetadataField.genre;
+    _ruleValueController.text = initialCollection.ruleValue ?? '';
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _ruleValueController.dispose();
     super.dispose();
   }
 
@@ -858,11 +965,26 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     final initialCollection = widget.initialCollection;
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
+    final isAutomatic = _collectionType == SteamCollectionType.automatic;
+    final ruleValue = _ruleValueController.text.trim();
     final collection = initialCollection == null
-        ? SteamCollection.create(name: name, description: description)
+        ? SteamCollection.create(
+            name: name,
+            description: description,
+            collectionType: _collectionType,
+            ruleField: isAutomatic ? _ruleField : null,
+            ruleValue: isAutomatic ? ruleValue : null,
+          )
         : initialCollection.copyWith(name: name, description: description);
+    final collectionWithRule = initialCollection == null
+        ? collection
+        : collection.copyWith(
+            collectionType: _collectionType,
+            ruleField: isAutomatic ? _ruleField : null,
+            ruleValue: isAutomatic ? ruleValue : null,
+          );
 
-    Navigator.of(context).pop(collection);
+    Navigator.of(context).pop(collectionWithRule);
   }
 
   @override
@@ -879,38 +1001,125 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
         key: _formKey,
         child: SizedBox(
           width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: strings.collectionName,
-                  border: const OutlineInputBorder(),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    strings.collectionType,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                 ),
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return strings.enterCollectionName;
-                  }
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<SteamCollectionType>(
+                    segments: [
+                      ButtonSegment(
+                        value: SteamCollectionType.manual,
+                        icon: const Icon(Icons.folder),
+                        label: Text(strings.manualCollection),
+                      ),
+                      ButtonSegment(
+                        value: SteamCollectionType.automatic,
+                        icon: const Icon(Icons.rule),
+                        label: Text(strings.automaticCollection),
+                      ),
+                    ],
+                    selected: {_collectionType},
+                    onSelectionChanged: _isEditing
+                        ? null
+                        : (selection) {
+                            setState(() {
+                              _collectionType = selection.single;
+                            });
+                          },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: strings.collectionName,
+                    border: const OutlineInputBorder(),
+                  ),
+                  textInputAction: TextInputAction.next,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return strings.enterCollectionName;
+                    }
 
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: strings.collectionDescriptionOptional,
-                  border: const OutlineInputBorder(),
+                    return null;
+                  },
                 ),
-                minLines: 2,
-                maxLines: 4,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _submit(),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    labelText: strings.collectionDescriptionOptional,
+                    border: const OutlineInputBorder(),
+                  ),
+                  minLines: 2,
+                  maxLines: 4,
+                  textInputAction: _collectionType == SteamCollectionType.manual
+                      ? TextInputAction.done
+                      : TextInputAction.next,
+                  onFieldSubmitted:
+                      _collectionType == SteamCollectionType.manual
+                      ? (_) => _submit()
+                      : null,
+                ),
+                if (_collectionType == SteamCollectionType.automatic) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<SteamMetadataField>(
+                    initialValue: _ruleField,
+                    decoration: InputDecoration(
+                      labelText: strings.metadataField,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: SteamMetadataField.values.map((field) {
+                      return DropdownMenuItem(
+                        value: field,
+                        child: Text(_metadataFieldLabel(field, strings)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+
+                      setState(() {
+                        _ruleField = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _ruleValueController,
+                    decoration: InputDecoration(
+                      labelText: strings.metadataValue,
+                      border: const OutlineInputBorder(),
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    validator: (value) {
+                      if (_collectionType != SteamCollectionType.automatic) {
+                        return null;
+                      }
+
+                      if (value == null || value.trim().isEmpty) {
+                        return strings.enterMetadataValue;
+                      }
+
+                      return null;
+                    },
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
