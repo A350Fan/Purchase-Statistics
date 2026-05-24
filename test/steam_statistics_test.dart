@@ -26,6 +26,52 @@ void main() {
       expect(stats.totalSpent, 30);
     });
 
+    test('weights aggregate discounts by original price', () {
+      final stats = SteamStatistics([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 1, 10),
+          gameName: 'Small high discount game',
+          price: 1,
+          originalPrice: 10,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 2, 10),
+          gameName: 'Large low discount game',
+          price: 90,
+          originalPrice: 100,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 3, 10),
+          gameName: 'Unknown original price game',
+          price: 500,
+        ),
+      ], currentDate: DateTime(2026, 5, 22));
+
+      final weightedDiscount = 1 - (91 / 110);
+
+      expect(stats.averageDiscount, closeTo(weightedDiscount, 0.0001));
+      expect(
+        stats.annualSummary.averageDiscount,
+        closeTo(weightedDiscount, 0.0001),
+      );
+      expect(
+        stats.annualStatistics.single.averageDiscount,
+        closeTo(weightedDiscount, 0.0001),
+      );
+
+      final quarterlyRows = stats.quarterlyStatisticsForYear(2026);
+      expect(
+        quarterlyRows[0].averageDiscount,
+        closeTo(weightedDiscount, 0.0001),
+      );
+
+      final quarterlySummary = stats.quarterlySummaryForYear(2026);
+      expect(
+        quarterlySummary.averageDiscount,
+        closeTo(weightedDiscount, 0.0001),
+      );
+    });
+
     test('adds linked dlc prices to game price per hour', () {
       final baseGame = SteamPurchase(
         purchaseDate: DateTime(2026, 5, 1),

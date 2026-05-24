@@ -287,25 +287,18 @@ class SteamStatistics {
   }
 
   Map<int, double?> _buildAverageDiscountByYear() {
-    final sumsByYear = <int, double>{};
-    final countsByYear = <int, int>{};
+    final discountsByYear = <int, _DiscountAggregate>{};
 
     for (final purchase in purchases) {
-      final discount = purchase.discount;
-
-      if (discount == null) {
-        continue;
-      }
-
-      sumsByYear[purchase.year] = (sumsByYear[purchase.year] ?? 0.0) + discount;
-      countsByYear[purchase.year] = (countsByYear[purchase.year] ?? 0) + 1;
+      discountsByYear
+          .putIfAbsent(purchase.year, () => _DiscountAggregate())
+          .add(purchase);
     }
 
     final result = <int, double?>{};
 
     for (final year in years) {
-      final count = countsByYear[year];
-      result[year] = count == null ? null : sumsByYear[year]! / count;
+      result[year] = discountsByYear[year]?.averageDiscount;
     }
 
     return result;
@@ -343,13 +336,8 @@ class SteamStatistics {
       aggregate.spending[quarter] += purchase.price;
       aggregate.actualSpending += purchase.price;
 
-      final discount = purchase.discount;
-      if (discount != null) {
-        aggregate.discountSums[quarter] += discount;
-        aggregate.discountCounts[quarter]++;
-        aggregate.totalDiscount += discount;
-        aggregate.totalDiscountCount++;
-      }
+      aggregate.discounts[quarter].add(purchase);
+      aggregate.totalDiscount.add(purchase);
 
       if (_hasPlaytime(purchase)) {
         aggregate.playtime[quarter] += purchase.playtimeHours!;
@@ -448,25 +436,13 @@ class SteamStatistics {
   }
 
   double? _averageDiscountFor(Iterable<SteamPurchase> purchases) {
-    var sum = 0.0;
-    var count = 0;
+    final discount = _DiscountAggregate();
 
     for (final purchase in purchases) {
-      final discount = purchase.discount;
-
-      if (discount == null) {
-        continue;
-      }
-
-      sum += discount;
-      count++;
+      discount.add(purchase);
     }
 
-    if (count == 0) {
-      return null;
-    }
-
-    return sum / count;
+    return discount.averageDiscount;
   }
 
   bool _hasPlaytime(SteamPurchase purchase) {
@@ -526,31 +502,20 @@ class _QuarterAggregate {
   final List<double> spending = List.filled(5, 0.0);
   final List<double> playtime = List.filled(5, 0.0);
   final List<double> trackedSpending = List.filled(5, 0.0);
-  final List<double> discountSums = List.filled(5, 0.0);
-  final List<int> discountCounts = List.filled(5, 0);
+  final List<_DiscountAggregate> discounts = List.generate(
+    5,
+    (_) => _DiscountAggregate(),
+  );
 
   double actualSpending = 0.0;
   double totalPlaytime = 0.0;
   double totalTrackedSpending = 0.0;
-  double totalDiscount = 0.0;
-  int totalDiscountCount = 0;
+  final _DiscountAggregate totalDiscount = _DiscountAggregate();
 
-  double? get averageDiscount {
-    if (totalDiscountCount == 0) {
-      return null;
-    }
-
-    return totalDiscount / totalDiscountCount;
-  }
+  double? get averageDiscount => totalDiscount.averageDiscount;
 
   double? averageDiscountForQuarter(int quarter) {
-    final count = discountCounts[quarter];
-
-    if (count == 0) {
-      return null;
-    }
-
-    return discountSums[quarter] / count;
+    return discounts[quarter].averageDiscount;
   }
 
   double? pricePerHourForQuarter(int quarter) {
@@ -561,5 +526,29 @@ class _QuarterAggregate {
     }
 
     return trackedSpending[quarter] / hours;
+  }
+}
+
+class _DiscountAggregate {
+  double paidPrice = 0.0;
+  double originalPrice = 0.0;
+
+  void add(SteamPurchase purchase) {
+    final purchaseOriginalPrice = purchase.originalPrice;
+
+    if (purchaseOriginalPrice == null || purchaseOriginalPrice <= 0) {
+      return;
+    }
+
+    paidPrice += purchase.price;
+    originalPrice += purchaseOriginalPrice;
+  }
+
+  double? get averageDiscount {
+    if (originalPrice <= 0) {
+      return null;
+    }
+
+    return 1 - (paidPrice / originalPrice);
   }
 }
