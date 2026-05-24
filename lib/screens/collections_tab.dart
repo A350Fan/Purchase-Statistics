@@ -11,6 +11,8 @@ import '../settings/app_settings_controller.dart';
 
 enum _PurchaseSelectionSortOption { name, newest, oldest }
 
+enum _PurchaseTypeFilter { games, dlcs, all }
+
 String _metadataFieldLabel(SteamMetadataField field, AppStrings strings) {
   return switch (field) {
     SteamMetadataField.genre => strings.metadataGenre,
@@ -870,6 +872,7 @@ class _AddPurchaseToCollectionDialogState
     extends State<_AddPurchaseToCollectionDialog> {
   final _searchController = TextEditingController();
   _PurchaseSelectionSortOption _sortOption = _PurchaseSelectionSortOption.name;
+  _PurchaseTypeFilter _typeFilter = _PurchaseTypeFilter.games;
 
   @override
   void dispose() {
@@ -877,16 +880,28 @@ class _AddPurchaseToCollectionDialogState
     super.dispose();
   }
 
-  List<SteamPurchase> _availablePurchases() {
+  List<SteamPurchase> _availablePurchases({bool applyTypeFilter = true}) {
     final purchases = widget.purchases.where((purchase) {
       final id = purchase.id;
 
-      return id != null && !widget.excludedPurchaseIds.contains(id);
+      return id != null &&
+          !widget.excludedPurchaseIds.contains(id) &&
+          (!applyTypeFilter || _matchesTypeFilter(purchase));
     }).toList();
 
     purchases.sort(_comparePurchases);
 
     return purchases;
+  }
+
+  bool _matchesTypeFilter(SteamPurchase purchase) {
+    return switch (_typeFilter) {
+      _PurchaseTypeFilter.games =>
+        purchase.purchaseType == SteamPurchaseType.game,
+      _PurchaseTypeFilter.dlcs =>
+        purchase.purchaseType == SteamPurchaseType.dlc,
+      _PurchaseTypeFilter.all => true,
+    };
   }
 
   int _comparePurchases(SteamPurchase a, SteamPurchase b) {
@@ -947,12 +962,31 @@ class _AddPurchaseToCollectionDialogState
     };
   }
 
+  String _typeFilterLabel(_PurchaseTypeFilter filter, AppStrings strings) {
+    return switch (filter) {
+      _PurchaseTypeFilter.games => strings.games,
+      _PurchaseTypeFilter.dlcs => strings.dlcs,
+      _PurchaseTypeFilter.all => strings.allPurchaseTypes,
+    };
+  }
+
+  IconData _typeFilterIcon(_PurchaseTypeFilter filter) {
+    return switch (filter) {
+      _PurchaseTypeFilter.games => Icons.sports_esports,
+      _PurchaseTypeFilter.dlcs => Icons.extension,
+      _PurchaseTypeFilter.all => Icons.apps,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final availablePurchases = _availablePurchases();
+    final hasAnyAvailablePurchases = _availablePurchases(
+      applyTypeFilter: false,
+    ).isNotEmpty;
     final filteredPurchases = _filteredPurchases(availablePurchases);
 
     return AlertDialog(
@@ -973,6 +1007,33 @@ class _AddPurchaseToCollectionDialogState
               onChanged: (_) {
                 setState(() {});
               },
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                strings.purchaseTypeFilter,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<_PurchaseTypeFilter>(
+                segments: _PurchaseTypeFilter.values.map((filter) {
+                  return ButtonSegment(
+                    value: filter,
+                    icon: Icon(_typeFilterIcon(filter)),
+                    label: Text(_typeFilterLabel(filter, strings)),
+                  );
+                }).toList(),
+                selected: {_typeFilter},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _typeFilter = selection.single;
+                  });
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -1006,7 +1067,7 @@ class _AddPurchaseToCollectionDialogState
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: availablePurchases.isEmpty
+              child: !hasAnyAvailablePurchases
                   ? Center(
                       child: Text(strings.noAvailablePurchasesForCollection),
                     )

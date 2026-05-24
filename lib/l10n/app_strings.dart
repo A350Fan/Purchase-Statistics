@@ -30,6 +30,7 @@ class AppStrings {
   String get purchases => isEnglish ? 'Purchases' : 'Käufe';
   String get games => isEnglish ? 'Games' : 'Spiele';
   String get dlcs => isEnglish ? 'DLCs' : 'DLCs';
+  String get allPurchaseTypes => isEnglish ? 'All' : 'Alle';
   String get totalSpent => isEnglish ? 'Total spent' : 'Gesamtausgaben';
   String get averageDiscount => isEnglish ? 'Avg. discount' : 'Ø Rabatt';
   String get playtime => isEnglish ? 'Playtime' : 'Spielzeit';
@@ -206,6 +207,7 @@ class AppStrings {
       : 'Noch keine Kollektionen verfügbar.';
   String get sortPurchasesBy =>
       isEnglish ? 'Sort purchases by' : 'Käufe sortieren nach';
+  String get purchaseTypeFilter => isEnglish ? 'Purchase type' : 'Kaufart';
   String get sortByName => isEnglish ? 'Name' : 'Name';
   String get sortByNewest => isEnglish ? 'Newest first' : 'Neueste zuerst';
   String get sortByOldest => isEnglish ? 'Oldest first' : 'Älteste zuerst';
