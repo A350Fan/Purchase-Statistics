@@ -1,5 +1,6 @@
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
+import 'resource_lifecycle.dart';
 import 'steam_store_search_repository.dart';
 import 'steam_store_search_text.dart';
 
@@ -19,11 +20,22 @@ class SteamAppLinkCandidate {
   bool get isHighConfidence => confidence >= highConfidenceThreshold;
 }
 
-class SteamAppLinkingService {
+class SteamAppLinkingService implements DisposableResource {
   final SteamStoreSearchSource searchSource;
+  final bool _ownsSearchSource;
 
   SteamAppLinkingService({SteamStoreSearchSource? searchSource})
-    : searchSource = searchSource ?? SteamStoreSearchRepository();
+    : searchSource = searchSource ?? SteamStoreSearchRepository(),
+      _ownsSearchSource = searchSource == null;
+
+  @override
+  void dispose() {
+    if (!_ownsSearchSource) {
+      return;
+    }
+
+    disposeResource(searchSource);
+  }
 
   Future<List<SteamAppLinkCandidate>> findCandidates({
     required List<SteamPurchase> purchases,

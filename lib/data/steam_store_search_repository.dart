@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
 import 'app_database.dart';
+import 'resource_lifecycle.dart';
 import 'steam_store_search_client.dart';
 import 'steam_store_search_text.dart';
 
@@ -18,7 +19,8 @@ abstract class SteamStoreSearchSource {
   });
 }
 
-class SteamStoreSearchRepository implements SteamStoreSearchSource {
+class SteamStoreSearchRepository
+    implements SteamStoreSearchSource, DisposableResource {
   static const int minimumQueryLength = 3;
 
   final SteamStoreSearchClient client;
@@ -26,6 +28,7 @@ class SteamStoreSearchRepository implements SteamStoreSearchSource {
   final DateTime Function() now;
   final Duration resultCacheDuration;
   final Duration emptyResultCacheDuration;
+  final bool _ownsClient;
 
   SteamStoreSearchRepository({
     SteamStoreSearchClient? client,
@@ -35,7 +38,17 @@ class SteamStoreSearchRepository implements SteamStoreSearchSource {
     this.emptyResultCacheDuration = const Duration(days: 1),
   }) : client = client ?? HttpSteamStoreSearchClient(),
        cache = cache ?? SqliteSteamStoreSearchCache(),
-       now = now ?? DateTime.now;
+       now = now ?? DateTime.now,
+       _ownsClient = client == null;
+
+  @override
+  void dispose() {
+    if (!_ownsClient) {
+      return;
+    }
+
+    disposeResource(client);
+  }
 
   @override
   Future<List<SteamStoreSearchSuggestion>> search({

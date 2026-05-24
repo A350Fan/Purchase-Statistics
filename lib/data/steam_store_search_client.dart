@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
+import 'resource_lifecycle.dart';
 import 'steam_store_search_text.dart';
 
 abstract class SteamStoreSearchClient {
@@ -15,11 +16,13 @@ abstract class SteamStoreSearchClient {
   });
 }
 
-class HttpSteamStoreSearchClient implements SteamStoreSearchClient {
+class HttpSteamStoreSearchClient
+    implements SteamStoreSearchClient, DisposableResource {
   static const Duration _minimumRequestInterval = Duration(seconds: 2);
 
   final HttpClient _httpClient;
   final Duration timeout;
+  final bool _ownsHttpClient;
 
   DateTime? _lastRequestStartedAt;
   Future<void> _requestQueue = Future.value();
@@ -27,8 +30,16 @@ class HttpSteamStoreSearchClient implements SteamStoreSearchClient {
   HttpSteamStoreSearchClient({
     HttpClient? httpClient,
     this.timeout = const Duration(seconds: 2),
-  }) : _httpClient = httpClient ?? HttpClient() {
+  }) : _httpClient = httpClient ?? HttpClient(),
+       _ownsHttpClient = httpClient == null {
     _httpClient.connectionTimeout = timeout;
+  }
+
+  @override
+  void dispose() {
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
   }
 
   @override

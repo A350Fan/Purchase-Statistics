@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
 import '../data/steam_game_metadata_service.dart';
+import '../data/resource_lifecycle.dart';
 import '../data/steam_store_search_repository.dart';
 import '../data/steam_store_search_text.dart';
 import '../l10n/app_strings.dart';
@@ -86,6 +87,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   late final SteamStoreSearchSource _steamSearchSource;
   late final SteamGameMetadataService? _metadataService;
+  late final bool _ownsSteamSearchSource;
   late final List<String> _gameNameSuggestions;
   late final List<String> _dlcNameSuggestions;
 
@@ -126,6 +128,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void initState() {
     super.initState();
 
+    _ownsSteamSearchSource = widget.steamSearchSource == null;
     _steamSearchSource =
         widget.steamSearchSource ?? SteamStoreSearchRepository();
     _metadataService = widget.metadataService;
@@ -225,6 +228,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _mainExtraHoursController.dispose();
     _completionistHoursController.dispose();
     _noteController.dispose();
+    if (_ownsSteamSearchSource) {
+      disposeResource(_steamSearchSource);
+    }
     super.dispose();
   }
 
@@ -589,13 +595,17 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         _lastDlcNameSteamSearchKey = searchKey;
     }
 
-    final suggestions = await _steamSearchSource.search(
-      query: query,
-      purchaseType: purchaseType,
-      language: language,
-      countryCode: countryCode,
-      associatedGameName: associatedGameName,
-    );
+    List<SteamStoreSearchSuggestion> suggestions = const [];
+
+    try {
+      suggestions = await _steamSearchSource.search(
+        query: query,
+        purchaseType: purchaseType,
+        language: language,
+        countryCode: countryCode,
+        associatedGameName: associatedGameName,
+      );
+    } catch (_) {}
 
     if (!mounted || !_isCurrentSteamSearch(field, generation, searchKey)) {
       return;
@@ -1767,13 +1777,17 @@ class _SteamAppLinkDialogState extends State<_SteamAppLinkDialog> {
       _isSearching = true;
     });
 
-    final suggestions = await widget.steamSearchSource.search(
-      query: query,
-      purchaseType: widget.purchaseType,
-      language: widget.language,
-      countryCode: widget.countryCode,
-      associatedGameName: widget.associatedGameName,
-    );
+    List<SteamStoreSearchSuggestion> suggestions = const [];
+
+    try {
+      suggestions = await widget.steamSearchSource.search(
+        query: query,
+        purchaseType: widget.purchaseType,
+        language: widget.language,
+        countryCode: widget.countryCode,
+        associatedGameName: widget.associatedGameName,
+      );
+    } catch (_) {}
 
     if (!mounted || generation != _searchGeneration) {
       return;

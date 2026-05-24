@@ -82,30 +82,31 @@ class SteamStatistics {
 
   final Map<int, _QuarterAggregate> _quarterAggregatesByYear = {};
 
+  late final _StatisticsAggregate _aggregate = _buildAggregate();
   late final Set<String> _gameNamesWithTrackedPlaytime =
-      _buildGameNamesWithTrackedPlaytime();
+      _aggregate.gameNamesWithTrackedPlaytime;
   late final Map<String, double> _dlcSpendingByGameName =
-      _buildDlcSpendingByGameName();
-  late final Map<int, double> _spendingByYear = _buildSpendingByYear();
-  late final Map<int, double> _playtimeByYear = _buildPlaytimeByYear();
+      _aggregate.dlcSpendingByGameName;
+  late final Map<int, double> _spendingByYear = _aggregate.spendingByYear;
+  late final Map<int, double> _playtimeByYear = _aggregate.playtimeByYear;
   late final Map<int, double> _spendingWithPlaytimeByYear =
-      _buildSpendingWithPlaytimeByYear();
-  late final Map<int, double?> _averageDiscountByYear =
-      _buildAverageDiscountByYear();
+      _aggregate.spendingWithPlaytimeByYear;
   late final Map<int, double?> _pricePerHourByYear = _buildPricePerHourByYear();
 
-  late final double totalSpent = _sumSpent();
-  late final int totalGames = _countPurchaseType(SteamPurchaseType.game);
-  late final int totalDlcs = _countPurchaseType(SteamPurchaseType.dlc);
-  late final double totalOriginalPrice = _sumOriginalPrice();
-  late final double totalPlaytimeHours = _sumPlaytime();
-  late final double totalSpentWithPlaytime = _sumSpentWithPlaytime();
+  late final double totalSpent = _aggregate.totalSpent;
+  late final int totalGames = _aggregate.totalGames;
+  late final int totalDlcs = _aggregate.totalDlcs;
+  late final double totalOriginalPrice = _aggregate.totalOriginalPrice;
+  late final double totalPlaytimeHours = _aggregate.totalPlaytimeHours;
+  late final double totalSpentWithPlaytime = _aggregate.totalSpentWithPlaytime;
   late final double? pricePerHour = _pricePerHour(
     totalSpentWithPlaytime,
     totalPlaytimeHours,
   );
-  late final double? averageDiscount = _averageDiscountFor(purchases);
+  late final double? averageDiscount = _aggregate.averageDiscount;
   late final List<int> years = _buildYears();
+  late final Map<int, double?> _averageDiscountByYear = _aggregate
+      .averageDiscountByYear(years);
   late final AnnualStatisticsSummary annualSummary = _buildAnnualSummary();
   late final List<AnnualStatistics> annualStatistics = _buildAnnualStatistics();
 
@@ -219,24 +220,14 @@ class SteamStatistics {
   }
 
   List<int> _buildYears() {
-    if (purchases.isEmpty) {
+    final firstYear = _aggregate.firstYear;
+    final lastPurchaseYear = _aggregate.lastYear;
+
+    if (firstYear == null || lastPurchaseYear == null) {
       return const [];
     }
 
-    var firstYear = purchases.first.year;
-    var lastYear = purchases.first.year;
-
-    for (var index = 1; index < purchases.length; index++) {
-      final purchase = purchases[index];
-
-      if (purchase.year < firstYear) {
-        firstYear = purchase.year;
-      }
-
-      if (purchase.year > lastYear) {
-        lastYear = purchase.year;
-      }
-    }
+    var lastYear = lastPurchaseYear;
 
     if (currentDate.year > lastYear) {
       lastYear = currentDate.year;
@@ -247,61 +238,74 @@ class SteamStatistics {
     ]);
   }
 
-  Map<int, double> _buildSpendingByYear() {
-    final result = <int, double>{};
+  _StatisticsAggregate _buildAggregate() {
+    final aggregate = _StatisticsAggregate();
+    final untrackedDlcSpendingByYearAndGameName =
+        <({int year, String gameNameKey}), double>{};
 
     for (final purchase in purchases) {
-      result[purchase.year] = (result[purchase.year] ?? 0.0) + purchase.price;
-    }
+      final year = purchase.year;
+      final gameNameKey = _gameNameKey(purchase.gameName);
+      final hasPlaytime = _hasPlaytime(purchase);
 
-    return result;
-  }
-
-  Map<int, double> _buildPlaytimeByYear() {
-    final result = <int, double>{};
-
-    for (final purchase in purchases) {
-      if (!_hasPlaytime(purchase)) {
-        continue;
-      }
-
-      result[purchase.year] =
-          (result[purchase.year] ?? 0.0) + purchase.playtimeHours!;
-    }
-
-    return result;
-  }
-
-  Map<int, double> _buildSpendingWithPlaytimeByYear() {
-    final result = <int, double>{};
-
-    for (final purchase in purchases) {
-      if (!_countsTowardsPricePerHourSpending(purchase)) {
-        continue;
-      }
-
-      result[purchase.year] = (result[purchase.year] ?? 0.0) + purchase.price;
-    }
-
-    return result;
-  }
-
-  Map<int, double?> _buildAverageDiscountByYear() {
-    final discountsByYear = <int, _DiscountAggregate>{};
-
-    for (final purchase in purchases) {
-      discountsByYear
-          .putIfAbsent(purchase.year, () => _DiscountAggregate())
+      aggregate.addYear(year);
+      aggregate.totalSpent += purchase.price;
+      aggregate.totalOriginalPrice += purchase.originalPrice ?? purchase.price;
+      aggregate.spendingByYear[year] =
+          (aggregate.spendingByYear[year] ?? 0.0) + purchase.price;
+      aggregate.discountsByYear
+          .putIfAbsent(year, () => _DiscountAggregate())
           .add(purchase);
+      aggregate.totalDiscount.add(purchase);
+
+      switch (purchase.purchaseType) {
+        case SteamPurchaseType.game:
+          aggregate.totalGames++;
+
+          if (hasPlaytime) {
+            aggregate.gameNamesWithTrackedPlaytime.add(gameNameKey);
+          }
+
+        case SteamPurchaseType.dlc:
+          aggregate.totalDlcs++;
+          aggregate.dlcSpendingByGameName[gameNameKey] =
+              (aggregate.dlcSpendingByGameName[gameNameKey] ?? 0.0) +
+              purchase.price;
+
+          if (!hasPlaytime) {
+            final key = (year: year, gameNameKey: gameNameKey);
+            untrackedDlcSpendingByYearAndGameName[key] =
+                (untrackedDlcSpendingByYearAndGameName[key] ?? 0.0) +
+                purchase.price;
+          }
+      }
+
+      if (!hasPlaytime) {
+        continue;
+      }
+
+      aggregate.totalPlaytimeHours += purchase.playtimeHours!;
+      aggregate.playtimeByYear[year] =
+          (aggregate.playtimeByYear[year] ?? 0.0) + purchase.playtimeHours!;
+      aggregate.totalSpentWithPlaytime += purchase.price;
+      aggregate.spendingWithPlaytimeByYear[year] =
+          (aggregate.spendingWithPlaytimeByYear[year] ?? 0.0) + purchase.price;
     }
 
-    final result = <int, double?>{};
+    for (final entry in untrackedDlcSpendingByYearAndGameName.entries) {
+      if (!aggregate.gameNamesWithTrackedPlaytime.contains(
+        entry.key.gameNameKey,
+      )) {
+        continue;
+      }
 
-    for (final year in years) {
-      result[year] = discountsByYear[year]?.averageDiscount;
+      aggregate.totalSpentWithPlaytime += entry.value;
+      aggregate.spendingWithPlaytimeByYear[entry.key.year] =
+          (aggregate.spendingWithPlaytimeByYear[entry.key.year] ?? 0.0) +
+          entry.value;
     }
 
-    return result;
+    return aggregate;
   }
 
   Map<int, double?> _buildPricePerHourByYear() {
@@ -353,62 +357,6 @@ class SteamStatistics {
     return aggregate;
   }
 
-  double _sumSpent() {
-    var sum = 0.0;
-
-    for (final purchase in purchases) {
-      sum += purchase.price;
-    }
-
-    return sum;
-  }
-
-  int _countPurchaseType(SteamPurchaseType type) {
-    var count = 0;
-
-    for (final purchase in purchases) {
-      if (purchase.purchaseType == type) {
-        count++;
-      }
-    }
-
-    return count;
-  }
-
-  double _sumOriginalPrice() {
-    var sum = 0.0;
-
-    for (final purchase in purchases) {
-      sum += purchase.originalPrice ?? purchase.price;
-    }
-
-    return sum;
-  }
-
-  double _sumPlaytime() {
-    var sum = 0.0;
-
-    for (final purchase in purchases) {
-      if (_hasPlaytime(purchase)) {
-        sum += purchase.playtimeHours!;
-      }
-    }
-
-    return sum;
-  }
-
-  double _sumSpentWithPlaytime() {
-    var sum = 0.0;
-
-    for (final purchase in purchases) {
-      if (_countsTowardsPricePerHourSpending(purchase)) {
-        sum += purchase.price;
-      }
-    }
-
-    return sum;
-  }
-
   double _projectCurrentYearSpending(double spending) {
     final elapsedDays = _elapsedDaysInYear(currentDate);
     final daysInYear = _daysInYear(currentDate.year);
@@ -435,16 +383,6 @@ class SteamStatistics {
     return spending / playtimeHours;
   }
 
-  double? _averageDiscountFor(Iterable<SteamPurchase> purchases) {
-    final discount = _DiscountAggregate();
-
-    for (final purchase in purchases) {
-      discount.add(purchase);
-    }
-
-    return discount.averageDiscount;
-  }
-
   bool _hasPlaytime(SteamPurchase purchase) {
     final playtimeHours = purchase.playtimeHours;
 
@@ -465,36 +403,48 @@ class SteamStatistics {
     );
   }
 
-  Set<String> _buildGameNamesWithTrackedPlaytime() {
-    final result = <String>{};
-
-    for (final purchase in purchases) {
-      if (purchase.purchaseType == SteamPurchaseType.game &&
-          _hasPlaytime(purchase)) {
-        result.add(_gameNameKey(purchase.gameName));
-      }
-    }
-
-    return result;
-  }
-
-  Map<String, double> _buildDlcSpendingByGameName() {
-    final result = <String, double>{};
-
-    for (final purchase in purchases) {
-      if (purchase.purchaseType != SteamPurchaseType.dlc) {
-        continue;
-      }
-
-      final gameNameKey = _gameNameKey(purchase.gameName);
-      result[gameNameKey] = (result[gameNameKey] ?? 0.0) + purchase.price;
-    }
-
-    return result;
-  }
-
   String _gameNameKey(String gameName) {
     return gameName.trim().toLowerCase();
+  }
+}
+
+class _StatisticsAggregate {
+  final Set<String> gameNamesWithTrackedPlaytime = {};
+  final Map<String, double> dlcSpendingByGameName = {};
+  final Map<int, double> spendingByYear = {};
+  final Map<int, double> playtimeByYear = {};
+  final Map<int, double> spendingWithPlaytimeByYear = {};
+  final Map<int, _DiscountAggregate> discountsByYear = {};
+  final _DiscountAggregate totalDiscount = _DiscountAggregate();
+
+  int totalGames = 0;
+  int totalDlcs = 0;
+  int? firstYear;
+  int? lastYear;
+  double totalSpent = 0.0;
+  double totalOriginalPrice = 0.0;
+  double totalPlaytimeHours = 0.0;
+  double totalSpentWithPlaytime = 0.0;
+
+  double? get averageDiscount => totalDiscount.averageDiscount;
+
+  void addYear(int year) {
+    final currentFirstYear = firstYear;
+    final currentLastYear = lastYear;
+
+    if (currentFirstYear == null || year < currentFirstYear) {
+      firstYear = year;
+    }
+
+    if (currentLastYear == null || year > currentLastYear) {
+      lastYear = year;
+    }
+  }
+
+  Map<int, double?> averageDiscountByYear(Iterable<int> years) {
+    return {
+      for (final year in years) year: discountsByYear[year]?.averageDiscount,
+    };
   }
 }
 

@@ -76,16 +76,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
+  static final RegExp _searchWhitespacePattern = RegExp(r'\s+');
+
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
   late final SteamGameMetadataService _metadataService;
   late final SteamAppLinkingService _appLinkingService;
   late final SteamGoalStore _goalStore;
   late final TabController _tabController;
+  late final bool _ownsMetadataService;
+  late final bool _ownsAppLinkingService;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
   final _purchaseSearchController = TextEditingController();
 
   List<SteamPurchase> _purchases = [];
+  SteamStatistics? _cachedStatistics;
+  DateTime? _cachedStatisticsDate;
+  PurchaseSortOption? _cachedSortOption;
+  List<SteamPurchase>? _cachedSortedPurchases;
+  List<SteamPurchase>? _cachedFilteredSource;
+  List<SteamPurchase>? _cachedFilteredPurchases;
+  String? _cachedFilterQuery;
+  PurchaseFilters? _cachedFilterState;
+  Locale? _cachedFilterLocale;
+  List<int>? _cachedPurchaseYears;
   bool _isLoading = true;
   bool _isCsvOperationRunning = false;
   bool _isAutomationRunning = false;
@@ -99,6 +113,8 @@ class _HomeScreenState extends State<HomeScreen>
     _repository = widget.repository ?? SteamPurchaseRepository();
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
+    _ownsMetadataService = widget.metadataService == null;
+    _ownsAppLinkingService = widget.appLinkingService == null;
     _metadataService = widget.metadataService ?? SteamGameMetadataService();
     _appLinkingService = widget.appLinkingService ?? SteamAppLinkingService();
     _goalStore = widget.goalStore ?? SteamGoalRepository();
@@ -112,6 +128,12 @@ class _HomeScreenState extends State<HomeScreen>
     _tabController.removeListener(_handleTabSelectionChanged);
     _tabController.dispose();
     _purchaseSearchController.dispose();
+    if (_ownsMetadataService) {
+      _metadataService.dispose();
+    }
+    if (_ownsAppLinkingService) {
+      _appLinkingService.dispose();
+    }
     super.dispose();
   }
 
@@ -133,12 +155,62 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     setState(() {
-      _purchases = purchases;
+      _purchases = List.unmodifiable(purchases);
+      _invalidatePurchaseCaches();
       _isLoading = false;
     });
   }
 
+  void _invalidatePurchaseCaches() {
+    _cachedStatistics = null;
+    _cachedStatisticsDate = null;
+    _cachedSortOption = null;
+    _cachedSortedPurchases = null;
+    _cachedPurchaseYears = null;
+    _invalidateFilteredPurchaseCache();
+  }
+
+  void _invalidateSortedPurchaseCache() {
+    _cachedSortOption = null;
+    _cachedSortedPurchases = null;
+    _invalidateFilteredPurchaseCache();
+  }
+
+  void _invalidateFilteredPurchaseCache() {
+    _cachedFilteredSource = null;
+    _cachedFilteredPurchases = null;
+    _cachedFilterQuery = null;
+    _cachedFilterState = null;
+    _cachedFilterLocale = null;
+  }
+
+  DateTime _today() {
+    final now = DateTime.now();
+
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  SteamStatistics _getStatistics() {
+    final today = _today();
+    final cachedStatistics = _cachedStatistics;
+
+    if (cachedStatistics != null && _cachedStatisticsDate == today) {
+      return cachedStatistics;
+    }
+
+    _cachedStatisticsDate = today;
+    _cachedStatistics = SteamStatistics(_purchases, currentDate: today);
+
+    return _cachedStatistics!;
+  }
+
   List<SteamPurchase> _getSortedPurchases(SteamStatistics stats) {
+    final cachedSortedPurchases = _cachedSortedPurchases;
+
+    if (cachedSortedPurchases != null && _cachedSortOption == _sortOption) {
+      return cachedSortedPurchases;
+    }
+
     final sortedPurchases = [..._purchases];
 
     sortedPurchases.sort((a, b) {
@@ -203,7 +275,10 @@ class _HomeScreenState extends State<HomeScreen>
       }
     });
 
-    return sortedPurchases;
+    _cachedSortOption = _sortOption;
+    _cachedSortedPurchases = List.unmodifiable(sortedPurchases);
+
+    return _cachedSortedPurchases!;
   }
 
   List<SteamPurchase> _getFilteredPurchases(
@@ -211,36 +286,59 @@ class _HomeScreenState extends State<HomeScreen>
     AppStrings strings,
   ) {
     final query = _normalizeSearchText(_purchaseSearchController.text);
+    final filterLocale = strings.locale;
+    final cachedFilteredPurchases = _cachedFilteredPurchases;
 
-    if (query.isEmpty && !_purchaseFilters.hasFilters) {
-      return purchases;
+    if (cachedFilteredPurchases != null &&
+        identical(_cachedFilteredSource, purchases) &&
+        _cachedFilterQuery == query &&
+        _cachedFilterState == _purchaseFilters &&
+        _cachedFilterLocale == filterLocale) {
+      return cachedFilteredPurchases;
     }
 
-    return purchases.where((purchase) {
-      if (!_purchaseFilters.matches(purchase)) {
-        return false;
-      }
+    final List<SteamPurchase> filteredPurchases =
+        query.isEmpty && !_purchaseFilters.hasFilters
+        ? purchases
+        : List<SteamPurchase>.unmodifiable(
+            purchases.where((purchase) {
+              if (!_purchaseFilters.matches(purchase)) {
+                return false;
+              }
 
-      if (query.isEmpty) {
-        return true;
-      }
+              if (query.isEmpty) {
+                return true;
+              }
 
-      final gameStatus = purchase.purchaseType == SteamPurchaseType.game
-          ? purchase.gameStatus
-          : null;
-      final gameStatusText = gameStatus == null
-          ? ''
-          : strings.gameStatusLabel(gameStatus);
+              final gameStatus = purchase.purchaseType == SteamPurchaseType.game
+                  ? purchase.gameStatus
+                  : null;
+              final gameStatusText = gameStatus == null
+                  ? ''
+                  : strings.gameStatusLabel(gameStatus);
 
-      return _normalizeSearchText(purchase.displayName).contains(query) ||
-          _normalizeSearchText(purchase.gameName).contains(query) ||
-          _normalizeSearchText(purchase.dlcName ?? '').contains(query) ||
-          _normalizeSearchText(gameStatusText).contains(query);
-    }).toList();
+              return _normalizeSearchText(
+                    purchase.displayName,
+                  ).contains(query) ||
+                  _normalizeSearchText(purchase.gameName).contains(query) ||
+                  _normalizeSearchText(
+                    purchase.dlcName ?? '',
+                  ).contains(query) ||
+                  _normalizeSearchText(gameStatusText).contains(query);
+            }),
+          );
+
+    _cachedFilteredSource = purchases;
+    _cachedFilteredPurchases = filteredPurchases;
+    _cachedFilterQuery = query;
+    _cachedFilterState = _purchaseFilters;
+    _cachedFilterLocale = filterLocale;
+
+    return filteredPurchases;
   }
 
   String _normalizeSearchText(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return value.trim().toLowerCase().replaceAll(_searchWhitespacePattern, ' ');
   }
 
   String _getSortLabel(
@@ -252,10 +350,18 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   List<int> _getPurchaseYears() {
+    final cachedPurchaseYears = _cachedPurchaseYears;
+
+    if (cachedPurchaseYears != null) {
+      return cachedPurchaseYears;
+    }
+
     final years = _purchases.map((purchase) => purchase.year).toSet().toList()
       ..sort((a, b) => b.compareTo(a));
 
-    return years;
+    _cachedPurchaseYears = List.unmodifiable(years);
+
+    return _cachedPurchaseYears!;
   }
 
   Future<void> _openPurchaseFiltersDialog(AppCurrency currency) async {
@@ -276,12 +382,14 @@ class _HomeScreenState extends State<HomeScreen>
 
     setState(() {
       _purchaseFilters = filters;
+      _invalidateFilteredPurchaseCache();
     });
   }
 
   void _clearPurchaseFilters() {
     setState(() {
       _purchaseFilters = const PurchaseFilters();
+      _invalidateFilteredPurchaseCache();
     });
   }
 
@@ -767,7 +875,7 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
-      final sortedPurchases = _getSortedPurchases(SteamStatistics(_purchases));
+      final sortedPurchases = _getSortedPurchases(_getStatistics());
       final csv = SteamPurchaseCsv.encode(sortedPurchases);
       final fileName = 'steam_purchases_${_formatFileDate(DateTime.now())}.csv';
       final path = await FilePicker.platform.saveFile(
@@ -1181,12 +1289,13 @@ class _HomeScreenState extends State<HomeScreen>
               value: _sortOption,
               isExpanded: isCompact,
               onChanged: (value) {
-                if (value == null) {
+                if (value == null || value == _sortOption) {
                   return;
                 }
 
                 setState(() {
                   _sortOption = value;
+                  _invalidateSortedPurchaseCache();
                 });
               },
               items: PurchaseSortOption.values.map((option) {
@@ -1251,6 +1360,7 @@ class _HomeScreenState extends State<HomeScreen>
                     onPressed: () {
                       setState(() {
                         _purchaseSearchController.clear();
+                        _invalidateFilteredPurchaseCache();
                       });
                     },
                     icon: const Icon(Icons.clear),
@@ -1258,7 +1368,9 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           textInputAction: TextInputAction.search,
           onChanged: (_) {
-            setState(() {});
+            setState(() {
+              _invalidateFilteredPurchaseCache();
+            });
           },
         ),
         if (_purchaseFilters.hasFilters) ...[
@@ -1488,7 +1600,7 @@ class _HomeScreenState extends State<HomeScreen>
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
-    final stats = SteamStatistics(_purchases);
+    final stats = _getStatistics();
     final sortedPurchases = _getSortedPurchases(stats);
     final filteredPurchases = _getFilteredPurchases(sortedPurchases, strings);
 

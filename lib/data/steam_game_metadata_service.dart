@@ -1,5 +1,6 @@
 import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
+import 'resource_lifecycle.dart';
 import 'steam_game_metadata_client.dart';
 import 'steam_game_metadata_repository.dart';
 
@@ -17,15 +18,26 @@ class SteamGameMetadataRefreshResult {
   });
 }
 
-class SteamGameMetadataService {
+class SteamGameMetadataService implements DisposableResource {
   final SteamGameMetadataClient client;
   final SteamGameMetadataRepository repository;
+  final bool _ownsClient;
 
   SteamGameMetadataService({
     SteamGameMetadataClient? client,
     SteamGameMetadataRepository? repository,
   }) : client = client ?? HttpSteamGameMetadataClient(),
-       repository = repository ?? SteamGameMetadataRepository();
+       repository = repository ?? SteamGameMetadataRepository(),
+       _ownsClient = client == null;
+
+  @override
+  void dispose() {
+    if (!_ownsClient) {
+      return;
+    }
+
+    disposeResource(client);
+  }
 
   Future<SteamGameMetadata?> getMetadata(int steamAppId) {
     return repository.getMetadata(steamAppId);

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/steam_game_metadata.dart';
+import 'resource_lifecycle.dart';
 
 abstract class SteamGameMetadataClient {
   Future<SteamGameMetadata?> fetchMetadata({
@@ -12,15 +13,25 @@ abstract class SteamGameMetadataClient {
   });
 }
 
-class HttpSteamGameMetadataClient implements SteamGameMetadataClient {
+class HttpSteamGameMetadataClient
+    implements SteamGameMetadataClient, DisposableResource {
   final HttpClient _httpClient;
   final Duration timeout;
+  final bool _ownsHttpClient;
 
   HttpSteamGameMetadataClient({
     HttpClient? httpClient,
     this.timeout = const Duration(seconds: 3),
-  }) : _httpClient = httpClient ?? HttpClient() {
+  }) : _httpClient = httpClient ?? HttpClient(),
+       _ownsHttpClient = httpClient == null {
     _httpClient.connectionTimeout = timeout;
+  }
+
+  @override
+  void dispose() {
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
   }
 
   @override
