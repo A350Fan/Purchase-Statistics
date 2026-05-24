@@ -35,6 +35,46 @@ enum SteamCollectionType {
   }
 }
 
+enum SteamCollectionRuleField {
+  titleContains('title_contains'),
+  genre('genre'),
+  tag('tag'),
+  developer('developer'),
+  publisher('publisher');
+
+  final String storageValue;
+
+  const SteamCollectionRuleField(this.storageValue);
+
+  bool get isMetadataField => metadataField != null;
+
+  SteamMetadataField? get metadataField {
+    return switch (this) {
+      SteamCollectionRuleField.genre => SteamMetadataField.genre,
+      SteamCollectionRuleField.tag => SteamMetadataField.tag,
+      SteamCollectionRuleField.developer => SteamMetadataField.developer,
+      SteamCollectionRuleField.publisher => SteamMetadataField.publisher,
+      SteamCollectionRuleField.titleContains => null,
+    };
+  }
+
+  static SteamCollectionRuleField? fromStorage(Object? value) {
+    final normalizedValue = value?.toString().trim().toLowerCase();
+
+    if (normalizedValue == null || normalizedValue.isEmpty) {
+      return null;
+    }
+
+    for (final field in SteamCollectionRuleField.values) {
+      if (field.storageValue == normalizedValue) {
+        return field;
+      }
+    }
+
+    return null;
+  }
+}
+
 class SteamCollection {
   static const SteamCollectionSortMode manualSortMode =
       SteamCollectionSortMode.manual;
@@ -47,7 +87,7 @@ class SteamCollection {
   final String? description;
   final SteamCollectionSortMode sortMode;
   final SteamCollectionType collectionType;
-  final SteamMetadataField? ruleField;
+  final SteamCollectionRuleField? ruleField;
   final String? ruleValue;
   final DateTime createdAt;
 
@@ -67,12 +107,13 @@ class SteamCollection {
 
   SteamCollectionMetadataRule? get metadataRule {
     final value = _emptyToNull(ruleValue);
+    final metadataField = ruleField?.metadataField;
 
-    if (!isAutomatic || ruleField == null || value == null) {
+    if (!isAutomatic || metadataField == null || value == null) {
       return null;
     }
 
-    return SteamCollectionMetadataRule(field: ruleField!, value: value);
+    return SteamCollectionMetadataRule(field: metadataField, value: value);
   }
 
   factory SteamCollection.create({
@@ -80,7 +121,7 @@ class SteamCollection {
     String? description,
     SteamCollectionSortMode sortMode = manualSortMode,
     SteamCollectionType collectionType = manualCollectionType,
-    SteamMetadataField? ruleField,
+    SteamCollectionRuleField? ruleField,
     String? ruleValue,
     DateTime Function()? now,
   }) {
@@ -122,7 +163,7 @@ class SteamCollection {
       ruleField: nextCollectionType == SteamCollectionType.automatic
           ? identical(ruleField, _unset)
                 ? this.ruleField
-                : ruleField as SteamMetadataField?
+                : ruleField as SteamCollectionRuleField?
           : null,
       ruleValue: nextCollectionType == SteamCollectionType.automatic
           ? identical(ruleValue, _unset)
@@ -153,26 +194,10 @@ class SteamCollection {
       description: _emptyToNull(map['description'] as String?),
       sortMode: SteamCollectionSortMode.fromStorage(map['sort_mode']),
       collectionType: SteamCollectionType.fromStorage(map['collection_type']),
-      ruleField: _metadataFieldFromStorage(map['rule_field']),
+      ruleField: SteamCollectionRuleField.fromStorage(map['rule_field']),
       ruleValue: _emptyToNull(map['rule_value'] as String?),
       createdAt: DateTime.parse(map['created_at'] as String),
     );
-  }
-
-  static SteamMetadataField? _metadataFieldFromStorage(Object? value) {
-    final normalizedValue = value?.toString().trim().toLowerCase();
-
-    if (normalizedValue == null || normalizedValue.isEmpty) {
-      return null;
-    }
-
-    for (final field in SteamMetadataField.values) {
-      if (field.storageValue == normalizedValue) {
-        return field;
-      }
-    }
-
-    return null;
   }
 
   static String? _emptyToNull(String? value) {

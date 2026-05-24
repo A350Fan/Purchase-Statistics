@@ -20,6 +20,22 @@ String _metadataFieldLabel(SteamMetadataField field, AppStrings strings) {
   };
 }
 
+String _collectionRuleFieldLabel(
+  SteamCollectionRuleField field,
+  AppStrings strings,
+) {
+  final metadataField = field.metadataField;
+
+  if (metadataField != null) {
+    return _metadataFieldLabel(metadataField, strings);
+  }
+
+  return switch (field) {
+    SteamCollectionRuleField.titleContains => strings.titleContainsRule,
+    _ => field.storageValue,
+  };
+}
+
 class CollectionsTab extends StatefulWidget {
   final SteamCollectionRepository repository;
   final List<SteamPurchase> purchases;
@@ -533,7 +549,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   Widget _buildHeader(AppStrings strings) {
     final theme = Theme.of(context);
     final description = _collection.description;
-    final metadataRule = _collection.metadataRule;
+    final ruleField = _collection.ruleField;
+    final ruleValue = _collection.ruleValue;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,14 +565,16 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             ),
           ),
         ],
-        if (metadataRule != null) ...[
+        if (_collection.isAutomatic &&
+            ruleField != null &&
+            ruleValue != null) ...[
           const SizedBox(height: 12),
           Chip(
             avatar: const Icon(Icons.rule),
             label: Text(
               strings.automaticCollectionRule(
-                _metadataFieldLabel(metadataRule.field, strings),
-                metadataRule.value,
+                _collectionRuleFieldLabel(ruleField, strings),
+                ruleValue,
               ),
             ),
           ),
@@ -934,9 +953,10 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _titleRuleValueController = TextEditingController();
   List<String> _availableRuleValues = [];
   SteamCollectionType _collectionType = SteamCollectionType.manual;
-  SteamMetadataField _ruleField = SteamMetadataField.genre;
+  SteamCollectionRuleField _ruleField = SteamCollectionRuleField.titleContains;
   String? _ruleValue;
   bool _isLoadingRuleValues = false;
   int _ruleValueLoadGeneration = 0;
@@ -955,10 +975,12 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
 
     _nameController.text = initialCollection.name;
     _descriptionController.text = initialCollection.description ?? '';
+    _titleRuleValueController.text = initialCollection.ruleValue ?? '';
     _collectionType = initialCollection.collectionType;
-    _ruleField = initialCollection.ruleField ?? SteamMetadataField.genre;
+    _ruleField =
+        initialCollection.ruleField ?? SteamCollectionRuleField.titleContains;
     _ruleValue = initialCollection.ruleValue;
-    if (initialCollection.isAutomatic) {
+    if (initialCollection.isAutomatic && _ruleField.isMetadataField) {
       _loadRuleValues();
     }
   }
@@ -967,11 +989,14 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _titleRuleValueController.dispose();
     super.dispose();
   }
 
   Future<void> _loadRuleValues({bool resetSelection = false}) async {
-    if (!mounted) {
+    final metadataField = _ruleField.metadataField;
+
+    if (!mounted || metadataField == null) {
       return;
     }
 
@@ -983,7 +1008,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     });
 
     final values = await widget.repository.getAvailableMetadataRuleValues(
-      field,
+      metadataField,
     );
 
     if (!mounted ||
@@ -1047,7 +1072,11 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
     final isAutomatic = _collectionType == SteamCollectionType.automatic;
-    final ruleValue = _ruleValue?.trim();
+    final ruleValue = isAutomatic
+        ? _ruleField == SteamCollectionRuleField.titleContains
+              ? _titleRuleValueController.text.trim()
+              : _ruleValue?.trim()
+        : null;
     final collection = initialCollection == null
         ? SteamCollection.create(
             name: name,
@@ -1123,7 +1152,8 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
                               }
                             });
                             if (nextCollectionType ==
-                                SteamCollectionType.automatic) {
+                                    SteamCollectionType.automatic &&
+                                _ruleField.isMetadataField) {
                               _loadRuleValues();
                             }
                           },
@@ -1165,16 +1195,16 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
                 ),
                 if (_collectionType == SteamCollectionType.automatic) ...[
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<SteamMetadataField>(
+                  DropdownButtonFormField<SteamCollectionRuleField>(
                     initialValue: _ruleField,
                     decoration: InputDecoration(
-                      labelText: strings.metadataField,
+                      labelText: strings.collectionRule,
                       border: const OutlineInputBorder(),
                     ),
-                    items: SteamMetadataField.values.map((field) {
+                    items: SteamCollectionRuleField.values.map((field) {
                       return DropdownMenuItem(
                         value: field,
-                        child: Text(_metadataFieldLabel(field, strings)),
+                        child: Text(_collectionRuleFieldLabel(field, strings)),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -1185,68 +1215,103 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
                       setState(() {
                         _ruleField = value;
                         _ruleValue = null;
+                        _titleRuleValueController.clear();
                       });
-                      _loadRuleValues(resetSelection: true);
+
+                      if (value.isMetadataField) {
+                        _loadRuleValues(resetSelection: true);
+                      } else {
+                        _ruleValueLoadGeneration++;
+                        setState(() {
+                          _availableRuleValues = [];
+                          _isLoadingRuleValues = false;
+                        });
+                      }
                     },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey(
-                      '${_ruleField.storageValue}|${_ruleValue ?? ''}|'
-                      '${_availableRuleValues.length}|$_isLoadingRuleValues',
-                    ),
-                    initialValue: _selectedRuleValue(),
-                    decoration: InputDecoration(
-                      labelText: strings.metadataValue,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: _isLoadingRuleValues
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          : null,
-                    ),
-                    hint: Text(
-                      _isLoadingRuleValues
-                          ? strings.loadingMetadataValues
-                          : strings.noMetadataValuesAvailable,
-                    ),
-                    items: _availableRuleValues.map((value) {
-                      return DropdownMenuItem(
-                        value: value,
-                        child: Text(
-                          value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
-                    onChanged:
-                        _isLoadingRuleValues || _availableRuleValues.isEmpty
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _ruleValue = value;
-                            });
-                          },
-                    validator: (value) {
-                      if (_collectionType != SteamCollectionType.automatic) {
+                  if (_ruleField == SteamCollectionRuleField.titleContains)
+                    TextFormField(
+                      controller: _titleRuleValueController,
+                      decoration: InputDecoration(
+                        labelText: strings.titleSearchTerm,
+                        border: const OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+                      validator: (value) {
+                        if (_collectionType != SteamCollectionType.automatic ||
+                            _ruleField !=
+                                SteamCollectionRuleField.titleContains) {
+                          return null;
+                        }
+
+                        if (value == null || value.trim().isEmpty) {
+                          return strings.enterTitleSearchTerm;
+                        }
+
                         return null;
-                      }
+                      },
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(
+                        '${_ruleField.storageValue}|${_ruleValue ?? ''}|'
+                        '${_availableRuleValues.length}|$_isLoadingRuleValues',
+                      ),
+                      initialValue: _selectedRuleValue(),
+                      decoration: InputDecoration(
+                        labelText: strings.metadataValue,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: _isLoadingRuleValues
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      hint: Text(
+                        _isLoadingRuleValues
+                            ? strings.loadingMetadataValues
+                            : strings.noMetadataValuesAvailable,
+                      ),
+                      items: _availableRuleValues.map((value) {
+                        return DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged:
+                          _isLoadingRuleValues || _availableRuleValues.isEmpty
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _ruleValue = value;
+                              });
+                            },
+                      validator: (value) {
+                        if (_collectionType != SteamCollectionType.automatic ||
+                            !_ruleField.isMetadataField) {
+                          return null;
+                        }
 
-                      if (value == null || value.trim().isEmpty) {
-                        return strings.enterMetadataValue;
-                      }
+                        if (value == null || value.trim().isEmpty) {
+                          return strings.enterMetadataValue;
+                        }
 
-                      return null;
-                    },
-                  ),
+                        return null;
+                      },
+                    ),
                 ],
               ],
             ),

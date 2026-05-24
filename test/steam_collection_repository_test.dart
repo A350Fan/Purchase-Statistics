@@ -70,7 +70,7 @@ void main() {
           name: 'Puzzle',
           description: 'Steam genre',
           collectionType: SteamCollectionType.automatic,
-          ruleField: SteamMetadataField.genre,
+          ruleField: SteamCollectionRuleField.genre,
           ruleValue: 'Puzzle',
           createdAt: now,
         ),
@@ -80,7 +80,7 @@ void main() {
 
       expect(collections.single.id, collectionId);
       expect(collections.single.collectionType, SteamCollectionType.automatic);
-      expect(collections.single.ruleField, SteamMetadataField.genre);
+      expect(collections.single.ruleField, SteamCollectionRuleField.genre);
       expect(collections.single.ruleValue, 'Puzzle');
       expect(collections.single.metadataRule, isNotNull);
     });
@@ -166,7 +166,7 @@ void main() {
       final collection = SteamCollection(
         name: 'Puzzle',
         collectionType: SteamCollectionType.automatic,
-        ruleField: SteamMetadataField.genre,
+        ruleField: SteamCollectionRuleField.genre,
         ruleValue: 'puzzle',
         createdAt: now,
       );
@@ -182,6 +182,38 @@ void main() {
       expect(purchases.single.id, portalId);
       expect(purchases.single.gameName, 'Portal 2');
       expect(count, 1);
+    });
+
+    test('loads purchases for title contains rules', () async {
+      final firstId = await _insertPurchase(
+        db,
+        gameName: "Assassin's Creed II",
+      );
+      final secondId = await _insertPurchase(
+        db,
+        gameName: "Assassin's Creed Odyssey",
+      );
+      await _insertPurchase(db, gameName: 'Far Cry 5');
+      final collection = SteamCollection(
+        name: "Assassin's Creed",
+        collectionType: SteamCollectionType.automatic,
+        ruleField: SteamCollectionRuleField.titleContains,
+        ruleValue: "assassin's creed",
+        createdAt: now,
+      );
+
+      final purchases = await repository.getPurchasesForAutomaticCollection(
+        collection,
+      );
+      final count = await repository.countPurchasesForAutomaticCollection(
+        collection,
+      );
+
+      expect(purchases.map((purchase) => purchase.id).toSet(), {
+        firstId,
+        secondId,
+      });
+      expect(count, 2);
     });
 
     test('loads available metadata values for collection rules', () async {
@@ -300,7 +332,7 @@ void main() {
         SteamCollection(
           name: 'Puzzle',
           collectionType: SteamCollectionType.automatic,
-          ruleField: SteamMetadataField.genre,
+          ruleField: SteamCollectionRuleField.genre,
           ruleValue: 'Puzzle',
           createdAt: now,
         ),

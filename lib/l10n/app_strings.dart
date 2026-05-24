@@ -134,6 +134,14 @@ class AppStrings {
       isEnglish ? 'Description optional' : 'Beschreibung optional';
   String get enterCollectionName =>
       isEnglish ? 'Enter a collection name' : 'Bitte Namen eingeben';
+  String get collectionRule => isEnglish ? 'Rule' : 'Regel';
+  String get titleContainsRule =>
+      isEnglish ? 'Title contains' : 'Titel enthält';
+  String get titleSearchTerm =>
+      isEnglish ? 'Title search term' : 'Titel-Suchbegriff';
+  String get enterTitleSearchTerm => isEnglish
+      ? 'Enter a title search term'
+      : 'Bitte Titel-Suchbegriff eingeben';
   String get metadataField => isEnglish ? 'Metadata field' : 'Metadatenfeld';
   String get metadataValue => isEnglish ? 'Metadata value' : 'Metadatenwert';
   String get enterMetadataValue =>

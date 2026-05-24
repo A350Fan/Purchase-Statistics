@@ -10,6 +10,7 @@ class SteamCollectionRepository {
   static const String collectionsTable = 'collections';
   static const String collectionItemsTable = 'collection_items';
   static const String _purchasesTable = 'steam_purchases';
+  static const String _metadataTable = 'steam_game_metadata';
   static const String _metadataValuesTable = 'steam_game_metadata_values';
 
   final Future<Database> Function() _databaseProvider;
@@ -75,13 +76,36 @@ class SteamCollectionRepository {
   Future<int> countPurchasesForAutomaticCollection(
     SteamCollection collection,
   ) async {
-    final rule = collection.metadataRule;
+    final ruleField = collection.ruleField;
+    final ruleValue = collection.ruleValue?.trim();
 
-    if (rule == null) {
+    if (!collection.isAutomatic ||
+        ruleField == null ||
+        ruleValue == null ||
+        ruleValue.isEmpty) {
       return 0;
     }
 
     final db = await _databaseProvider();
+
+    if (ruleField == SteamCollectionRuleField.titleContains) {
+      final normalizedRuleValue = _normalizeRuleValue(ruleValue);
+      final rows = await db.rawQuery('''
+        SELECT COUNT(DISTINCT p.id) AS item_count
+        FROM $_purchasesTable p
+        LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
+        WHERE ${_titleContainsWhereClause('p', 'm')}
+        ''', List.filled(4, normalizedRuleValue));
+
+      return (rows.single['item_count'] as int?) ?? 0;
+    }
+
+    final metadataRule = collection.metadataRule;
+
+    if (metadataRule == null) {
+      return 0;
+    }
+
     final rows = await db.rawQuery(
       '''
       SELECT COUNT(DISTINCT p.id) AS item_count
@@ -91,7 +115,7 @@ class SteamCollectionRepository {
       WHERE mv.field = ?
         AND LOWER(TRIM(mv.value)) = LOWER(TRIM(?))
       ''',
-      [rule.field.storageValue, rule.value],
+      [metadataRule.field.storageValue, metadataRule.value],
     );
 
     return (rows.single['item_count'] as int?) ?? 0;
@@ -100,13 +124,37 @@ class SteamCollectionRepository {
   Future<List<SteamPurchase>> getPurchasesForAutomaticCollection(
     SteamCollection collection,
   ) async {
-    final rule = collection.metadataRule;
+    final ruleField = collection.ruleField;
+    final ruleValue = collection.ruleValue?.trim();
 
-    if (rule == null) {
+    if (!collection.isAutomatic ||
+        ruleField == null ||
+        ruleValue == null ||
+        ruleValue.isEmpty) {
       return [];
     }
 
     final db = await _databaseProvider();
+
+    if (ruleField == SteamCollectionRuleField.titleContains) {
+      final normalizedRuleValue = _normalizeRuleValue(ruleValue);
+      final maps = await db.rawQuery('''
+        SELECT DISTINCT p.*
+        FROM $_purchasesTable p
+        LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
+        WHERE ${_titleContainsWhereClause('p', 'm')}
+        ORDER BY p.purchase_date DESC, p.id DESC
+        ''', List.filled(4, normalizedRuleValue));
+
+      return maps.map(SteamPurchase.fromMap).toList();
+    }
+
+    final metadataRule = collection.metadataRule;
+
+    if (metadataRule == null) {
+      return [];
+    }
+
     final maps = await db.rawQuery(
       '''
       SELECT DISTINCT p.*
@@ -117,7 +165,7 @@ class SteamCollectionRepository {
         AND LOWER(TRIM(mv.value)) = LOWER(TRIM(?))
       ORDER BY p.purchase_date DESC, p.id DESC
       ''',
-      [rule.field.storageValue, rule.value],
+      [metadataRule.field.storageValue, metadataRule.value],
     );
 
     return maps.map(SteamPurchase.fromMap).toList();
@@ -306,6 +354,21 @@ class SteamCollectionRepository {
       where: 'collection_id = ? AND purchase_id = ?',
       whereArgs: [collectionId, purchaseId],
     );
+  }
+
+  String _titleContainsWhereClause(String purchaseAlias, String metadataAlias) {
+    return '''
+      (
+        INSTR(LOWER($purchaseAlias.game_name), ?) > 0
+        OR INSTR(LOWER(COALESCE($purchaseAlias.dlc_name, '')), ?) > 0
+        OR INSTR(LOWER(COALESCE($purchaseAlias.edition, '')), ?) > 0
+        OR INSTR(LOWER(COALESCE($metadataAlias.name, '')), ?) > 0
+      )
+    ''';
+  }
+
+  String _normalizeRuleValue(String value) {
+    return value.trim().toLowerCase();
   }
 
   Future<int> _nextCustomOrder(
