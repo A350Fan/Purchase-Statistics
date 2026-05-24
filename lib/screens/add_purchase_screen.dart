@@ -1273,9 +1273,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                       return strings.enterValidNumber;
                                     }
 
-                                    if (parsedValue <= 0) {
+                                    if (parsedValue < 0) {
                                       return strings
-                                          .originalPriceMustBePositive;
+                                          .originalPriceCannotBeNegative;
                                     }
 
                                     return null;

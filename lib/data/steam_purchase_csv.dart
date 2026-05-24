@@ -331,9 +331,9 @@ class SteamPurchaseCsv {
       );
     }
 
-    if (originalPrice != null && originalPrice <= 0) {
+    if (originalPrice != null && originalPrice < 0) {
       throw SteamPurchaseCsvException(
-        'Zeile ${row.lineNumber}: Originalpreis muss größer als 0 sein.',
+        'Zeile ${row.lineNumber}: Originalpreis darf nicht negativ sein.',
       );
     }
 

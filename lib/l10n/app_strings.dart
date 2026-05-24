@@ -375,9 +375,9 @@ class AppStrings {
       : 'Bitte gültige positive Steam-App-ID eingeben';
   String get priceCannotBeNegative =>
       isEnglish ? 'Price cannot be negative' : 'Preis darf nicht negativ sein';
-  String get originalPriceMustBePositive => isEnglish
-      ? 'Original price must be greater than 0'
-      : 'Originalpreis muss größer als 0 sein';
+  String get originalPriceCannotBeNegative => isEnglish
+      ? 'Original price cannot be negative'
+      : 'Originalpreis darf nicht negativ sein';
   String get playtimeCannotBeNegative => isEnglish
       ? 'Playtime cannot be negative'
       : 'Spielzeit darf nicht negativ sein';

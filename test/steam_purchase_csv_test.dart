@@ -77,6 +77,20 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
       expect(purchases.single.price, 9.99);
     });
 
+    test('allows zero original price', () {
+      const csv = '''
+purchase_date,game_name,price,original_price
+2026-05-22,Free base game,0.00,0.00
+''';
+
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      expect(purchases, hasLength(1));
+      expect(purchases.single.price, 0);
+      expect(purchases.single.originalPrice, 0);
+      expect(purchases.single.discount, isNull);
+    });
+
     test('throws a descriptive exception for invalid rows', () {
       const csv = '''
 purchase_date,game_name,price
