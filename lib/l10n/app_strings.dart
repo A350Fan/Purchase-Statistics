@@ -43,6 +43,7 @@ class AppStrings {
   String get statisticsTab => isEnglish ? 'Statistics' : 'Statistik';
   String get chartsTab => isEnglish ? 'Charts' : 'Diagramme';
   String get smartInsightsTab => isEnglish ? 'Insights' : 'Insights';
+  String get goalsTab => isEnglish ? 'Goals' : 'Ziele';
   String get collectionsTab => isEnglish ? 'Collections' : 'Kollektionen';
   String get purchaseFab => isEnglish ? 'Purchase' : 'Kauf';
   String get collectionFab => isEnglish ? 'Collection' : 'Kollektion';
@@ -171,6 +172,47 @@ class AppStrings {
       isEnglish ? 'No chart data yet.' : 'Noch keine Diagrammdaten vorhanden.';
   String get noInsightsData =>
       isEnglish ? 'No insights yet.' : 'Noch keine Insights vorhanden.';
+  String get editGoals => isEnglish ? 'Edit goals' : 'Ziele bearbeiten';
+  String get annualSpendingGoal =>
+      isEnglish ? 'Annual spending' : 'Jahresausgaben';
+  String get backlogLimitGoal => isEnglish ? 'Backlog limit' : 'Backlog-Limit';
+  String get unplayedBacklogGoal =>
+      isEnglish ? 'Unplayed limit' : 'Ungespielt-Limit';
+  String get unplayedBacklogValueGoal =>
+      isEnglish ? 'Unplayed value' : 'Ungespielt-Wert';
+  String get completionRateGoal =>
+      isEnglish ? 'Completion rate' : 'Abschlussquote';
+  String get goalNotSet => isEnglish ? 'No target set' : 'Kein Ziel gesetzt';
+  String goalTarget(String value) {
+    return isEnglish ? 'Target: $value' : 'Ziel: $value';
+  }
+
+  String goalProjection(String value) {
+    return isEnglish ? 'Projection: $value' : 'Prognose: $value';
+  }
+
+  String get goalStateUnset => isEnglish ? 'Unset' : 'Offen';
+  String get goalStateOnTrack => isEnglish ? 'On track' : 'Im Plan';
+  String get goalStateAtRisk => isEnglish ? 'At risk' : 'Gefährdet';
+  String get goalStateOffTrack => isEnglish ? 'Off track' : 'Abweichung';
+  String get annualSpendingLimitOptional =>
+      isEnglish ? 'Annual spending limit optional' : 'Jahresbudget optional';
+  String get backlogLimitOptional =>
+      isEnglish ? 'Backlog limit optional' : 'Backlog-Limit optional';
+  String get unplayedBacklogLimitOptional => isEnglish
+      ? 'Unplayed backlog limit optional'
+      : 'Ungespielt-Limit optional';
+  String get unplayedBacklogValueLimitOptional => isEnglish
+      ? 'Unplayed backlog value limit optional'
+      : 'Ungespielt-Wert-Limit optional';
+  String get completionRateTargetOptional => isEnglish
+      ? 'Completion rate target optional'
+      : 'Abschlussquote-Ziel optional';
+  String get valueCannotBeNegative =>
+      isEnglish ? 'Value cannot be negative' : 'Wert darf nicht negativ sein';
+  String get percentOutOfRange => isEnglish
+      ? 'Percent must be between 0 and 100'
+      : 'Prozentwert muss zwischen 0 und 100 liegen';
   String get noCollections => isEnglish
       ? 'No collections yet. Create your first collection.'
       : 'Noch keine Kollektionen vorhanden. Erstelle deine erste Kollektion.';

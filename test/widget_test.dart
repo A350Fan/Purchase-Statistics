@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:purchase_statistics/data/steam_collection_repository.dart';
+import 'package:purchase_statistics/data/steam_goal_repository.dart';
 import 'package:purchase_statistics/data/steam_purchase_repository.dart';
 import 'package:purchase_statistics/main.dart';
 import 'package:purchase_statistics/models/collection_item.dart';
 import 'package:purchase_statistics/models/steam_collection.dart';
 import 'package:purchase_statistics/models/steam_game_metadata.dart';
+import 'package:purchase_statistics/models/steam_goal_settings.dart';
 import 'package:purchase_statistics/models/steam_purchase.dart';
 import 'package:purchase_statistics/settings/app_settings.dart';
 import 'package:purchase_statistics/settings/app_settings_controller.dart';
@@ -113,9 +115,26 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }) async {}
 }
 
+class _InMemoryGoalStore implements SteamGoalStore {
+  SteamGoalSettings goals = const SteamGoalSettings();
+
+  _InMemoryGoalStore();
+
+  @override
+  Future<SteamGoalSettings> loadGoals() async {
+    return goals;
+  }
+
+  @override
+  Future<void> saveGoals(SteamGoalSettings goals) async {
+    this.goals = goals;
+  }
+}
+
 SteamStatsApp _buildTestApp([
   _InMemorySettingsStore? store,
   List<SteamPurchase> purchases = const [],
+  _InMemoryGoalStore? goalStore,
 ]) {
   return SteamStatsApp(
     settingsController: AppSettingsController(
@@ -123,6 +142,7 @@ SteamStatsApp _buildTestApp([
     ),
     purchaseRepository: _InMemoryPurchaseRepository(purchases),
     collectionRepository: _InMemoryCollectionRepository(),
+    goalStore: goalStore ?? _InMemoryGoalStore(),
   );
 }
 

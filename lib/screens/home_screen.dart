@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../data/steam_collection_repository.dart';
 import '../data/steam_app_linking_service.dart';
 import '../data/steam_game_metadata_service.dart';
+import '../data/steam_goal_repository.dart';
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
@@ -22,6 +23,7 @@ import '../widgets/stat_card.dart';
 import 'add_purchase_screen.dart';
 import 'charts_tab.dart';
 import 'collections_tab.dart';
+import 'goals_tab.dart';
 import 'purchase_filters.dart';
 import 'settings_screen.dart';
 import 'smart_insights_tab.dart';
@@ -57,6 +59,7 @@ class HomeScreen extends StatefulWidget {
   final SteamCollectionRepository? collectionRepository;
   final SteamGameMetadataService? metadataService;
   final SteamAppLinkingService? appLinkingService;
+  final SteamGoalStore? goalStore;
 
   const HomeScreen({
     super.key,
@@ -64,6 +67,7 @@ class HomeScreen extends StatefulWidget {
     this.collectionRepository,
     this.metadataService,
     this.appLinkingService,
+    this.goalStore,
   });
 
   @override
@@ -76,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final SteamCollectionRepository _collectionRepository;
   late final SteamGameMetadataService _metadataService;
   late final SteamAppLinkingService _appLinkingService;
+  late final SteamGoalStore _goalStore;
   late final TabController _tabController;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
   final _purchaseSearchController = TextEditingController();
@@ -96,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen>
         widget.collectionRepository ?? SteamCollectionRepository();
     _metadataService = widget.metadataService ?? SteamGameMetadataService();
     _appLinkingService = widget.appLinkingService ?? SteamAppLinkingService();
-    _tabController = TabController(length: 5, vsync: this)
+    _goalStore = widget.goalStore ?? SteamGoalRepository();
+    _tabController = TabController(length: 6, vsync: this)
       ..addListener(_handleTabSelectionChanged);
     _loadPurchases();
   }
@@ -1264,7 +1270,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildFloatingActionButton(AppStrings strings) {
-    if (_selectedTabIndex == 4) {
+    if (_selectedTabIndex == 5) {
       return FloatingActionButton.extended(
         onPressed: _openCreateCollectionDialog,
         icon: const Icon(Icons.create_new_folder),
@@ -1307,6 +1313,11 @@ class _HomeScreenState extends State<HomeScreen>
               _buildTab(
                 icon: Icons.insights,
                 label: strings.smartInsightsTab,
+                showLabel: showLabels,
+              ),
+              _buildTab(
+                icon: Icons.track_changes,
+                label: strings.goalsTab,
                 showLabel: showLabels,
               ),
               _buildTab(
@@ -1487,7 +1498,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: _buildAppBarActions(strings),
 
         // Die TabBar hängt direkt unter der AppBar.
-        // Übersicht, Zahlen, Diagramme, Insights und Kollektionen bleiben getrennt.
+        // Übersicht, Zahlen, Diagramme, Insights, Ziele und Kollektionen bleiben getrennt.
         bottom: _buildTabBar(strings),
       ),
       floatingActionButton: _buildFloatingActionButton(strings),
@@ -1622,7 +1633,10 @@ class _HomeScreenState extends State<HomeScreen>
                   onPurchaseTap: _openEditPurchaseScreen,
                 ),
 
-                // TAB 5: Manuelle Kollektionen als stabile Grundlage.
+                // TAB 5: Ziele für Ausgaben, Backlog und Abschlussquote.
+                GoalsTab(purchases: _purchases, goalStore: _goalStore),
+
+                // TAB 6: Manuelle Kollektionen als stabile Grundlage.
                 CollectionsTab(
                   key: _collectionsTabKey,
                   repository: _collectionRepository,

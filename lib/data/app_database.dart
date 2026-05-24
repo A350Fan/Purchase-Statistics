@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 14,
+      version: 15,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -71,6 +71,7 @@ class AppDatabase {
     await _createSettingsTable(db);
     await _createSteamStoreSearchCacheTable(db);
     await _createCollectionsTables(db);
+    await _createSteamGoalsTable(db);
     await _createSteamPurchaseMetadataIndexes(db);
     await _createSteamGameMetadataTables(db);
   }
@@ -161,6 +162,10 @@ class AppDatabase {
         'ALTER TABLE steam_purchases ADD COLUMN completionist_hours REAL',
       );
     }
+
+    if (oldVersion < 15) {
+      await _createSteamGoalsTable(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -180,6 +185,19 @@ class AppDatabase {
         query_key TEXT PRIMARY KEY,
         suggestions_json TEXT NOT NULL,
         expires_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  static Future<void> _createSteamGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_goals (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        annual_spending_limit REAL,
+        backlog_limit INTEGER,
+        unplayed_backlog_limit INTEGER,
+        unplayed_backlog_value_limit REAL,
+        completion_rate_target REAL
       )
     ''');
   }

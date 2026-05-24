@@ -46,6 +46,7 @@ Implemented so far:
 - CSV import
 - CSV export
 - Smart insights for backlog and pile-of-shame analysis, including status review for heavily played games without a status
+- Goal tracking for annual spending, backlog size, unplayed backlog value and completion rate
 - Dashboard overview cards
 - Yearly statistics table
 - Quarterly statistics table
@@ -111,6 +112,7 @@ The app currently calculates:
 - Abandoned spending
 - Status review for games with high playtime and no game status
 - Estimated completion progress when game length data is available
+- Goal progress for annual spending, backlog count, unplayed backlog count, unplayed backlog value and completion rate
 
 For price-per-hour statistics, linked DLC spending is included for the matching base game when possible.
 
@@ -244,6 +246,7 @@ The database schema is versioned and currently includes migrations for:
 - Adding edition and DLC name fields
 - Adding game status
 - Adding game length estimates
+- Adding goal tracking
 
 ---
 
@@ -264,6 +267,7 @@ lib/
 │  ├─ add_purchase_screen.dart
 │  ├─ charts_tab.dart
 │  ├─ collections_tab.dart
+│  ├─ goals_tab.dart
 │  ├─ home_screen.dart
 │  ├─ purchase_filters.dart
 │  ├─ smart_insights_tab.dart

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data/steam_collection_repository.dart';
 import 'data/steam_game_metadata_service.dart';
+import 'data/steam_goal_repository.dart';
 import 'data/steam_purchase_repository.dart';
 import 'l10n/app_strings.dart';
 import 'screens/home_screen.dart';
@@ -17,6 +18,7 @@ class SteamStatsApp extends StatefulWidget {
   final SteamPurchaseRepository? purchaseRepository;
   final SteamCollectionRepository? collectionRepository;
   final SteamGameMetadataService? metadataService;
+  final SteamGoalStore? goalStore;
 
   const SteamStatsApp({
     super.key,
@@ -24,6 +26,7 @@ class SteamStatsApp extends StatefulWidget {
     this.purchaseRepository,
     this.collectionRepository,
     this.metadataService,
+    this.goalStore,
   });
 
   @override
@@ -126,6 +129,7 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
                 repository: widget.purchaseRepository,
                 collectionRepository: widget.collectionRepository,
                 metadataService: widget.metadataService,
+                goalStore: widget.goalStore,
               ),
             ),
           );
