@@ -114,6 +114,31 @@ void main() {
     expect(find.text('Steam'), findsOneWidget);
   });
 
+  testWidgets('matches Steam suggestions when legal marks are omitted', (
+    tester,
+  ) async {
+    const title = 'Train Sim World\u00ae 2';
+    final steamSearchSource = _FakeSteamSearchSource([
+      const SteamStoreSearchSuggestion(appId: 1282590, name: title),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AddPurchaseScreen(steamSearchSource: steamSearchSource),
+      ),
+    );
+
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Train Sim World 2',
+    );
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pump();
+
+    expect(steamSearchSource.queries, ['Train Sim World 2']);
+    expect(find.text(title), findsOneWidget);
+  });
+
   testWidgets('selects Steam suggestions and returns the Steam app id', (
     tester,
   ) async {

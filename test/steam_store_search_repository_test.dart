@@ -71,6 +71,39 @@ void main() {
       expect(result.single.name, 'Portal');
     });
 
+    test('uses legal-mark-insensitive cache keys', () async {
+      final cache = _MemorySteamSearchCache();
+      final client = _FakeSteamStoreSearchClient([
+        const SteamStoreSearchSuggestion(
+          appId: 1708520,
+          name: 'F1\u00ae Manager 22',
+        ),
+      ]);
+      final repository = SteamStoreSearchRepository(
+        client: client,
+        cache: cache,
+        now: () => DateTime(2026, 5, 23),
+      );
+
+      final firstResult = await repository.search(
+        query: 'F1\u00ae Manager 22',
+        purchaseType: SteamPurchaseType.game,
+        language: 'german',
+        countryCode: 'DE',
+      );
+      final secondResult = await repository.search(
+        query: 'F1 Manager 22',
+        purchaseType: SteamPurchaseType.game,
+        language: 'german',
+        countryCode: 'DE',
+      );
+
+      expect(firstResult.single.name, 'F1\u00ae Manager 22');
+      expect(secondResult.single.name, 'F1\u00ae Manager 22');
+      expect(client.callCount, 1);
+      expect(cache.writeCount, 1);
+    });
+
     test('combines DLC search with the associated game name', () async {
       final client = _FakeSteamStoreSearchClient([
         const SteamStoreSearchSuggestion(

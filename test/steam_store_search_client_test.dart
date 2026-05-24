@@ -37,5 +37,20 @@ void main() {
       expect(suggestions.single.appId, 1);
       expect(suggestions.single.name, 'Portal 2');
     });
+
+    test('deduplicates names that only differ by legal marks', () {
+      final suggestions = SteamStoreSearchResponseParser.parse('''
+        {
+          "items": [
+            {"id": 1, "name": "F1\\u00ae Manager 22"},
+            {"id": 2, "name": "F1 Manager 22"}
+          ]
+        }
+        ''', fallbackItemType: SteamStoreItemType.game);
+
+      expect(suggestions, hasLength(1));
+      expect(suggestions.single.appId, 1);
+      expect(suggestions.single.name, 'F1\u00ae Manager 22');
+    });
   });
 }

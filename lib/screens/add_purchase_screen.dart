@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
 import '../data/steam_store_search_repository.dart';
+import '../data/steam_store_search_text.dart';
 import '../l10n/app_strings.dart';
 import '../models/steam_collection.dart';
 import '../models/steam_purchase.dart';
@@ -249,7 +250,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   String _normalizeName(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return normalizeSteamStoreSearchText(value);
   }
 
   Iterable<_NameSuggestionOption> _matchingNameSuggestions(

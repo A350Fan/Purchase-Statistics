@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
+import 'steam_store_search_text.dart';
 
 abstract class SteamStoreSearchClient {
   Future<List<SteamStoreSearchSuggestion>> search({
@@ -147,6 +148,6 @@ class SteamStoreSearchResponseParser {
   }
 
   static String _normalizeName(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return normalizeSteamStoreSearchText(value);
   }
 }
