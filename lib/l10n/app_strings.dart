@@ -42,6 +42,7 @@ class AppStrings {
   String get overviewTab => isEnglish ? 'Overview' : 'Übersicht';
   String get statisticsTab => isEnglish ? 'Statistics' : 'Statistik';
   String get chartsTab => isEnglish ? 'Charts' : 'Diagramme';
+  String get smartInsightsTab => isEnglish ? 'Insights' : 'Insights';
   String get collectionsTab => isEnglish ? 'Collections' : 'Kollektionen';
   String get purchaseFab => isEnglish ? 'Purchase' : 'Kauf';
   String get collectionFab => isEnglish ? 'Collection' : 'Kollektion';
@@ -97,6 +98,8 @@ class AppStrings {
       : 'Noch keine Statistikdaten vorhanden.';
   String get noChartData =>
       isEnglish ? 'No chart data yet.' : 'Noch keine Diagrammdaten vorhanden.';
+  String get noInsightsData =>
+      isEnglish ? 'No insights yet.' : 'Noch keine Insights vorhanden.';
   String get noCollections => isEnglish
       ? 'No collections yet. Create your first collection.'
       : 'Noch keine Kollektionen vorhanden. Erstelle deine erste Kollektion.';
@@ -115,6 +118,48 @@ class AppStrings {
   }
 
   String get noData => isEnglish ? 'No data' : 'Keine Daten';
+  String get backlog => isEnglish ? 'Backlog' : 'Backlog';
+  String get backlogValue => isEnglish ? 'Backlog value' : 'Backlog-Wert';
+  String get unplayedBacklog => isEnglish ? 'Unplayed' : 'Ungespielt';
+  String get unplayedBacklogValue =>
+      isEnglish ? 'Unplayed value' : 'Ungespielt-Wert';
+  String get completionRate => isEnglish ? 'Completion rate' : 'Abschlussquote';
+  String get backlogPriority =>
+      isEnglish ? 'Play next' : 'Als Nächstes angehen';
+  String get backlogPriorityDescription => isEnglish
+      ? 'Open games with no or little playtime, weighted by value and age.'
+      : 'Offene Spiele mit keiner oder wenig Spielzeit, gewichtet nach Wert und Alter.';
+  String get expensiveUnplayedGames =>
+      isEnglish ? 'Expensive and unplayed' : 'Teuer & ungespielt';
+  String get startedBacklogGames =>
+      isEnglish ? 'Started but open' : 'Angefangen, aber offen';
+  String get highCostPerHourGames =>
+      isEnglish ? 'High cost per hour' : 'Hohe Kosten pro Stunde';
+  String get abandonedSpend =>
+      isEnglish ? 'Abandoned spend' : 'Abgebrochene Ausgaben';
+  String get statusReviewGames => isEnglish ? 'Review status' : 'Status prüfen';
+  String get statusReviewDescription => isEnglish
+      ? 'Games with plenty of playtime but no status. They probably should not be backlog anymore.'
+      : 'Spiele mit viel Spielzeit, aber ohne Status. Die gehören wahrscheinlich nicht mehr in den Backlog.';
+  String get priority => isEnglish ? 'Priority' : 'Priorität';
+  String get priorityHigh => isEnglish ? 'High' : 'Hoch';
+  String get priorityMedium => isEnglish ? 'Medium' : 'Mittel';
+  String get priorityLow => isEnglish ? 'Low' : 'Niedrig';
+  String get noPlaytime => isEnglish ? 'No playtime' : 'Keine Spielzeit';
+  String get noInsightItems => isEnglish ? 'No matches.' : 'Keine Treffer.';
+  String get reasonMissingStatus =>
+      isEnglish ? 'Missing status' : 'Status fehlt';
+  String get reasonNoPlaytime =>
+      isEnglish ? 'No playtime saved' : 'Keine Spielzeit erfasst';
+  String get reasonBarelyStarted =>
+      isEnglish ? 'Barely started' : 'Kaum gestartet';
+  String get reasonOpen => isEnglish ? 'Open' : 'Offen';
+  String get reasonActive => isEnglish ? 'Active' : 'Aktiv';
+  String get reasonExpensive => isEnglish ? 'High value' : 'Hoher Wert';
+  String get reasonOld => isEnglish ? 'Long in backlog' : 'Lange im Backlog';
+  String get reasonHighCostPerHour =>
+      isEnglish ? 'High cost/hour' : 'Hohe Kosten/Stunde';
+  String get reasonWellPlayed => isEnglish ? 'Well played' : 'Viel gespielt';
   String get price => isEnglish ? 'Price' : 'Preis';
   String get discount => isEnglish ? 'Discount' : 'Rabatt';
   String get cost => isEnglish ? 'Cost' : 'Kosten';

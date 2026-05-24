@@ -1,0 +1,126 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:purchase_statistics/logic/steam_insights.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
+
+void main() {
+  group('SteamInsights', () {
+    test('summarizes backlog value and completion rate', () {
+      final purchases = _buildInsightPurchases();
+      final insights = SteamInsights(
+        purchases,
+        currentDate: DateTime(2026, 5, 24),
+      );
+
+      expect(insights.gamePurchases.length, 5);
+      expect(insights.backlogGames.length, 2);
+      expect(insights.unplayedBacklogGames.length, 1);
+      expect(insights.completedGames.length, 1);
+      expect(insights.abandonedGames.length, 1);
+      expect(insights.backlogValue, 80);
+      expect(insights.unplayedBacklogValue, 60);
+      expect(insights.abandonedValue, 30);
+      expect(insights.completionRate, 0.25);
+    });
+
+    test('builds sorted actionable insight lists', () {
+      final purchases = _buildInsightPurchases();
+      final insights = SteamInsights(
+        purchases,
+        currentDate: DateTime(2026, 5, 24),
+      );
+
+      expect(insights.backlogPriority.first.purchase.gameName, 'Big Backlog');
+      expect(insights.backlogPriority.first.score, greaterThan(80));
+      expect(insights.expensiveUnplayedGames.first.totalPrice, 60);
+      expect(
+        insights.startedBacklog.first.purchase.gameName,
+        'Started Backlog',
+      );
+      expect(
+        insights.highCostPerHourGames.first.purchase.gameName,
+        'Started Backlog',
+      );
+      expect(insights.highCostPerHourGames.first.pricePerHour, 10);
+      expect(insights.abandonedSpend.first.purchase.gameName, 'Dropped Game');
+    });
+
+    test('inherits playtime by game name for edition purchases', () {
+      final insights = SteamInsights([
+        SteamPurchase(
+          purchaseDate: DateTime(2025, 11, 27),
+          gameName: 'Euro Truck Simulator 2',
+          edition: 'Ultimate',
+          price: 92.88,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2021, 1, 1),
+          gameName: 'Euro Truck Simulator 2',
+          gameStatus: SteamGameStatus.completed,
+          price: 4.99,
+          playtimeHours: 300,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 1, 1),
+          gameName: 'Unplayed Game',
+          price: 20,
+        ),
+      ], currentDate: DateTime(2026, 5, 24));
+
+      final editionPurchase = insights.gamePurchases.first;
+
+      expect(insights.playtimeForPurchase(editionPurchase), 300);
+      expect(insights.backlogPriority.map((item) => item.purchase.gameName), [
+        'Unplayed Game',
+      ]);
+      expect(
+        insights.statusReviewGames.single.gameName,
+        'Euro Truck Simulator 2',
+      );
+    });
+  });
+}
+
+List<SteamPurchase> _buildInsightPurchases() {
+  return [
+    SteamPurchase(
+      purchaseDate: DateTime(2023, 1, 10),
+      gameName: 'Big Backlog',
+      gameStatus: SteamGameStatus.open,
+      price: 50,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2023, 2, 10),
+      purchaseType: SteamPurchaseType.dlc,
+      gameName: 'Big Backlog',
+      dlcName: 'Expansion',
+      price: 10,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2025, 10, 1),
+      gameName: 'Started Backlog',
+      gameStatus: SteamGameStatus.active,
+      price: 20,
+      playtimeHours: 2,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2026, 1, 1),
+      gameName: 'Finished Game',
+      gameStatus: SteamGameStatus.completed,
+      price: 8,
+      playtimeHours: 6,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2024, 6, 1),
+      gameName: 'Dropped Game',
+      gameStatus: SteamGameStatus.abandoned,
+      price: 30,
+    ),
+    SteamPurchase(
+      purchaseDate: DateTime(2022, 3, 1),
+      gameName: 'Endless Game',
+      gameStatus: SteamGameStatus.endless,
+      price: 12,
+      playtimeHours: 200,
+    ),
+  ];
+}

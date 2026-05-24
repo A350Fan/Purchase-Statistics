@@ -20,6 +20,7 @@ import 'charts_tab.dart';
 import 'collections_tab.dart';
 import 'purchase_filters.dart';
 import 'settings_screen.dart';
+import 'smart_insights_tab.dart';
 import 'statistics_tab.dart';
 
 enum PurchaseSortOption {
@@ -78,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen>
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
     _metadataService = widget.metadataService ?? SteamGameMetadataService();
-    _tabController = TabController(length: 4, vsync: this)
+    _tabController = TabController(length: 5, vsync: this)
       ..addListener(_handleTabSelectionChanged);
     _loadPurchases();
   }
@@ -1012,7 +1013,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildFloatingActionButton(AppStrings strings) {
-    if (_selectedTabIndex == 3) {
+    if (_selectedTabIndex == 4) {
       return FloatingActionButton.extended(
         onPressed: _openCreateCollectionDialog,
         icon: const Icon(Icons.create_new_folder),
@@ -1050,6 +1051,11 @@ class _HomeScreenState extends State<HomeScreen>
               _buildTab(
                 icon: Icons.show_chart,
                 label: strings.chartsTab,
+                showLabel: showLabels,
+              ),
+              _buildTab(
+                icon: Icons.insights,
+                label: strings.smartInsightsTab,
                 showLabel: showLabels,
               ),
               _buildTab(
@@ -1169,7 +1175,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: _buildAppBarActions(strings),
 
         // Die TabBar hängt direkt unter der AppBar.
-        // Übersicht, Zahlen, Diagramme und Kollektionen bleiben getrennt.
+        // Übersicht, Zahlen, Diagramme, Insights und Kollektionen bleiben getrennt.
         bottom: _buildTabBar(strings),
       ),
       floatingActionButton: _buildFloatingActionButton(strings),
@@ -1298,7 +1304,13 @@ class _HomeScreenState extends State<HomeScreen>
                 // TAB 3: Statistik als Diagramme.
                 ChartsTab(purchases: _purchases),
 
-                // TAB 4: Manuelle Kollektionen als stabile Grundlage.
+                // TAB 4: Auswertungen für Backlog und Pile of Shame.
+                SmartInsightsTab(
+                  purchases: _purchases,
+                  onPurchaseTap: _openEditPurchaseScreen,
+                ),
+
+                // TAB 5: Manuelle Kollektionen als stabile Grundlage.
                 CollectionsTab(
                   key: _collectionsTabKey,
                   repository: _collectionRepository,

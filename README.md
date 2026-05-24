@@ -44,6 +44,7 @@ Implemented so far:
 - Advanced purchase filters
 - CSV import
 - CSV export
+- Smart insights for backlog and pile-of-shame analysis, including status review for heavily played games without a status
 - Dashboard overview cards
 - Yearly statistics table
 - Quarterly statistics table
@@ -97,6 +98,14 @@ The app currently calculates:
 - Price per hour by quarter
 - Cumulative spending by year and quarter
 - Projected current-year spending
+- Backlog count and backlog value
+- Unplayed backlog count and value
+- Completion rate
+- Expensive unplayed games
+- Started but open games
+- High cost-per-hour games
+- Abandoned spending
+- Status review for games with high playtime and no game status
 
 For price-per-hour statistics, linked DLC spending is included for the matching base game when possible.
 
@@ -237,13 +246,17 @@ lib/
 │  ├─ steam_purchase_csv.dart
 │  └─ steam_purchase_repository.dart
 ├─ logic/
+│  ├─ steam_insights.dart
 │  └─ steam_statistics.dart
 ├─ models/
 │  └─ steam_purchase.dart
 ├─ screens/
 │  ├─ add_purchase_screen.dart
 │  ├─ charts_tab.dart
+│  ├─ collections_tab.dart
 │  ├─ home_screen.dart
+│  ├─ purchase_filters.dart
+│  ├─ smart_insights_tab.dart
 │  └─ statistics_tab.dart
 ├─ widgets/
 │  └─ stat_card.dart
@@ -259,7 +272,6 @@ Possible next steps:
 - Improve Android layout
 - Add XLSX import
 - Add backup and restore
-- Add search
 - Add categories/tags
 - Add more chart types
 - Add full release packaging for Windows
