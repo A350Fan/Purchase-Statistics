@@ -69,8 +69,10 @@ class CollectionsTabState extends State<CollectionsTab> {
     final strings = AppStrings.of(context);
     final collection = await showDialog<SteamCollection>(
       context: context,
-      builder: (context) =>
-          _CollectionFormDialog(initialCollection: initialCollection),
+      builder: (context) => _CollectionFormDialog(
+        repository: widget.repository,
+        initialCollection: initialCollection,
+      ),
     );
 
     if (collection == null) {
@@ -380,8 +382,10 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     final strings = AppStrings.of(context);
     final collection = await showDialog<SteamCollection>(
       context: context,
-      builder: (context) =>
-          _CollectionFormDialog(initialCollection: _collection),
+      builder: (context) => _CollectionFormDialog(
+        repository: widget.repository,
+        initialCollection: _collection,
+      ),
     );
 
     if (collection == null) {
@@ -914,9 +918,13 @@ class _AddPurchaseToCollectionDialogState
 }
 
 class _CollectionFormDialog extends StatefulWidget {
+  final SteamCollectionRepository repository;
   final SteamCollection? initialCollection;
 
-  const _CollectionFormDialog({this.initialCollection});
+  const _CollectionFormDialog({
+    required this.repository,
+    this.initialCollection,
+  });
 
   @override
   State<_CollectionFormDialog> createState() => _CollectionFormDialogState();
@@ -926,9 +934,12 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _ruleValueController = TextEditingController();
+  List<String> _availableRuleValues = [];
   SteamCollectionType _collectionType = SteamCollectionType.manual;
   SteamMetadataField _ruleField = SteamMetadataField.genre;
+  String? _ruleValue;
+  bool _isLoadingRuleValues = false;
+  int _ruleValueLoadGeneration = 0;
 
   bool get _isEditing => widget.initialCollection != null;
 
@@ -946,15 +957,85 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     _descriptionController.text = initialCollection.description ?? '';
     _collectionType = initialCollection.collectionType;
     _ruleField = initialCollection.ruleField ?? SteamMetadataField.genre;
-    _ruleValueController.text = initialCollection.ruleValue ?? '';
+    _ruleValue = initialCollection.ruleValue;
+    if (initialCollection.isAutomatic) {
+      _loadRuleValues();
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _ruleValueController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRuleValues({bool resetSelection = false}) async {
+    if (!mounted) {
+      return;
+    }
+
+    final generation = ++_ruleValueLoadGeneration;
+    final field = _ruleField;
+
+    setState(() {
+      _isLoadingRuleValues = true;
+    });
+
+    final values = await widget.repository.getAvailableMetadataRuleValues(
+      field,
+    );
+
+    if (!mounted ||
+        generation != _ruleValueLoadGeneration ||
+        field != _ruleField ||
+        _collectionType != SteamCollectionType.automatic) {
+      return;
+    }
+
+    final currentRuleValue = _ruleValue?.trim();
+    final nextValues = [...values];
+
+    if (currentRuleValue != null &&
+        currentRuleValue.isNotEmpty &&
+        !nextValues.any(
+          (value) =>
+              _normalizeMetadataValue(value) ==
+              _normalizeMetadataValue(currentRuleValue),
+        )) {
+      nextValues.insert(0, currentRuleValue);
+    }
+
+    setState(() {
+      _availableRuleValues = nextValues;
+      _isLoadingRuleValues = false;
+      if (resetSelection) {
+        _ruleValue = nextValues.isEmpty ? null : nextValues.first;
+      } else if (_ruleValue == null && nextValues.isNotEmpty) {
+        _ruleValue = nextValues.first;
+      }
+    });
+  }
+
+  String _normalizeMetadataValue(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String? _selectedRuleValue() {
+    final currentRuleValue = _ruleValue?.trim();
+
+    if (currentRuleValue == null || currentRuleValue.isEmpty) {
+      return null;
+    }
+
+    for (final value in _availableRuleValues) {
+      if (_normalizeMetadataValue(value) ==
+          _normalizeMetadataValue(currentRuleValue)) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   void _submit() {
@@ -966,7 +1047,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
     final isAutomatic = _collectionType == SteamCollectionType.automatic;
-    final ruleValue = _ruleValueController.text.trim();
+    final ruleValue = _ruleValue?.trim();
     final collection = initialCollection == null
         ? SteamCollection.create(
             name: name,
@@ -1032,9 +1113,19 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
                     onSelectionChanged: _isEditing
                         ? null
                         : (selection) {
+                            final nextCollectionType = selection.single;
                             setState(() {
-                              _collectionType = selection.single;
+                              _collectionType = nextCollectionType;
+                              if (nextCollectionType ==
+                                  SteamCollectionType.manual) {
+                                _ruleValueLoadGeneration++;
+                                _isLoadingRuleValues = false;
+                              }
                             });
+                            if (nextCollectionType ==
+                                SteamCollectionType.automatic) {
+                              _loadRuleValues();
+                            }
                           },
                   ),
                 ),
@@ -1093,18 +1184,57 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
 
                       setState(() {
                         _ruleField = value;
+                        _ruleValue = null;
                       });
+                      _loadRuleValues(resetSelection: true);
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _ruleValueController,
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      '${_ruleField.storageValue}|${_ruleValue ?? ''}|'
+                      '${_availableRuleValues.length}|$_isLoadingRuleValues',
+                    ),
+                    initialValue: _selectedRuleValue(),
                     decoration: InputDecoration(
                       labelText: strings.metadataValue,
                       border: const OutlineInputBorder(),
+                      suffixIcon: _isLoadingRuleValues
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
+                    hint: Text(
+                      _isLoadingRuleValues
+                          ? strings.loadingMetadataValues
+                          : strings.noMetadataValuesAvailable,
+                    ),
+                    items: _availableRuleValues.map((value) {
+                      return DropdownMenuItem(
+                        value: value,
+                        child: Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged:
+                        _isLoadingRuleValues || _availableRuleValues.isEmpty
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _ruleValue = value;
+                            });
+                          },
                     validator: (value) {
                       if (_collectionType != SteamCollectionType.automatic) {
                         return null;

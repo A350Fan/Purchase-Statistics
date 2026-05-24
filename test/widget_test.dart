@@ -6,6 +6,7 @@ import 'package:purchase_statistics/data/steam_purchase_repository.dart';
 import 'package:purchase_statistics/main.dart';
 import 'package:purchase_statistics/models/collection_item.dart';
 import 'package:purchase_statistics/models/steam_collection.dart';
+import 'package:purchase_statistics/models/steam_game_metadata.dart';
 import 'package:purchase_statistics/models/steam_purchase.dart';
 import 'package:purchase_statistics/settings/app_settings.dart';
 import 'package:purchase_statistics/settings/app_settings_controller.dart';
@@ -50,6 +51,13 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
     SteamCollection collection,
   ) async {
     return 0;
+  }
+
+  @override
+  Future<List<String>> getAvailableMetadataRuleValues(
+    SteamMetadataField field,
+  ) async {
+    return [];
   }
 
   @override

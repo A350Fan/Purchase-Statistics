@@ -138,6 +138,10 @@ class AppStrings {
   String get metadataValue => isEnglish ? 'Metadata value' : 'Metadatenwert';
   String get enterMetadataValue =>
       isEnglish ? 'Enter a metadata value' : 'Bitte Metadatenwert eingeben';
+  String get loadingMetadataValues =>
+      isEnglish ? 'Loading values...' : 'Werte werden geladen...';
+  String get noMetadataValuesAvailable =>
+      isEnglish ? 'No values available yet' : 'Noch keine Werte verfügbar';
   String get metadataGenre => isEnglish ? 'Genre' : 'Genre';
   String get metadataTag => isEnglish ? 'Tag' : 'Tag';
   String get metadataDeveloper => isEnglish ? 'Developer' : 'Entwickler';

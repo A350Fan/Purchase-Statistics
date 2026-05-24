@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/collection_item.dart';
 import '../models/steam_collection.dart';
+import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import 'app_database.dart';
 
@@ -47,6 +48,28 @@ class SteamCollectionRepository {
       for (final row in rows)
         row['collection_id'] as int: (row['item_count'] as int?) ?? 0,
     };
+  }
+
+  Future<List<String>> getAvailableMetadataRuleValues(
+    SteamMetadataField field,
+  ) async {
+    final db = await _databaseProvider();
+    final rows = await db.rawQuery(
+      '''
+      SELECT TRIM(value) AS metadata_value
+      FROM $_metadataValuesTable
+      WHERE field = ?
+        AND TRIM(value) <> ''
+      GROUP BY LOWER(TRIM(value))
+      ORDER BY LOWER(TRIM(value)) ASC
+      ''',
+      [field.storageValue],
+    );
+
+    return rows
+        .map((row) => row['metadata_value'] as String)
+        .where((value) => value.trim().isNotEmpty)
+        .toList();
   }
 
   Future<int> countPurchasesForAutomaticCollection(

@@ -184,6 +184,35 @@ void main() {
       expect(count, 1);
     });
 
+    test('loads available metadata values for collection rules', () async {
+      await _insertMetadataValues(
+        db,
+        steamAppId: 620,
+        values: {
+          SteamMetadataField.genre: ['Puzzle', 'Action'],
+          SteamMetadataField.developer: ['Valve'],
+        },
+      );
+      await _insertMetadataValues(
+        db,
+        steamAppId: 70,
+        values: {
+          SteamMetadataField.genre: ['Action'],
+          SteamMetadataField.developer: ['Valve'],
+        },
+      );
+
+      final genres = await repository.getAvailableMetadataRuleValues(
+        SteamMetadataField.genre,
+      );
+      final developers = await repository.getAvailableMetadataRuleValues(
+        SteamMetadataField.developer,
+      );
+
+      expect(genres, ['Action', 'Puzzle']);
+      expect(developers, ['Valve']);
+    });
+
     test('replaces collection assignments for a purchase', () async {
       final purchaseId = await _insertPurchase(db, gameName: 'Portal');
       final firstCollectionId = await repository.insertCollection(
