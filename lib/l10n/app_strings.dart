@@ -50,6 +50,8 @@ class AppStrings {
   String get edit => isEnglish ? 'Edit' : 'Bearbeiten';
   String get delete => isEnglish ? 'Delete' : 'Löschen';
   String get undo => isEnglish ? 'Undo' : 'Rückgängig';
+  String get purchaseSearch => isEnglish ? 'Search purchases' : 'Käufe suchen';
+  String get clearSearch => isEnglish ? 'Clear search' : 'Suche löschen';
   String get noPurchases => isEnglish
       ? 'No purchases yet. Add your first Steam purchase.'
       : 'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.';

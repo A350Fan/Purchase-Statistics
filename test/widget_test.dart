@@ -29,9 +29,13 @@ class _InMemorySettingsStore implements AppSettingsStore {
 }
 
 class _InMemoryPurchaseRepository extends SteamPurchaseRepository {
+  final List<SteamPurchase> purchases;
+
+  _InMemoryPurchaseRepository([this.purchases = const []]);
+
   @override
   Future<List<SteamPurchase>> getAllPurchases() async {
-    return [];
+    return purchases;
   }
 }
 
@@ -109,12 +113,15 @@ class _InMemoryCollectionRepository extends SteamCollectionRepository {
   }) async {}
 }
 
-SteamStatsApp _buildTestApp([_InMemorySettingsStore? store]) {
+SteamStatsApp _buildTestApp([
+  _InMemorySettingsStore? store,
+  List<SteamPurchase> purchases = const [],
+]) {
   return SteamStatsApp(
     settingsController: AppSettingsController(
       store: store ?? _InMemorySettingsStore(),
     ),
-    purchaseRepository: _InMemoryPurchaseRepository(),
+    purchaseRepository: _InMemoryPurchaseRepository(purchases),
     collectionRepository: _InMemoryCollectionRepository(),
   );
 }
@@ -150,6 +157,50 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filters purchases from the overview search field', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1400);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(
+      _buildTestApp(null, [
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Euro Truck Simulator',
+          price: 4.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          gameName: 'Euro Truck Simulator 2',
+          price: 9.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 3),
+          gameName: 'Portal 2',
+          price: 9.99,
+        ),
+      ]),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.enterText(find.byType(TextField), 'Euro');
+    await tester.pump();
+
+    expect(find.text('Euro Truck Simulator'), findsOneWidget);
+    expect(find.text('Euro Truck Simulator 2'), findsOneWidget);
+    expect(find.text('Portal 2'), findsNothing);
+
+    await tester.tap(find.byTooltip('Suche löschen'));
+    await tester.pump();
+
+    expect(find.text('Portal 2'), findsOneWidget);
   });
 
   testWidgets('settings menu changes theme and language', (

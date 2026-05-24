@@ -59,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final SteamGameMetadataService _metadataService;
   late final TabController _tabController;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
+  final _purchaseSearchController = TextEditingController();
 
   List<SteamPurchase> _purchases = [];
   bool _isLoading = true;
@@ -82,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _tabController.removeListener(_handleTabSelectionChanged);
     _tabController.dispose();
+    _purchaseSearchController.dispose();
     super.dispose();
   }
 
@@ -174,6 +176,24 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     return sortedPurchases;
+  }
+
+  List<SteamPurchase> _getFilteredPurchases(List<SteamPurchase> purchases) {
+    final query = _normalizeSearchText(_purchaseSearchController.text);
+
+    if (query.isEmpty) {
+      return purchases;
+    }
+
+    return purchases.where((purchase) {
+      return _normalizeSearchText(purchase.displayName).contains(query) ||
+          _normalizeSearchText(purchase.gameName).contains(query) ||
+          _normalizeSearchText(purchase.dlcName ?? '').contains(query);
+    }).toList();
+  }
+
+  String _normalizeSearchText(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   String _getSortLabel(
@@ -732,6 +752,77 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildPurchaseListHeader(AppStrings strings, AppCurrency currency) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final title = Text(
+              strings.purchases,
+              style: Theme.of(context).textTheme.headlineSmall,
+            );
+            final sortMenu = DropdownButton<PurchaseSortOption>(
+              value: _sortOption,
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+
+                setState(() {
+                  _sortOption = value;
+                });
+              },
+              items: PurchaseSortOption.values.map((option) {
+                return DropdownMenuItem(
+                  value: option,
+                  child: Text(_getSortLabel(option, strings, currency)),
+                );
+              }).toList(),
+            );
+
+            if (constraints.maxWidth < 620) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  title,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerLeft, child: sortMenu),
+                ],
+              );
+            }
+
+            return Row(children: [title, const Spacer(), sortMenu]);
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _purchaseSearchController,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            labelText: strings.purchaseSearch,
+            border: const OutlineInputBorder(),
+            suffixIcon: _purchaseSearchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: strings.clearSearch,
+                    onPressed: () {
+                      setState(() {
+                        _purchaseSearchController.clear();
+                      });
+                    },
+                    icon: const Icon(Icons.clear),
+                  ),
+          ),
+          textInputAction: TextInputAction.search,
+          onChanged: (_) {
+            setState(() {});
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildFloatingActionButton(AppStrings strings) {
     if (_selectedTabIndex == 3) {
       return FloatingActionButton.extended(
@@ -755,6 +846,7 @@ class _HomeScreenState extends State<HomeScreen>
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases(stats);
+    final filteredPurchases = _getFilteredPurchases(sortedPurchases);
 
     return Scaffold(
       appBar: AppBar(
@@ -875,55 +967,26 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           const SliverToBoxAdapter(child: SizedBox(height: 24)),
                           SliverToBoxAdapter(
-                            child: Row(
-                              children: [
-                                Text(
-                                  strings.purchases,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineSmall,
-                                ),
-                                const Spacer(),
-                                DropdownButton<PurchaseSortOption>(
-                                  value: _sortOption,
-                                  onChanged: (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-
-                                    setState(() {
-                                      _sortOption = value;
-                                    });
-                                  },
-                                  items: PurchaseSortOption.values.map((
-                                    option,
-                                  ) {
-                                    return DropdownMenuItem(
-                                      value: option,
-                                      child: Text(
-                                        _getSortLabel(
-                                          option,
-                                          strings,
-                                          currency,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ),
+                            child: _buildPurchaseListHeader(strings, currency),
                           ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
                           if (_purchases.isEmpty)
                             SliverFillRemaining(
                               hasScrollBody: false,
                               child: Center(child: Text(strings.noPurchases)),
                             )
+                          else if (filteredPurchases.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Text(strings.noMatchingPurchases),
+                              ),
+                            )
                           else
                             SliverList.builder(
-                              itemCount: sortedPurchases.length,
+                              itemCount: filteredPurchases.length,
                               itemBuilder: (context, index) {
-                                final purchase = sortedPurchases[index];
+                                final purchase = filteredPurchases[index];
                                 return _buildPurchaseCard(
                                   purchase,
                                   stats,
