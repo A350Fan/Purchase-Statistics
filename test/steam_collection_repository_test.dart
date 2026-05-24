@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/data/steam_collection_repository.dart';
 import 'package:purchase_statistics/models/steam_collection.dart';
 import 'package:purchase_statistics/models/steam_game_metadata.dart';
+import 'package:purchase_statistics/models/steam_purchase.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -72,6 +73,7 @@ void main() {
           collectionType: SteamCollectionType.automatic,
           ruleField: SteamCollectionRuleField.genre,
           ruleValue: 'Puzzle',
+          includeDlcs: true,
           createdAt: now,
         ),
       );
@@ -82,6 +84,7 @@ void main() {
       expect(collections.single.collectionType, SteamCollectionType.automatic);
       expect(collections.single.ruleField, SteamCollectionRuleField.genre);
       expect(collections.single.ruleValue, 'Puzzle');
+      expect(collections.single.includeDlcs, true);
       expect(collections.single.metadataRule, isNotNull);
     });
 
@@ -214,6 +217,44 @@ void main() {
         secondId,
       });
       expect(count, 2);
+    });
+
+    test('automatic collections include dlcs only when enabled', () async {
+      final gameId = await _insertPurchase(db, gameName: 'Portal 2');
+      final dlcId = await _insertPurchase(
+        db,
+        gameName: 'Portal 2',
+        purchaseType: SteamPurchaseType.dlc,
+        dlcName: 'Soundtrack',
+      );
+      final collection = SteamCollection(
+        name: 'Portal',
+        collectionType: SteamCollectionType.automatic,
+        ruleField: SteamCollectionRuleField.titleContains,
+        ruleValue: 'portal',
+        createdAt: now,
+      );
+
+      final gameOnlyPurchases = await repository
+          .getPurchasesForAutomaticCollection(collection);
+      final gameOnlyCount = await repository
+          .countPurchasesForAutomaticCollection(collection);
+      final purchasesWithDlcs = await repository
+          .getPurchasesForAutomaticCollection(
+            collection.copyWith(includeDlcs: true),
+          );
+      final countWithDlcs = await repository
+          .countPurchasesForAutomaticCollection(
+            collection.copyWith(includeDlcs: true),
+          );
+
+      expect(gameOnlyPurchases.map((purchase) => purchase.id), [gameId]);
+      expect(gameOnlyCount, 1);
+      expect(purchasesWithDlcs.map((purchase) => purchase.id).toSet(), {
+        gameId,
+        dlcId,
+      });
+      expect(countWithDlcs, 2);
     });
 
     test('sorts automatic collection purchases by release date', () async {
@@ -548,6 +589,7 @@ Future<void> _createTestSchema(Database db) async {
       collection_type TEXT NOT NULL DEFAULT 'manual',
       rule_field TEXT,
       rule_value TEXT,
+      include_dlcs INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     )
   ''');
@@ -602,11 +644,14 @@ Future<int> _insertPurchase(
   Database db, {
   required String gameName,
   int? steamAppId,
+  SteamPurchaseType purchaseType = SteamPurchaseType.game,
+  String? dlcName,
 }) {
   return db.insert('steam_purchases', {
     'purchase_date': DateTime.utc(2026, 5, 1).toIso8601String(),
-    'purchase_type': 'game',
+    'purchase_type': purchaseType.storageValue,
     'game_name': gameName,
+    'dlc_name': dlcName,
     'steam_app_id': steamAppId,
     'price': 9.99,
   });

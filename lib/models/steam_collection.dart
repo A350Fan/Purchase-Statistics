@@ -91,6 +91,7 @@ class SteamCollection {
   final SteamCollectionType collectionType;
   final SteamCollectionRuleField? ruleField;
   final String? ruleValue;
+  final bool includeDlcs;
   final DateTime createdAt;
 
   const SteamCollection({
@@ -101,6 +102,7 @@ class SteamCollection {
     this.collectionType = manualCollectionType,
     this.ruleField,
     this.ruleValue,
+    this.includeDlcs = false,
     required this.createdAt,
   });
 
@@ -125,6 +127,7 @@ class SteamCollection {
     SteamCollectionType collectionType = manualCollectionType,
     SteamCollectionRuleField? ruleField,
     String? ruleValue,
+    bool includeDlcs = false,
     DateTime Function()? now,
   }) {
     return SteamCollection(
@@ -138,6 +141,9 @@ class SteamCollection {
       ruleValue: collectionType == SteamCollectionType.automatic
           ? _emptyToNull(ruleValue)
           : null,
+      includeDlcs: collectionType == SteamCollectionType.automatic
+          ? includeDlcs
+          : false,
       createdAt: (now ?? DateTime.now)(),
     );
   }
@@ -150,6 +156,7 @@ class SteamCollection {
     SteamCollectionType? collectionType,
     Object? ruleField = _unset,
     Object? ruleValue = _unset,
+    bool? includeDlcs,
     DateTime? createdAt,
   }) {
     final nextCollectionType = collectionType ?? this.collectionType;
@@ -172,6 +179,9 @@ class SteamCollection {
                 ? this.ruleValue
                 : _emptyToNull(ruleValue as String?)
           : null,
+      includeDlcs: nextCollectionType == SteamCollectionType.automatic
+          ? includeDlcs ?? this.includeDlcs
+          : false,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -185,19 +195,27 @@ class SteamCollection {
       'collection_type': collectionType.storageValue,
       'rule_field': ruleField?.storageValue,
       'rule_value': ruleValue,
+      'include_dlcs': includeDlcs ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
     };
   }
 
   factory SteamCollection.fromMap(Map<String, Object?> map) {
+    final collectionType = SteamCollectionType.fromStorage(
+      map['collection_type'],
+    );
+
     return SteamCollection(
       id: map['id'] as int?,
       name: map['name'] as String,
       description: _emptyToNull(map['description'] as String?),
       sortMode: SteamCollectionSortMode.fromStorage(map['sort_mode']),
-      collectionType: SteamCollectionType.fromStorage(map['collection_type']),
+      collectionType: collectionType,
       ruleField: SteamCollectionRuleField.fromStorage(map['rule_field']),
       ruleValue: _emptyToNull(map['rule_value'] as String?),
+      includeDlcs: collectionType == SteamCollectionType.automatic
+          ? _parseBool(map['include_dlcs'])
+          : false,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
@@ -210,5 +228,21 @@ class SteamCollection {
     }
 
     return trimmedValue;
+  }
+
+  static bool _parseBool(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+
+    if (value is num) {
+      return value != 0;
+    }
+
+    final normalizedValue = value?.toString().trim().toLowerCase();
+
+    return normalizedValue == 'true' ||
+        normalizedValue == '1' ||
+        normalizedValue == 'yes';
   }
 }

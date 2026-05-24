@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 11,
+      version: 12,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -135,6 +135,10 @@ class AppDatabase {
     if (oldVersion < 11) {
       await _createSteamMetadataReleaseDateIndex(db);
     }
+
+    if (oldVersion >= 7 && oldVersion < 12) {
+      await _addCollectionIncludeDlcsColumn(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -168,6 +172,7 @@ class AppDatabase {
         collection_type TEXT NOT NULL DEFAULT 'manual',
         rule_field TEXT,
         rule_value TEXT,
+        include_dlcs INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
@@ -204,6 +209,12 @@ class AppDatabase {
     );
     await db.execute('ALTER TABLE collections ADD COLUMN rule_field TEXT');
     await db.execute('ALTER TABLE collections ADD COLUMN rule_value TEXT');
+  }
+
+  static Future<void> _addCollectionIncludeDlcsColumn(Database db) async {
+    await db.execute(
+      'ALTER TABLE collections ADD COLUMN include_dlcs INTEGER NOT NULL DEFAULT 0',
+    );
   }
 
   static Future<void> _createCollectionItemUniqueIndex(Database db) async {

@@ -151,6 +151,12 @@ class AppStrings {
       isEnglish ? 'Loading values...' : 'Werte werden geladen...';
   String get noMetadataValuesAvailable =>
       isEnglish ? 'No values available yet' : 'Noch keine Werte verfügbar';
+  String get includeDlcsInAutomaticCollection =>
+      isEnglish ? 'Include DLCs' : 'DLCs einschließen';
+  String get automaticCollectionGamesOnly =>
+      isEnglish ? 'Games only' : 'Nur Spiele';
+  String get automaticCollectionGamesAndDlcs =>
+      isEnglish ? 'Games and DLCs' : 'Spiele und DLCs';
   String get metadataGenre => isEnglish ? 'Genre' : 'Genre';
   String get metadataTag => isEnglish ? 'Tag' : 'Tag';
   String get metadataDeveloper => isEnglish ? 'Developer' : 'Entwickler';

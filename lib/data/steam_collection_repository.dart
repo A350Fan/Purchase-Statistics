@@ -128,12 +128,17 @@ class SteamCollectionRepository {
 
     if (ruleField == SteamCollectionRuleField.titleContains) {
       final normalizedRuleValue = _normalizeRuleValue(ruleValue);
-      final rows = await db.rawQuery('''
+      final purchaseTypeArgs = _automaticPurchaseTypeArgs(collection);
+      final rows = await db.rawQuery(
+        '''
         SELECT COUNT(DISTINCT p.id) AS item_count
         FROM $_purchasesTable p
         LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
         WHERE ${_titleContainsWhereClause('p', 'm')}
-        ''', List.filled(4, normalizedRuleValue));
+          ${_automaticPurchaseTypeWhereClause(collection, 'p')}
+        ''',
+        [...List.filled(4, normalizedRuleValue), ...purchaseTypeArgs],
+      );
 
       return (rows.single['item_count'] as int?) ?? 0;
     }
@@ -152,8 +157,13 @@ class SteamCollectionRepository {
         ON mv.steam_app_id = p.steam_app_id
       WHERE mv.field = ?
         AND LOWER(TRIM(mv.value)) = LOWER(TRIM(?))
+        ${_automaticPurchaseTypeWhereClause(collection, 'p')}
       ''',
-      [metadataRule.field.storageValue, metadataRule.value],
+      [
+        metadataRule.field.storageValue,
+        metadataRule.value,
+        ..._automaticPurchaseTypeArgs(collection),
+      ],
     );
 
     return (rows.single['item_count'] as int?) ?? 0;
@@ -176,13 +186,18 @@ class SteamCollectionRepository {
 
     if (ruleField == SteamCollectionRuleField.titleContains) {
       final normalizedRuleValue = _normalizeRuleValue(ruleValue);
-      final maps = await db.rawQuery('''
+      final purchaseTypeArgs = _automaticPurchaseTypeArgs(collection);
+      final maps = await db.rawQuery(
+        '''
         SELECT DISTINCT p.*
         FROM $_purchasesTable p
         LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
         WHERE ${_titleContainsWhereClause('p', 'm')}
+          ${_automaticPurchaseTypeWhereClause(collection, 'p')}
         ORDER BY ${_automaticPurchaseOrderBy(collection.sortMode)}
-        ''', List.filled(4, normalizedRuleValue));
+        ''',
+        [...List.filled(4, normalizedRuleValue), ...purchaseTypeArgs],
+      );
 
       return maps.map(SteamPurchase.fromMap).toList();
     }
@@ -202,9 +217,14 @@ class SteamCollectionRepository {
       LEFT JOIN $_metadataTable m ON m.steam_app_id = p.steam_app_id
       WHERE mv.field = ?
         AND LOWER(TRIM(mv.value)) = LOWER(TRIM(?))
+        ${_automaticPurchaseTypeWhereClause(collection, 'p')}
       ORDER BY ${_automaticPurchaseOrderBy(collection.sortMode)}
       ''',
-      [metadataRule.field.storageValue, metadataRule.value],
+      [
+        metadataRule.field.storageValue,
+        metadataRule.value,
+        ..._automaticPurchaseTypeArgs(collection),
+      ],
     );
 
     return maps.map(SteamPurchase.fromMap).toList();
@@ -462,6 +482,17 @@ class SteamCollectionRepository {
 
   String _normalizeRuleValue(String value) {
     return value.trim().toLowerCase();
+  }
+
+  String _automaticPurchaseTypeWhereClause(
+    SteamCollection collection,
+    String purchaseAlias,
+  ) {
+    return collection.includeDlcs ? '' : 'AND $purchaseAlias.purchase_type = ?';
+  }
+
+  List<Object?> _automaticPurchaseTypeArgs(SteamCollection collection) {
+    return collection.includeDlcs ? [] : [SteamPurchaseType.game.storageValue];
   }
 
   String _automaticPurchaseOrderBy(SteamCollectionSortMode sortMode) {

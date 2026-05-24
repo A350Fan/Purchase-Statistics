@@ -616,14 +616,28 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             ruleField != null &&
             ruleValue != null) ...[
           const SizedBox(height: 12),
-          Chip(
-            avatar: const Icon(Icons.rule),
-            label: Text(
-              strings.automaticCollectionRule(
-                _collectionRuleFieldLabel(ruleField, strings),
-                ruleValue,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.rule),
+                label: Text(
+                  strings.automaticCollectionRule(
+                    _collectionRuleFieldLabel(ruleField, strings),
+                    ruleValue,
+                  ),
+                ),
               ),
-            ),
+              Chip(
+                avatar: const Icon(Icons.filter_list),
+                label: Text(
+                  _collection.includeDlcs
+                      ? strings.automaticCollectionGamesAndDlcs
+                      : strings.automaticCollectionGamesOnly,
+                ),
+              ),
+            ],
           ),
         ],
         const SizedBox(height: 24),
@@ -1129,6 +1143,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   SteamCollectionType _collectionType = SteamCollectionType.manual;
   SteamCollectionRuleField _ruleField = SteamCollectionRuleField.titleContains;
   String? _ruleValue;
+  bool _includeDlcs = false;
   bool _isLoadingRuleValues = false;
   int _ruleValueLoadGeneration = 0;
 
@@ -1151,6 +1166,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
     _ruleField =
         initialCollection.ruleField ?? SteamCollectionRuleField.titleContains;
     _ruleValue = initialCollection.ruleValue;
+    _includeDlcs = initialCollection.includeDlcs;
     if (initialCollection.isAutomatic && _ruleField.isMetadataField) {
       _loadRuleValues();
     }
@@ -1255,6 +1271,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
             collectionType: _collectionType,
             ruleField: isAutomatic ? _ruleField : null,
             ruleValue: isAutomatic ? ruleValue : null,
+            includeDlcs: isAutomatic && _includeDlcs,
           )
         : initialCollection.copyWith(name: name, description: description);
     final collectionWithRule = initialCollection == null
@@ -1263,6 +1280,7 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
             collectionType: _collectionType,
             ruleField: isAutomatic ? _ruleField : null,
             ruleValue: isAutomatic ? ruleValue : null,
+            includeDlcs: isAutomatic && _includeDlcs,
           );
 
     Navigator.of(context).pop(collectionWithRule);
@@ -1401,6 +1419,18 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.extension),
+                    title: Text(strings.includeDlcsInAutomaticCollection),
+                    value: _includeDlcs,
+                    onChanged: (value) {
+                      setState(() {
+                        _includeDlcs = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
                   if (_ruleField == SteamCollectionRuleField.titleContains)
                     TextFormField(
                       controller: _titleRuleValueController,
