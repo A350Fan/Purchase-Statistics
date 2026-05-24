@@ -31,6 +31,7 @@ void main() {
       expect(purchases.single.gameName, 'Portal, Episode "Two"');
       expect(purchases.single.edition, 'Deluxe Edition');
       expect(purchases.single.dlcName, 'Soundtrack, "Plus"');
+      expect(purchases.single.gameStatus, isNull);
       expect(purchases.single.steamAppId, 620);
       expect(purchases.single.price, 3.99);
       expect(purchases.single.originalPrice, 19.99);
@@ -42,8 +43,8 @@ void main() {
       'decodes semicolon separated csv with german headers and decimals',
       () {
         const csv = '''
-Kaufdatum;Spielname;Preis;Originalpreis;Spielzeit;Notiz
-22.05.2026;Half-Life;1,99;9,99;3,5;Sale
+Kaufdatum;Spielname;Status;Preis;Originalpreis;Spielzeit;Notiz
+22.05.2026;Half-Life;Aktiv;1,99;9,99;3,5;Sale
 ''';
 
         final purchases = SteamPurchaseCsv.decode(csv);
@@ -52,6 +53,7 @@ Kaufdatum;Spielname;Preis;Originalpreis;Spielzeit;Notiz
         expect(purchases.single.purchaseDate, DateTime(2026, 5, 22));
         expect(purchases.single.purchaseType, SteamPurchaseType.game);
         expect(purchases.single.gameName, 'Half-Life');
+        expect(purchases.single.gameStatus, SteamGameStatus.active);
         expect(purchases.single.edition, isNull);
         expect(purchases.single.dlcName, isNull);
         expect(purchases.single.price, 1.99);
@@ -75,6 +77,33 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
       expect(purchases.single.edition, 'Anthology');
       expect(purchases.single.dlcName, 'Gathering Storm');
       expect(purchases.single.price, 9.99);
+    });
+
+    test('encodes and decodes optional game statuses for game purchases', () {
+      final csv = SteamPurchaseCsv.encode([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          gameName: 'Half-Life',
+          gameStatus: SteamGameStatus.completed,
+          price: 1.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 23),
+          purchaseType: SteamPurchaseType.dlc,
+          gameName: 'Half-Life',
+          dlcName: 'Soundtrack',
+          price: 0.99,
+        ),
+      ]);
+
+      expect(csv, startsWith('purchase_date,purchase_type,game_status'));
+      expect(csv, contains('2026-05-22,game,completed,Half-Life'));
+      expect(csv, contains('2026-05-23,dlc,,Half-Life'));
+
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      expect(purchases[0].gameStatus, SteamGameStatus.completed);
+      expect(purchases[1].gameStatus, isNull);
     });
 
     test('allows zero original price', () {

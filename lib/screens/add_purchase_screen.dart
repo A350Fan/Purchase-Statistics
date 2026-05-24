@@ -104,6 +104,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
+  SteamGameStatus? _gameStatus;
 
   bool get _canEditCollections {
     return widget.initialPurchase?.id != null &&
@@ -132,6 +133,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     _purchaseDate = initialPurchase.purchaseDate;
     _purchaseType = initialPurchase.purchaseType;
+    _gameStatus = initialPurchase.gameStatus;
     _gameNameController.text = initialPurchase.gameName;
     _editionController.text = initialPurchase.edition ?? '';
     _dlcNameController.text =
@@ -856,6 +858,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
               dlcName: _dlcNameController.text,
             )
           : null,
+      gameStatus: _purchaseType == SteamPurchaseType.game ? _gameStatus : null,
       steamAppId: _parseOptionalInt(_steamAppIdController.text),
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
@@ -1005,6 +1008,33 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
   }
 
+  Widget _buildGameStatusDropdown(AppStrings strings) {
+    return DropdownButtonFormField<SteamGameStatus?>(
+      initialValue: _gameStatus,
+      decoration: InputDecoration(
+        labelText: strings.gameStatusOptional,
+        border: const OutlineInputBorder(),
+      ),
+      hint: Text(strings.noGameStatus),
+      items: [
+        DropdownMenuItem<SteamGameStatus?>(
+          value: null,
+          child: Text(strings.noGameStatus),
+        ),
+        for (final status in SteamGameStatus.values)
+          DropdownMenuItem<SteamGameStatus?>(
+            value: status,
+            child: Text(strings.gameStatusLabel(status)),
+          ),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _gameStatus = value;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -1122,6 +1152,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
+                                if (_purchaseType ==
+                                    SteamPurchaseType.game) ...[
+                                  _buildGameStatusDropdown(strings),
+                                  const SizedBox(height: 16),
+                                ],
                                 if (_purchaseType == SteamPurchaseType.dlc) ...[
                                   _buildNameAutocompleteField(
                                     field: _NameSuggestionField.dlc,

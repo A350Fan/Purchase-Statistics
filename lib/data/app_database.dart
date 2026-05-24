@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 12,
+      version: 13,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -56,6 +56,7 @@ class AppDatabase {
         game_name TEXT NOT NULL,
         edition TEXT,
         dlc_name TEXT,
+        game_status TEXT,
         steam_app_id INTEGER,
         price REAL NOT NULL,
         original_price REAL,
@@ -138,6 +139,12 @@ class AppDatabase {
 
     if (oldVersion >= 7 && oldVersion < 12) {
       await _addCollectionIncludeDlcsColumn(db);
+    }
+
+    if (oldVersion < 13) {
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN game_status TEXT',
+      );
     }
   }
 

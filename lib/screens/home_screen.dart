@@ -178,7 +178,10 @@ class _HomeScreenState extends State<HomeScreen>
     return sortedPurchases;
   }
 
-  List<SteamPurchase> _getFilteredPurchases(List<SteamPurchase> purchases) {
+  List<SteamPurchase> _getFilteredPurchases(
+    List<SteamPurchase> purchases,
+    AppStrings strings,
+  ) {
     final query = _normalizeSearchText(_purchaseSearchController.text);
 
     if (query.isEmpty) {
@@ -186,9 +189,17 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return purchases.where((purchase) {
+      final gameStatus = purchase.purchaseType == SteamPurchaseType.game
+          ? purchase.gameStatus
+          : null;
+      final gameStatusText = gameStatus == null
+          ? ''
+          : strings.gameStatusLabel(gameStatus);
+
       return _normalizeSearchText(purchase.displayName).contains(query) ||
           _normalizeSearchText(purchase.gameName).contains(query) ||
-          _normalizeSearchText(purchase.dlcName ?? '').contains(query);
+          _normalizeSearchText(purchase.dlcName ?? '').contains(query) ||
+          _normalizeSearchText(gameStatusText).contains(query);
     }).toList();
   }
 
@@ -604,6 +615,14 @@ class _HomeScreenState extends State<HomeScreen>
     AppStrings strings,
   ) {
     final theme = Theme.of(context);
+    final gameStatus = purchase.purchaseType == SteamPurchaseType.game
+        ? purchase.gameStatus
+        : null;
+    final subtitleParts = [
+      _getPurchaseTypeLabel(purchase.purchaseType, strings),
+      _formatDate(purchase.purchaseDate),
+      if (gameStatus != null) strings.gameStatusLabel(gameStatus),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: 2),
         Text(
-          '${_getPurchaseTypeLabel(purchase.purchaseType, strings)} · ${_formatDate(purchase.purchaseDate)}',
+          subtitleParts.join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -846,7 +865,7 @@ class _HomeScreenState extends State<HomeScreen>
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
     final stats = SteamStatistics(_purchases);
     final sortedPurchases = _getSortedPurchases(stats);
-    final filteredPurchases = _getFilteredPurchases(sortedPurchases);
+    final filteredPurchases = _getFilteredPurchases(sortedPurchases, strings);
 
     return Scaffold(
       appBar: AppBar(

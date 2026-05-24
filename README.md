@@ -34,6 +34,7 @@ Implemented so far:
 - Add, edit and delete Steam purchases
 - Delete confirmation dialog
 - Game and DLC purchase types
+- Optional game status for non-DLC games
 - Optional edition field
 - Optional DLC name field
 - Optional original price/list price
@@ -61,9 +62,11 @@ A Steam purchase can currently store:
 | --- | --- |
 | `purchase_date` | Date of the purchase |
 | `purchase_type` | `game` or `dlc` |
+| `game_status` | Optional status for game purchases |
 | `game_name` | Name of the game |
 | `edition` | Optional edition/version |
 | `dlc_name` | Optional DLC/add-on name |
+| `steam_app_id` | Optional linked Steam App ID |
 | `price` | Paid price |
 | `original_price` | Optional original/list price |
 | `playtime_hours` | Optional playtime in hours |
@@ -103,7 +106,7 @@ For price-per-hour statistics, linked DLC spending is included for the matching 
 The app supports CSV files with the following columns:
 
 ```csv
-purchase_date,purchase_type,game_name,edition,dlc_name,price,original_price,playtime_hours,note
+purchase_date,purchase_type,game_status,game_name,edition,dlc_name,steam_app_id,price,original_price,playtime_hours,note
 ```
 
 Required columns:
@@ -115,8 +118,10 @@ Required columns:
 Optional columns:
 
 - `purchase_type`
+- `game_status`
 - `edition`
 - `dlc_name`
+- `steam_app_id`
 - `original_price`
 - `playtime_hours`
 - `note`
@@ -127,7 +132,8 @@ Supported delimiters:
 - Semicolon: `;`
 - Tab
 
-The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit` and `notiz`.
+The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit`, `status` and `notiz`.
+Supported game status values include `open`, `active`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
 
 ---
 

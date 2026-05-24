@@ -10,6 +10,60 @@ enum SteamPurchaseType {
   }
 }
 
+enum SteamGameStatus {
+  open,
+  active,
+  completed,
+  endless,
+  abandoned,
+  archived;
+
+  String get storageValue {
+    return switch (this) {
+      SteamGameStatus.open => 'open',
+      SteamGameStatus.active => 'active',
+      SteamGameStatus.completed => 'completed',
+      SteamGameStatus.endless => 'endless',
+      SteamGameStatus.abandoned => 'abandoned',
+      SteamGameStatus.archived => 'archived',
+    };
+  }
+
+  static SteamGameStatus? fromStorageValue(Object? value) {
+    final normalized = value?.toString().trim().toLowerCase().replaceAll(
+      RegExp(r'[\s-]+'),
+      '_',
+    );
+
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+
+    return switch (normalized) {
+      'open' || 'offen' || 'backlog' || 'not_started' => SteamGameStatus.open,
+      'active' ||
+      'aktiv' ||
+      'started' ||
+      'angefangen' ||
+      'in_progress' => SteamGameStatus.active,
+      'completed' ||
+      'complete' ||
+      'finished' ||
+      'durchgespielt' ||
+      'beaten' => SteamGameStatus.completed,
+      'endless' || 'endlos' || 'endless_game' => SteamGameStatus.endless,
+      'abandoned' || 'abgebrochen' || 'dropped' => SteamGameStatus.abandoned,
+      'archived' ||
+      'archive' ||
+      'archiv' ||
+      'archiviert' ||
+      'old' ||
+      'alt' => SteamGameStatus.archived,
+      _ => null,
+    };
+  }
+}
+
 class SteamPurchase {
   final int? id;
   final DateTime purchaseDate;
@@ -17,6 +71,7 @@ class SteamPurchase {
   final String gameName;
   final String? edition;
   final String? dlcName;
+  final SteamGameStatus? gameStatus;
   final int? steamAppId;
   final double price;
   final double? originalPrice;
@@ -30,6 +85,7 @@ class SteamPurchase {
     required this.gameName,
     this.edition,
     this.dlcName,
+    this.gameStatus,
     this.steamAppId,
     required this.price,
     this.originalPrice,
@@ -107,6 +163,7 @@ class SteamPurchase {
     String? gameName,
     String? edition,
     String? dlcName,
+    SteamGameStatus? gameStatus,
     int? steamAppId,
     double? price,
     double? originalPrice,
@@ -120,6 +177,7 @@ class SteamPurchase {
       gameName: gameName ?? this.gameName,
       edition: edition ?? this.edition,
       dlcName: dlcName ?? this.dlcName,
+      gameStatus: gameStatus ?? this.gameStatus,
       steamAppId: steamAppId ?? this.steamAppId,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
@@ -136,6 +194,9 @@ class SteamPurchase {
       'game_name': gameName,
       'edition': edition,
       'dlc_name': dlcName,
+      'game_status': purchaseType == SteamPurchaseType.game
+          ? gameStatus?.storageValue
+          : null,
       'steam_app_id': steamAppId,
       'price': price,
       'original_price': originalPrice,
@@ -145,13 +206,18 @@ class SteamPurchase {
   }
 
   factory SteamPurchase.fromMap(Map<String, Object?> map) {
+    final purchaseType = _parsePurchaseType(map['purchase_type']);
+
     return SteamPurchase(
       id: map['id'] as int?,
       purchaseDate: DateTime.parse(map['purchase_date'] as String),
-      purchaseType: _parsePurchaseType(map['purchase_type']),
+      purchaseType: purchaseType,
       gameName: map['game_name'] as String,
       edition: _nullableString(map['edition']),
       dlcName: _nullableString(map['dlc_name']),
+      gameStatus: purchaseType == SteamPurchaseType.game
+          ? SteamGameStatus.fromStorageValue(map['game_status'])
+          : null,
       steamAppId: map['steam_app_id'] as int?,
       price: (map['price'] as num).toDouble(),
       originalPrice: map['original_price'] == null

@@ -572,6 +572,7 @@ Future<void> _createTestSchema(Database db) async {
       game_name TEXT NOT NULL,
       edition TEXT,
       dlc_name TEXT,
+      game_status TEXT,
       steam_app_id INTEGER,
       price REAL NOT NULL,
       original_price REAL,

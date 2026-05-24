@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 
 class AppStrings {
@@ -83,6 +84,20 @@ class AppStrings {
   String get cost => isEnglish ? 'Cost' : 'Kosten';
   String get game => isEnglish ? 'Game' : 'Spiel';
   String get dlc => 'DLC';
+  String get gameStatusOptional =>
+      isEnglish ? 'Status optional' : 'Status optional';
+  String get noGameStatus => isEnglish ? 'No status' : 'Kein Status';
+  String gameStatusLabel(SteamGameStatus status) {
+    return switch (status) {
+      SteamGameStatus.open => isEnglish ? 'Open' : 'Offen',
+      SteamGameStatus.active => isEnglish ? 'Active' : 'Aktiv',
+      SteamGameStatus.completed => isEnglish ? 'Completed' : 'Durchgespielt',
+      SteamGameStatus.endless => isEnglish ? 'Endless' : 'Endlos',
+      SteamGameStatus.abandoned => isEnglish ? 'Abandoned' : 'Abgebrochen',
+      SteamGameStatus.archived => isEnglish ? 'Archived' : 'Archiviert',
+    };
+  }
+
   String get deletePurchaseTitle =>
       isEnglish ? 'Delete purchase?' : 'Kauf löschen?';
   String deletePurchaseMessage(String purchaseName) {

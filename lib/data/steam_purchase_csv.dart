@@ -15,6 +15,7 @@ class SteamPurchaseCsv {
   static const headers = [
     'purchase_date',
     'purchase_type',
+    'game_status',
     'game_name',
     'edition',
     'dlc_name',
@@ -33,6 +34,9 @@ class SteamPurchaseCsv {
         _encodeRow([
           _formatDate(purchase.purchaseDate),
           purchase.purchaseType.storageValue,
+          purchase.purchaseType == SteamPurchaseType.game
+              ? purchase.gameStatus?.storageValue ?? ''
+              : '',
           purchase.gameName,
           purchase.edition ?? '',
           purchase.dlcName ?? '',
@@ -230,6 +234,13 @@ class SteamPurchaseCsv {
       case 'art':
       case 'kaufart':
         return 'purchase_type';
+      case 'game_status':
+      case 'status':
+      case 'spielstatus':
+      case 'game_state':
+      case 'state':
+      case 'zustand':
+        return 'game_status';
       case 'game_name':
       case 'game':
       case 'name':
@@ -285,6 +296,12 @@ class SteamPurchaseCsv {
       row.lineNumber,
       dlcName,
     );
+    final gameStatus = purchaseType == SteamPurchaseType.game
+        ? _parseGameStatus(
+            _optionalValue(row, headerIndexes, 'game_status'),
+            row.lineNumber,
+          )
+        : null;
     final purchaseDate = _parseRequiredDate(
       _requiredValue(row, headerIndexes, 'purchase_date'),
       row.lineNumber,
@@ -349,6 +366,7 @@ class SteamPurchaseCsv {
       gameName: gameName.trim(),
       edition: edition.isEmpty ? null : edition,
       dlcName: purchaseType == SteamPurchaseType.dlc ? dlcName : null,
+      gameStatus: gameStatus,
       steamAppId: steamAppId,
       price: price,
       originalPrice: originalPrice,
@@ -525,6 +543,24 @@ class SteamPurchaseCsv {
 
     throw SteamPurchaseCsvException(
       'Zeile $lineNumber: "purchase_type" muss "game" oder "dlc" sein.',
+    );
+  }
+
+  static SteamGameStatus? _parseGameStatus(String value, int lineNumber) {
+    final trimmedValue = value.trim();
+
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    final gameStatus = SteamGameStatus.fromStorageValue(trimmedValue);
+
+    if (gameStatus != null) {
+      return gameStatus;
+    }
+
+    throw SteamPurchaseCsvException(
+      'Zeile $lineNumber: "game_status" ist kein gültiger Spielstatus.',
     );
   }
 }

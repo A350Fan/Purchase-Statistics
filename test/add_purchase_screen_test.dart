@@ -202,6 +202,57 @@ void main() {
     expect(result!.purchase.steamAppId, 2537590);
   });
 
+  testWidgets('returns the selected game status for game purchases', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => const AddPurchaseScreen(),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Portal 2');
+    await tester.tap(find.text('Kein Status'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Durchgespielt').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(3), '9.99');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.gameStatus, SteamGameStatus.completed);
+  });
+
   testWidgets('strips the associated game name from selected Steam DLCs', (
     tester,
   ) async {
