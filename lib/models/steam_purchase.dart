@@ -63,8 +63,41 @@ class SteamPurchase {
     final dlcTitle = dlcName == null || dlcName!.trim().isEmpty
         ? 'DLC'
         : dlcName!.trim();
+    final cleanedDlcTitle = cleanDlcNameForGame(
+      gameName: gameName,
+      dlcName: dlcTitle,
+    );
 
-    return '$gameName: $dlcTitle$editionSuffix';
+    return '$gameName: $cleanedDlcTitle$editionSuffix';
+  }
+
+  static String cleanDlcNameForGame({
+    required String gameName,
+    required String dlcName,
+  }) {
+    final trimmedGameName = gameName.trim();
+    final trimmedDlcName = dlcName.trim();
+
+    if (trimmedGameName.isEmpty || trimmedDlcName.isEmpty) {
+      return trimmedDlcName;
+    }
+
+    final gameNamePattern = trimmedGameName
+        .split(RegExp(r'\s+'))
+        .map(RegExp.escape)
+        .join(r'\s+');
+    final prefixMatch = RegExp(
+      '^$gameNamePattern\\s*[:\\-\\u2013\\u2014]\\s*',
+      caseSensitive: false,
+    ).firstMatch(trimmedDlcName);
+
+    if (prefixMatch == null) {
+      return trimmedDlcName;
+    }
+
+    final cleanedDlcName = trimmedDlcName.substring(prefixMatch.end).trim();
+
+    return cleanedDlcName.isEmpty ? trimmedDlcName : cleanedDlcName;
   }
 
   SteamPurchase copyWith({

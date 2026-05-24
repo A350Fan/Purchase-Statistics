@@ -59,6 +59,36 @@ void main() {
     expect(find.text('Gathering Storm'), findsOneWidget);
   });
 
+  testWidgets('cleans duplicated Steam DLC names while editing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AddPurchaseScreen(
+          initialPurchase: SteamPurchase(
+            purchaseDate: DateTime(2026, 5, 1),
+            purchaseType: SteamPurchaseType.dlc,
+            gameName: 'Train Simulator',
+            dlcName:
+                'Train Simulator: Mittenwaldbahn: Garmisch-Partenkirchen - '
+                'Innsbruck Route Add-On',
+            steamAppId: 448192,
+            price: 9.99,
+          ),
+        ),
+      ),
+    );
+
+    final dlcField = tester.widget<TextFormField>(
+      find.byType(TextFormField).at(1),
+    );
+
+    expect(
+      dlcField.controller?.text,
+      'Mittenwaldbahn: Garmisch-Partenkirchen - Innsbruck Route Add-On',
+    );
+  });
+
   testWidgets('shows Steam suggestions after the debounce delay', (
     tester,
   ) async {
@@ -145,6 +175,89 @@ void main() {
     expect(result, isNotNull);
     expect(result!.purchase.gameName, 'Microsoft Flight Simulator 2024');
     expect(result!.purchase.steamAppId, 2537590);
+  });
+
+  testWidgets('strips the associated game name from selected Steam DLCs', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+    final steamSearchSource = _FakeSteamSearchSource([
+      const SteamStoreSearchSuggestion(
+        appId: 448192,
+        name:
+            'Train Simulator: Mittenwaldbahn: Garmisch-Partenkirchen - '
+            'Innsbruck Route Add-On',
+        itemType: SteamStoreItemType.dlc,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => AddPurchaseScreen(
+                            steamSearchSource: steamSearchSource,
+                          ),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('DLC'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Train Simulator');
+    await tester.enterText(find.byType(TextFormField).at(1), 'mittenwald');
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pump();
+
+    await tester.tap(
+      find.text(
+        'Train Simulator: Mittenwaldbahn: Garmisch-Partenkirchen - '
+        'Innsbruck Route Add-On',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('448192'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(4), '9.99');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.gameName, 'Train Simulator');
+    expect(
+      result!.purchase.dlcName,
+      'Mittenwaldbahn: Garmisch-Partenkirchen - Innsbruck Route Add-On',
+    );
+    expect(
+      result!.purchase.displayName,
+      'Train Simulator: Mittenwaldbahn: Garmisch-Partenkirchen - '
+      'Innsbruck Route Add-On',
+    );
   });
 }
 

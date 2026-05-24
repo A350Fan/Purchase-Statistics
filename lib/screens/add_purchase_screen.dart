@@ -133,7 +133,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _purchaseType = initialPurchase.purchaseType;
     _gameNameController.text = initialPurchase.gameName;
     _editionController.text = initialPurchase.edition ?? '';
-    _dlcNameController.text = initialPurchase.dlcName ?? '';
+    _dlcNameController.text =
+        initialPurchase.purchaseType == SteamPurchaseType.dlc
+        ? SteamPurchase.cleanDlcNameForGame(
+            gameName: initialPurchase.gameName,
+            dlcName: initialPurchase.dlcName ?? '',
+          )
+        : initialPurchase.dlcName ?? '';
     if (initialPurchase.purchaseType == SteamPurchaseType.dlc) {
       _selectedDlcSteamAppId = initialPurchase.steamAppId;
     } else {
@@ -689,13 +695,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _NameSuggestionField.game => _gameNameController,
       _NameSuggestionField.dlc => _dlcNameController,
     };
+    final selectedName = _nameForSelectedSuggestion(field, suggestion.name);
 
     _gameNameFocusLossTimer?.cancel();
     _dlcNameFocusLossTimer?.cancel();
     _isApplyingAutocompleteSelection = true;
     controller.value = TextEditingValue(
-      text: suggestion.name,
-      selection: TextSelection.collapsed(offset: suggestion.name.length),
+      text: selectedName,
+      selection: TextSelection.collapsed(offset: selectedName.length),
     );
     switch (field) {
       case _NameSuggestionField.game:
@@ -711,6 +718,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
     _isApplyingAutocompleteSelection = false;
     _removeNameSuggestionsOverlay(field);
+  }
+
+  String _nameForSelectedSuggestion(_NameSuggestionField field, String name) {
+    return switch (field) {
+      _NameSuggestionField.game => name.trim(),
+      _NameSuggestionField.dlc => SteamPurchase.cleanDlcNameForGame(
+        gameName: _gameNameController.text,
+        dlcName: name,
+      ),
+    };
   }
 
   bool _isCurrentSteamSearch(
@@ -796,7 +813,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           _gameNameController.text = suggestion.name;
         case SteamPurchaseType.dlc:
           _selectedDlcSteamAppId = suggestion.appId;
-          _dlcNameController.text = suggestion.name;
+          _dlcNameController.text = SteamPurchase.cleanDlcNameForGame(
+            gameName: _gameNameController.text,
+            dlcName: suggestion.name,
+          );
       }
 
       _steamAppIdController.text = suggestion.appId.toString();
@@ -830,7 +850,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ? null
           : _editionController.text.trim(),
       dlcName: _purchaseType == SteamPurchaseType.dlc
-          ? _dlcNameController.text.trim()
+          ? SteamPurchase.cleanDlcNameForGame(
+              gameName: _gameNameController.text,
+              dlcName: _dlcNameController.text,
+            )
           : null,
       steamAppId: _parseOptionalInt(_steamAppIdController.text),
       price: _parseRequiredDouble(_priceController.text),
