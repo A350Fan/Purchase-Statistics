@@ -23,6 +23,9 @@ class SteamPurchaseCsv {
     'price',
     'original_price',
     'playtime_hours',
+    'main_story_hours',
+    'main_extra_hours',
+    'completionist_hours',
     'note',
   ];
 
@@ -44,6 +47,21 @@ class SteamPurchaseCsv {
           _formatDouble(purchase.price),
           _formatOptionalDouble(purchase.originalPrice),
           _formatOptionalDouble(purchase.playtimeHours),
+          _formatOptionalDouble(
+            purchase.purchaseType == SteamPurchaseType.game
+                ? purchase.mainStoryHours
+                : null,
+          ),
+          _formatOptionalDouble(
+            purchase.purchaseType == SteamPurchaseType.game
+                ? purchase.mainExtraHours
+                : null,
+          ),
+          _formatOptionalDouble(
+            purchase.purchaseType == SteamPurchaseType.game
+                ? purchase.completionistHours
+                : null,
+          ),
           purchase.note ?? '',
         ]),
       );
@@ -276,6 +294,23 @@ class SteamPurchaseCsv {
       case 'spielzeit':
       case 'spielzeit_stunden':
         return 'playtime_hours';
+      case 'main_story_hours':
+      case 'main_story':
+      case 'hauptstory':
+      case 'hauptstory_stunden':
+        return 'main_story_hours';
+      case 'main_extra_hours':
+      case 'main_extra':
+      case 'hauptstory_extras':
+      case 'hauptstory_extra':
+      case 'extras':
+        return 'main_extra_hours';
+      case 'completionist_hours':
+      case 'completionist':
+      case 'komplett':
+      case 'komplettierung':
+      case 'completion':
+        return 'completionist_hours';
       case 'note':
       case 'notes':
       case 'notiz':
@@ -327,6 +362,21 @@ class SteamPurchaseCsv {
       row.lineNumber,
       'playtime_hours',
     );
+    final mainStoryHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'main_story_hours'),
+      row.lineNumber,
+      'main_story_hours',
+    );
+    final mainExtraHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'main_extra_hours'),
+      row.lineNumber,
+      'main_extra_hours',
+    );
+    final completionistHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'completionist_hours'),
+      row.lineNumber,
+      'completionist_hours',
+    );
     final edition = _optionalValue(row, headerIndexes, 'edition').trim();
     final note = _optionalValue(row, headerIndexes, 'note');
 
@@ -360,6 +410,24 @@ class SteamPurchaseCsv {
       );
     }
 
+    if (mainStoryHours != null && mainStoryHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Hauptstory-Stunden dürfen nicht negativ sein.',
+      );
+    }
+
+    if (mainExtraHours != null && mainExtraHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Hauptstory+Extras-Stunden dürfen nicht negativ sein.',
+      );
+    }
+
+    if (completionistHours != null && completionistHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Komplettierungsstunden dürfen nicht negativ sein.',
+      );
+    }
+
     return SteamPurchase(
       purchaseDate: purchaseDate,
       purchaseType: purchaseType,
@@ -371,6 +439,15 @@ class SteamPurchaseCsv {
       price: price,
       originalPrice: originalPrice,
       playtimeHours: playtimeHours,
+      mainStoryHours: purchaseType == SteamPurchaseType.game
+          ? mainStoryHours
+          : null,
+      mainExtraHours: purchaseType == SteamPurchaseType.game
+          ? mainExtraHours
+          : null,
+      completionistHours: purchaseType == SteamPurchaseType.game
+          ? completionistHours
+          : null,
       note: note.trim().isEmpty ? null : note.trim(),
     );
   }

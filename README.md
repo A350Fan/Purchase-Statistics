@@ -39,6 +39,7 @@ Implemented so far:
 - Optional DLC name field
 - Optional original price/list price
 - Optional playtime tracking
+- Optional game length estimates for main story, main + extras and completionist playthroughs
 - Optional notes
 - Sorting options for the purchase list
 - Advanced purchase filters
@@ -72,6 +73,9 @@ A Steam purchase can currently store:
 | `price` | Paid price |
 | `original_price` | Optional original/list price |
 | `playtime_hours` | Optional playtime in hours |
+| `main_story_hours` | Optional estimated main story length in hours |
+| `main_extra_hours` | Optional estimated main story + extras length in hours |
+| `completionist_hours` | Optional estimated completionist length in hours |
 | `note` | Optional note |
 
 ---
@@ -106,6 +110,7 @@ The app currently calculates:
 - High cost-per-hour games
 - Abandoned spending
 - Status review for games with high playtime and no game status
+- Estimated completion progress when game length data is available
 
 For price-per-hour statistics, linked DLC spending is included for the matching base game when possible.
 
@@ -116,7 +121,7 @@ For price-per-hour statistics, linked DLC spending is included for the matching 
 The app supports CSV files with the following columns:
 
 ```csv
-purchase_date,purchase_type,game_status,game_name,edition,dlc_name,steam_app_id,price,original_price,playtime_hours,note
+purchase_date,purchase_type,game_status,game_name,edition,dlc_name,steam_app_id,price,original_price,playtime_hours,main_story_hours,main_extra_hours,completionist_hours,note
 ```
 
 Required columns:
@@ -134,6 +139,9 @@ Optional columns:
 - `steam_app_id`
 - `original_price`
 - `playtime_hours`
+- `main_story_hours`
+- `main_extra_hours`
+- `completionist_hours`
 - `note`
 
 Supported delimiters:
@@ -234,6 +242,8 @@ The database schema is versioned and currently includes migrations for:
 - Adding playtime tracking
 - Adding game/DLC purchase types
 - Adding edition and DLC name fields
+- Adding game status
+- Adding game length estimates
 
 ---
 
@@ -273,6 +283,7 @@ Possible next steps:
 - Add XLSX import
 - Add backup and restore
 - Add categories/tags
+- Add optional HowLongToBeat length lookup
 - Add more chart types
 - Add full release packaging for Windows
 - Add AppImage packaging for Linux

@@ -56,6 +56,7 @@ void main() {
           purchaseDate: DateTime(2021, 1, 1),
           gameName: 'Euro Truck Simulator 2',
           gameStatus: SteamGameStatus.completed,
+          mainStoryHours: 60,
           price: 4.99,
           playtimeHours: 300,
         ),
@@ -76,6 +77,39 @@ void main() {
         insights.statusReviewGames.single.gameName,
         'Euro Truck Simulator 2',
       );
+    });
+
+    test('uses length estimates for progress and recommendation reasons', () {
+      final insights = SteamInsights([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 1, 1),
+          gameName: 'Almost Done',
+          gameStatus: SteamGameStatus.active,
+          price: 20,
+          playtimeHours: 7,
+          mainStoryHours: 8,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 1, 2),
+          gameName: 'Short Unplayed',
+          gameStatus: SteamGameStatus.open,
+          price: 5,
+          mainStoryHours: 4,
+        ),
+      ], currentDate: DateTime(2026, 5, 24));
+
+      final almostDone = insights.backlogPriority.firstWhere((item) {
+        return item.purchase.gameName == 'Almost Done';
+      });
+      final shortUnplayed = insights.backlogPriority.firstWhere((item) {
+        return item.purchase.gameName == 'Short Unplayed';
+      });
+
+      expect(almostDone.estimatedLengthHours, 8);
+      expect(almostDone.estimatedProgress, closeTo(0.875, 0.0001));
+      expect(almostDone.reasons, contains(SteamInsightReason.nearlyFinished));
+      expect(shortUnplayed.reasons, contains(SteamInsightReason.shortGame));
+      expect(shortUnplayed.reasons, contains(SteamInsightReason.noPlaytime));
     });
   });
 }

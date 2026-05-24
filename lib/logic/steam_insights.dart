@@ -13,12 +13,16 @@ enum SteamInsightReason {
   old,
   highCostPerHour,
   wellPlayed,
+  shortGame,
+  nearlyFinished,
 }
 
 class SteamPurchaseInsight {
   final SteamPurchase purchase;
   final double totalPrice;
   final double? playtimeHours;
+  final double? estimatedLengthHours;
+  final double? estimatedProgress;
   final double? pricePerHour;
   final double score;
   final List<SteamInsightReason> reasons;
@@ -27,6 +31,8 @@ class SteamPurchaseInsight {
     required this.purchase,
     required this.totalPrice,
     required this.playtimeHours,
+    required this.estimatedLengthHours,
+    required this.estimatedProgress,
     required this.pricePerHour,
     required this.score,
     required this.reasons,
@@ -47,6 +53,8 @@ class SteamInsights {
   );
   late final Map<String, double> _playtimeByGameName =
       _buildPlaytimeByGameName();
+  late final Map<String, double> _lengthEstimateByGameName =
+      _buildLengthEstimateByGameName();
 
   late final List<SteamPurchase> gamePurchases = List.unmodifiable(
     purchases.where((purchase) {
@@ -130,10 +138,35 @@ class SteamInsights {
     return inheritedPlaytime;
   }
 
+  double? estimatedLengthForPurchase(SteamPurchase purchase) {
+    return _directLengthEstimateForPurchase(purchase) ??
+        _lengthEstimateByGameName[_gameNameKey(purchase.gameName)];
+  }
+
+  double? estimatedProgressForPurchase(SteamPurchase purchase) {
+    final playtimeHours = playtimeForPurchase(purchase);
+    final estimatedLengthHours = estimatedLengthForPurchase(purchase);
+
+    if (playtimeHours == null ||
+        playtimeHours <= 0 ||
+        estimatedLengthHours == null ||
+        estimatedLengthHours <= 0) {
+      return null;
+    }
+
+    return playtimeHours / estimatedLengthHours;
+  }
+
   List<SteamPurchaseInsight> _buildBacklogPriority() {
     final insights =
         backlogGames
             .where((purchase) {
+              final estimatedProgress = estimatedProgressForPurchase(purchase);
+
+              if (estimatedProgress != null) {
+                return estimatedProgress < 1;
+              }
+
               return (playtimeForPurchase(purchase) ?? 0) < nextUpPlaytimeLimit;
             })
             .map(_insightForBacklogPurchase)
@@ -235,8 +268,17 @@ class SteamInsights {
   List<SteamPurchase> _sortedStartedBacklogGames() {
     final purchases = backlogGames.where((purchase) {
       final playtimeHours = playtimeForPurchase(purchase) ?? 0;
+      final estimatedProgress = estimatedProgressForPurchase(purchase);
 
-      return playtimeHours > 0 && playtimeHours < wellPlayedStatusReviewLimit;
+      if (playtimeHours <= 0) {
+        return false;
+      }
+
+      if (estimatedProgress != null) {
+        return estimatedProgress < 1;
+      }
+
+      return playtimeHours < wellPlayedStatusReviewLimit;
     }).toList();
 
     purchases.sort((a, b) {
@@ -256,8 +298,12 @@ class SteamInsights {
 
   List<SteamPurchase> _buildStatusReviewGames() {
     final purchases = gamePurchases.where((purchase) {
+      final estimatedProgress = estimatedProgressForPurchase(purchase);
+
       return purchase.gameStatus == null &&
-          (playtimeForPurchase(purchase) ?? 0) >= wellPlayedStatusReviewLimit;
+          ((playtimeForPurchase(purchase) ?? 0) >=
+                  wellPlayedStatusReviewLimit ||
+              (estimatedProgress != null && estimatedProgress >= 1));
     }).toList();
 
     purchases.sort((a, b) {
@@ -274,6 +320,8 @@ class SteamInsights {
       purchase: purchase,
       totalPrice: priceIncludingLinkedDlcsForPurchase(purchase),
       playtimeHours: playtimeForPurchase(purchase),
+      estimatedLengthHours: estimatedLengthForPurchase(purchase),
+      estimatedProgress: estimatedProgressForPurchase(purchase),
       pricePerHour: pricePerHourForPurchase(purchase),
       score: _backlogScore(purchase),
       reasons: _reasonsForPurchase(purchase),
@@ -285,6 +333,8 @@ class SteamInsights {
       purchase: purchase,
       totalPrice: priceIncludingLinkedDlcsForPurchase(purchase),
       playtimeHours: playtimeForPurchase(purchase),
+      estimatedLengthHours: estimatedLengthForPurchase(purchase),
+      estimatedProgress: estimatedProgressForPurchase(purchase),
       pricePerHour: pricePerHourForPurchase(purchase),
       score: 0,
       reasons: _reasonsForPurchase(purchase),
@@ -294,6 +344,8 @@ class SteamInsights {
   double _backlogScore(SteamPurchase purchase) {
     final totalPrice = priceIncludingLinkedDlcsForPurchase(purchase);
     final playtimeHours = playtimeForPurchase(purchase) ?? 0;
+    final estimatedLength = estimatedLengthForPurchase(purchase);
+    final estimatedProgress = estimatedProgressForPurchase(purchase);
     final ageDays = currentDate
         .difference(_dateOnly(purchase.purchaseDate))
         .inDays;
@@ -305,23 +357,46 @@ class SteamInsights {
       null => 12.0,
       _ => 0.0,
     };
-    final playtimeScore = switch (playtimeHours) {
-      <= 0 => 25.0,
-      < 5 => 16.0,
-      < nextUpPlaytimeLimit => 8.0,
-      _ => 0.0,
-    };
-    final playtimePenalty = _clamp01(playtimeHours / 80) * 35;
+    final playtimeScore = estimatedProgress == null
+        ? switch (playtimeHours) {
+            <= 0 => 25.0,
+            < 5 => 16.0,
+            < nextUpPlaytimeLimit => 8.0,
+            _ => 0.0,
+          }
+        : switch (estimatedProgress) {
+            >= 0.75 && < 1 => 24.0,
+            < 0.2 => 12.0,
+            < 0.75 => 16.0,
+            _ => 0.0,
+          };
+    final lengthScore = estimatedLength == null
+        ? 0.0
+        : switch (estimatedLength) {
+            <= 8 => 18.0,
+            <= 15 => 10.0,
+            _ => 0.0,
+          };
+    final playtimePenalty = estimatedProgress == null
+        ? _clamp01(playtimeHours / 80) * 35
+        : 0.0;
 
     return math.max(
       0,
-      costScore + ageScore + statusScore + playtimeScore - playtimePenalty,
+      costScore +
+          ageScore +
+          statusScore +
+          playtimeScore +
+          lengthScore -
+          playtimePenalty,
     );
   }
 
   List<SteamInsightReason> _reasonsForPurchase(SteamPurchase purchase) {
     final reasons = <SteamInsightReason>[];
     final playtimeHours = playtimeForPurchase(purchase) ?? 0;
+    final estimatedLength = estimatedLengthForPurchase(purchase);
+    final estimatedProgress = estimatedProgressForPurchase(purchase);
     final pricePerHour = pricePerHourForPurchase(purchase);
     final ageDays = currentDate
         .difference(_dateOnly(purchase.purchaseDate))
@@ -344,9 +419,20 @@ class SteamInsights {
         break;
     }
 
+    if (estimatedLength != null && estimatedLength <= 10) {
+      reasons.add(SteamInsightReason.shortGame);
+    }
+
+    if (estimatedProgress != null &&
+        estimatedProgress >= 0.75 &&
+        estimatedProgress < 1) {
+      reasons.add(SteamInsightReason.nearlyFinished);
+    }
+
     if (playtimeHours <= 0) {
       reasons.add(SteamInsightReason.noPlaytime);
-    } else if (playtimeHours < 5) {
+    } else if (estimatedProgress == null && playtimeHours < 5 ||
+        estimatedProgress != null && estimatedProgress < 0.2) {
       reasons.add(SteamInsightReason.barelyStarted);
     } else if (playtimeHours >= wellPlayedStatusReviewLimit) {
       reasons.add(SteamInsightReason.wellPlayed);
@@ -384,8 +470,7 @@ class SteamInsights {
       SteamGameStatus.abandoned ||
       SteamGameStatus.archived => false,
       SteamGameStatus.open || SteamGameStatus.active => true,
-      null =>
-        (playtimeForPurchase(purchase) ?? 0) < wellPlayedStatusReviewLimit,
+      null => !_shouldReviewStatus(purchase),
     };
   }
 
@@ -426,6 +511,48 @@ class SteamInsights {
     }
 
     return result;
+  }
+
+  Map<String, double> _buildLengthEstimateByGameName() {
+    final result = <String, double>{};
+
+    for (final purchase in purchases) {
+      if (purchase.purchaseType != SteamPurchaseType.game) {
+        continue;
+      }
+
+      final lengthEstimate = _directLengthEstimateForPurchase(purchase);
+
+      if (lengthEstimate == null || lengthEstimate <= 0) {
+        continue;
+      }
+
+      final gameNameKey = _gameNameKey(purchase.gameName);
+      final currentEstimate = result[gameNameKey];
+      result[gameNameKey] = currentEstimate == null
+          ? lengthEstimate
+          : math.min(currentEstimate, lengthEstimate);
+    }
+
+    return result;
+  }
+
+  double? _directLengthEstimateForPurchase(SteamPurchase purchase) {
+    if (purchase.purchaseType != SteamPurchaseType.game) {
+      return null;
+    }
+
+    return purchase.mainStoryHours ??
+        purchase.mainExtraHours ??
+        purchase.completionistHours;
+  }
+
+  bool _shouldReviewStatus(SteamPurchase purchase) {
+    final estimatedProgress = estimatedProgressForPurchase(purchase);
+
+    return (playtimeForPurchase(purchase) ?? 0) >=
+            wellPlayedStatusReviewLimit ||
+        (estimatedProgress != null && estimatedProgress >= 1);
   }
 
   String _gameNameKey(String gameName) {

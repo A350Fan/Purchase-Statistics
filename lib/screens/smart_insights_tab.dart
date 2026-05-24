@@ -100,6 +100,12 @@ class SmartInsightsTab extends StatelessWidget {
                 purchase,
               ),
               playtimeHours: insights.playtimeForPurchase(purchase),
+              estimatedLengthHours: insights.estimatedLengthForPurchase(
+                purchase,
+              ),
+              estimatedProgress: insights.estimatedProgressForPurchase(
+                purchase,
+              ),
               pricePerHour: insights.pricePerHourForPurchase(purchase),
               score: 0,
               reasons: const [
@@ -365,6 +371,20 @@ class _InsightPurchaseCard extends StatelessWidget {
           icon: Icons.speed,
           label: _formatPricePerHour(insight.pricePerHour!),
         ),
+      if (insight.estimatedLengthHours != null)
+        _InsightChip(
+          icon: Icons.route,
+          label: strings.estimatedLength(
+            _formatHours(insight.estimatedLengthHours!),
+          ),
+        ),
+      if (insight.estimatedProgress != null)
+        _InsightChip(
+          icon: Icons.insights,
+          label: strings.estimatedProgress(
+            _formatPercent(insight.estimatedProgress!),
+          ),
+        ),
       for (final reason in insight.reasons)
         _InsightChip(icon: _reasonIcon(reason), label: _reasonLabel(reason)),
     ];
@@ -395,6 +415,8 @@ class _InsightPurchaseCard extends StatelessWidget {
       SteamInsightReason.old => Icons.history,
       SteamInsightReason.highCostPerHour => Icons.speed,
       SteamInsightReason.wellPlayed => Icons.done_all,
+      SteamInsightReason.shortGame => Icons.flash_on,
+      SteamInsightReason.nearlyFinished => Icons.flag_circle,
     };
   }
 
@@ -409,6 +431,8 @@ class _InsightPurchaseCard extends StatelessWidget {
       SteamInsightReason.old => strings.reasonOld,
       SteamInsightReason.highCostPerHour => strings.reasonHighCostPerHour,
       SteamInsightReason.wellPlayed => strings.reasonWellPlayed,
+      SteamInsightReason.shortGame => strings.reasonShortGame,
+      SteamInsightReason.nearlyFinished => strings.reasonNearlyFinished,
     };
   }
 
@@ -428,13 +452,24 @@ class _InsightPurchaseCard extends StatelessWidget {
     }
 
     final hasFraction = hours != hours.roundToDouble();
-    final formatted = hours.toStringAsFixed(hasFraction ? 1 : 0);
 
-    return '${formatted.replaceAll('.', ',')} h';
+    return '${_formatHours(hours, hasFraction: hasFraction)} h';
   }
 
   String _formatPricePerHour(double value) {
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} ${currency.symbol}/h';
+  }
+
+  String _formatHours(double hours, {bool? hasFraction}) {
+    final shouldShowFraction = hasFraction ?? hours != hours.roundToDouble();
+
+    return hours
+        .toStringAsFixed(shouldShowFraction ? 1 : 0)
+        .replaceAll('.', ',');
+  }
+
+  String _formatPercent(double value) {
+    return '${(value * 100).clamp(0, 999).round()} %';
   }
 }
 

@@ -253,6 +253,72 @@ void main() {
     expect(result!.purchase.gameStatus, SteamGameStatus.completed);
   });
 
+  testWidgets('returns manual game length estimates', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => const AddPurchaseScreen(),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Portal 2');
+    await tester.enterText(find.byType(TextFormField).at(3), '9.99');
+    await tester.tap(find.text('Spielzeit'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Spielzeit optional'),
+      '4,2',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Hauptstory optional'),
+      '8',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Hauptstory + Extras optional'),
+      '12',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Komplett optional'),
+      '20',
+    );
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.playtimeHours, 4.2);
+    expect(result!.purchase.mainStoryHours, 8);
+    expect(result!.purchase.mainExtraHours, 12);
+    expect(result!.purchase.completionistHours, 20);
+  });
+
   testWidgets('strips the associated game name from selected Steam DLCs', (
     tester,
   ) async {

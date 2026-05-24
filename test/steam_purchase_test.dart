@@ -36,6 +36,7 @@ void main() {
         purchaseDate: DateTime(2026, 5, 24),
         gameName: 'Portal 2',
         gameStatus: SteamGameStatus.completed,
+        mainStoryHours: 8,
         price: 9.99,
       );
       final dlcPurchase = SteamPurchase(
@@ -44,11 +45,14 @@ void main() {
         gameName: 'Portal 2',
         dlcName: 'Soundtrack',
         gameStatus: SteamGameStatus.completed,
+        mainStoryHours: 8,
         price: 1.99,
       );
 
       expect(gamePurchase.toMap()['game_status'], 'completed');
+      expect(gamePurchase.toMap()['main_story_hours'], 8);
       expect(dlcPurchase.toMap()['game_status'], isNull);
+      expect(dlcPurchase.toMap()['main_story_hours'], isNull);
     });
 
     test('parses German game status aliases', () {

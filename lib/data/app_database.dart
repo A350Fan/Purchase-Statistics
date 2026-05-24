@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -61,6 +61,9 @@ class AppDatabase {
         price REAL NOT NULL,
         original_price REAL,
         playtime_hours REAL,
+        main_story_hours REAL,
+        main_extra_hours REAL,
+        completionist_hours REAL,
         note TEXT
       )
     ''');
@@ -144,6 +147,18 @@ class AppDatabase {
     if (oldVersion < 13) {
       await db.execute(
         'ALTER TABLE steam_purchases ADD COLUMN game_status TEXT',
+      );
+    }
+
+    if (oldVersion < 14) {
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN main_story_hours REAL',
+      );
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN main_extra_hours REAL',
+      );
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN completionist_hours REAL',
       );
     }
   }

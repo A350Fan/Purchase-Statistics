@@ -160,6 +160,17 @@ class AppStrings {
   String get reasonHighCostPerHour =>
       isEnglish ? 'High cost/hour' : 'Hohe Kosten/Stunde';
   String get reasonWellPlayed => isEnglish ? 'Well played' : 'Viel gespielt';
+  String get reasonShortGame => isEnglish ? 'Short game' : 'Kurzes Spiel';
+  String get reasonNearlyFinished =>
+      isEnglish ? 'Nearly finished' : 'Fast fertig';
+  String estimatedLength(String hours) {
+    return isEnglish ? 'Length: $hours h' : 'Länge: $hours h';
+  }
+
+  String estimatedProgress(String percent) {
+    return isEnglish ? 'Progress: $percent' : 'Fortschritt: $percent';
+  }
+
   String get price => isEnglish ? 'Price' : 'Preis';
   String get discount => isEnglish ? 'Discount' : 'Rabatt';
   String get cost => isEnglish ? 'Cost' : 'Kosten';
@@ -456,6 +467,14 @@ class AppStrings {
   String get noteOptional => isEnglish ? 'Note optional' : 'Notiz optional';
   String get playtimeOptional =>
       isEnglish ? 'Playtime optional' : 'Spielzeit optional';
+  String get gameLengthEstimates =>
+      isEnglish ? 'Length estimates' : 'Längenschätzung';
+  String get mainStoryHoursOptional =>
+      isEnglish ? 'Main story optional' : 'Hauptstory optional';
+  String get mainExtraHoursOptional =>
+      isEnglish ? 'Main + extras optional' : 'Hauptstory + Extras optional';
+  String get completionistHoursOptional =>
+      isEnglish ? 'Completionist optional' : 'Komplett optional';
   String get saveChanges => isEnglish ? 'Save changes' : 'Änderungen speichern';
   String get save => isEnglish ? 'Save' : 'Speichern';
   String get enterGameName =>
@@ -477,6 +496,9 @@ class AppStrings {
   String get playtimeCannotBeNegative => isEnglish
       ? 'Playtime cannot be negative'
       : 'Spielzeit darf nicht negativ sein';
+  String get hoursCannotBeNegative => isEnglish
+      ? 'Hours cannot be negative'
+      : 'Stunden dürfen nicht negativ sein';
 
   String sortLabel(String key, String currencySymbol) {
     return switch (key) {

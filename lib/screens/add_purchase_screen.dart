@@ -71,6 +71,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
   final _playtimeHoursController = TextEditingController();
+  final _mainStoryHoursController = TextEditingController();
+  final _mainExtraHoursController = TextEditingController();
+  final _completionistHoursController = TextEditingController();
   final _noteController = TextEditingController();
   final _gameNameFocusNode = FocusNode();
   final _dlcNameFocusNode = FocusNode();
@@ -163,6 +166,21 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           .toStringAsFixed(1);
     }
 
+    if (initialPurchase.mainStoryHours != null) {
+      _mainStoryHoursController.text = initialPurchase.mainStoryHours!
+          .toStringAsFixed(1);
+    }
+
+    if (initialPurchase.mainExtraHours != null) {
+      _mainExtraHoursController.text = initialPurchase.mainExtraHours!
+          .toStringAsFixed(1);
+    }
+
+    if (initialPurchase.completionistHours != null) {
+      _completionistHoursController.text = initialPurchase.completionistHours!
+          .toStringAsFixed(1);
+    }
+
     if (initialPurchase.note != null) {
       _noteController.text = initialPurchase.note!;
     }
@@ -192,6 +210,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _priceController.dispose();
     _originalPriceController.dispose();
     _playtimeHoursController.dispose();
+    _mainStoryHoursController.dispose();
+    _mainExtraHoursController.dispose();
+    _completionistHoursController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -232,6 +253,26 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   double _parseRequiredDouble(String value) {
     return double.parse(value.trim().replaceAll(',', '.'));
+  }
+
+  String? _validateOptionalHours(String? value) {
+    final strings = AppStrings.of(context);
+
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    final parsedValue = double.tryParse(value.trim().replaceAll(',', '.'));
+
+    if (parsedValue == null) {
+      return strings.enterValidNumber;
+    }
+
+    if (parsedValue < 0) {
+      return strings.hoursCannotBeNegative;
+    }
+
+    return null;
   }
 
   List<String> _uniqueNames(Iterable<String?> names) {
@@ -863,6 +904,15 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
       playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
+      mainStoryHours: _purchaseType == SteamPurchaseType.game
+          ? _parseOptionalDouble(_mainStoryHoursController.text)
+          : null,
+      mainExtraHours: _purchaseType == SteamPurchaseType.game
+          ? _parseOptionalDouble(_mainExtraHoursController.text)
+          : null,
+      completionistHours: _purchaseType == SteamPurchaseType.game
+          ? _parseOptionalDouble(_completionistHoursController.text)
+          : null,
       note: _noteController.text.trim().isEmpty
           ? null
           : _noteController.text.trim(),
@@ -1342,27 +1392,65 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
                                       ),
-                                  textInputAction: TextInputAction.done,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return null;
-                                    }
-
-                                    final parsedValue = double.tryParse(
-                                      value.trim().replaceAll(',', '.'),
-                                    );
-
-                                    if (parsedValue == null) {
-                                      return strings.enterValidNumber;
-                                    }
-
-                                    if (parsedValue < 0) {
-                                      return strings.playtimeCannotBeNegative;
-                                    }
-
-                                    return null;
-                                  },
+                                  textInputAction: TextInputAction.next,
+                                  validator: _validateOptionalHours,
                                 ),
+                                if (_purchaseType ==
+                                    SteamPurchaseType.game) ...[
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    strings.gameLengthEstimates,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    controller: _mainStoryHoursController,
+                                    decoration: InputDecoration(
+                                      labelText: strings.mainStoryHoursOptional,
+                                      suffixText: 'h',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    textInputAction: TextInputAction.next,
+                                    validator: _validateOptionalHours,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _mainExtraHoursController,
+                                    decoration: InputDecoration(
+                                      labelText: strings.mainExtraHoursOptional,
+                                      suffixText: 'h',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    textInputAction: TextInputAction.next,
+                                    validator: _validateOptionalHours,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _completionistHoursController,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          strings.completionistHoursOptional,
+                                      suffixText: 'h',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    textInputAction: TextInputAction.done,
+                                    validator: _validateOptionalHours,
+                                  ),
+                                ],
                               ],
                             ),
                             if (_canEditCollections)

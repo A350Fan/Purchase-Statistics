@@ -36,15 +36,39 @@ void main() {
       expect(purchases.single.price, 3.99);
       expect(purchases.single.originalPrice, 19.99);
       expect(purchases.single.playtimeHours, 12.5);
+      expect(purchases.single.mainStoryHours, isNull);
+      expect(purchases.single.mainExtraHours, isNull);
+      expect(purchases.single.completionistHours, isNull);
       expect(purchases.single.note, 'Summer sale\nWorth it');
+    });
+
+    test('encodes and decodes game length estimates for game purchases', () {
+      final csv = SteamPurchaseCsv.encode([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          gameName: 'Portal 2',
+          price: 3.99,
+          playtimeHours: 4.2,
+          mainStoryHours: 8,
+          mainExtraHours: 10.5,
+          completionistHours: 14,
+        ),
+      ]);
+
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      expect(purchases.single.playtimeHours, 4.2);
+      expect(purchases.single.mainStoryHours, 8);
+      expect(purchases.single.mainExtraHours, 10.5);
+      expect(purchases.single.completionistHours, 14);
     });
 
     test(
       'decodes semicolon separated csv with german headers and decimals',
       () {
         const csv = '''
-Kaufdatum;Spielname;Status;Preis;Originalpreis;Spielzeit;Notiz
-22.05.2026;Half-Life;Aktiv;1,99;9,99;3,5;Sale
+Kaufdatum;Spielname;Status;Preis;Originalpreis;Spielzeit;Hauptstory;Hauptstory Extras;Komplett;Notiz
+22.05.2026;Half-Life;Aktiv;1,99;9,99;3,5;7;9,5;12;Sale
 ''';
 
         final purchases = SteamPurchaseCsv.decode(csv);
@@ -59,6 +83,9 @@ Kaufdatum;Spielname;Status;Preis;Originalpreis;Spielzeit;Notiz
         expect(purchases.single.price, 1.99);
         expect(purchases.single.originalPrice, 9.99);
         expect(purchases.single.playtimeHours, 3.5);
+        expect(purchases.single.mainStoryHours, 7);
+        expect(purchases.single.mainExtraHours, 9.5);
+        expect(purchases.single.completionistHours, 12);
         expect(purchases.single.note, 'Sale');
       },
     );

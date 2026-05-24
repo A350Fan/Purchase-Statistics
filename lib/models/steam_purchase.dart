@@ -76,6 +76,9 @@ class SteamPurchase {
   final double price;
   final double? originalPrice;
   final double? playtimeHours;
+  final double? mainStoryHours;
+  final double? mainExtraHours;
+  final double? completionistHours;
   final String? note;
 
   const SteamPurchase({
@@ -90,6 +93,9 @@ class SteamPurchase {
     required this.price,
     this.originalPrice,
     this.playtimeHours,
+    this.mainStoryHours,
+    this.mainExtraHours,
+    this.completionistHours,
     this.note,
   });
 
@@ -168,6 +174,9 @@ class SteamPurchase {
     double? price,
     double? originalPrice,
     double? playtimeHours,
+    double? mainStoryHours,
+    double? mainExtraHours,
+    double? completionistHours,
     String? note,
   }) {
     return SteamPurchase(
@@ -182,6 +191,9 @@ class SteamPurchase {
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
       playtimeHours: playtimeHours ?? this.playtimeHours,
+      mainStoryHours: mainStoryHours ?? this.mainStoryHours,
+      mainExtraHours: mainExtraHours ?? this.mainExtraHours,
+      completionistHours: completionistHours ?? this.completionistHours,
       note: note ?? this.note,
     );
   }
@@ -201,6 +213,15 @@ class SteamPurchase {
       'price': price,
       'original_price': originalPrice,
       'playtime_hours': playtimeHours,
+      'main_story_hours': purchaseType == SteamPurchaseType.game
+          ? mainStoryHours
+          : null,
+      'main_extra_hours': purchaseType == SteamPurchaseType.game
+          ? mainExtraHours
+          : null,
+      'completionist_hours': purchaseType == SteamPurchaseType.game
+          ? completionistHours
+          : null,
       'note': note,
     };
   }
@@ -226,6 +247,15 @@ class SteamPurchase {
       playtimeHours: map['playtime_hours'] == null
           ? null
           : (map['playtime_hours'] as num).toDouble(),
+      mainStoryHours: map['main_story_hours'] == null
+          ? null
+          : (map['main_story_hours'] as num).toDouble(),
+      mainExtraHours: map['main_extra_hours'] == null
+          ? null
+          : (map['main_extra_hours'] as num).toDouble(),
+      completionistHours: map['completionist_hours'] == null
+          ? null
+          : (map['completionist_hours'] as num).toDouble(),
       note: map['note'] as String?,
     );
   }
