@@ -6,8 +6,13 @@ import 'app_database.dart';
 class SteamPurchaseRepository {
   static const String _tableName = 'steam_purchases';
 
+  final Future<Database> Function() _databaseProvider;
+
+  SteamPurchaseRepository({Future<Database> Function()? databaseProvider})
+    : _databaseProvider = databaseProvider ?? (() => AppDatabase.instance);
+
   Future<List<SteamPurchase>> getAllPurchases() async {
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     final maps = await db.query(_tableName, orderBy: 'purchase_date DESC');
 
@@ -15,7 +20,7 @@ class SteamPurchaseRepository {
   }
 
   Future<SteamPurchase> addPurchase(SteamPurchase purchase) async {
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     final id = await db.insert(
       _tableName,
@@ -31,7 +36,7 @@ class SteamPurchaseRepository {
       return 0;
     }
 
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     return db.transaction((transaction) async {
       final batch = transaction.batch();
@@ -58,7 +63,7 @@ class SteamPurchaseRepository {
       throw ArgumentError('Cannot update purchase without id.');
     }
 
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     await db.update(
       _tableName,
@@ -73,7 +78,7 @@ class SteamPurchaseRepository {
       return 0;
     }
 
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     return db.transaction((transaction) async {
       final batch = transaction.batch();
@@ -100,14 +105,50 @@ class SteamPurchaseRepository {
     });
   }
 
+  Future<int> updatePlaytimeHoursBySteamAppId(
+    Map<int, double> playtimeHoursBySteamAppId,
+  ) async {
+    if (playtimeHoursBySteamAppId.isEmpty) {
+      return 0;
+    }
+
+    final db = await _databaseProvider();
+
+    return db.transaction((transaction) async {
+      final batch = transaction.batch();
+
+      for (final entry in playtimeHoursBySteamAppId.entries) {
+        batch.update(
+          _tableName,
+          {'playtime_hours': entry.value},
+          where:
+              'steam_app_id = ? AND '
+              '(playtime_hours IS NULL OR ABS(playtime_hours - ?) > 0.0001)',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+
+      final results = await batch.commit();
+      var updatedCount = 0;
+
+      for (final result in results) {
+        if (result is int) {
+          updatedCount += result;
+        }
+      }
+
+      return updatedCount;
+    });
+  }
+
   Future<void> deletePurchase(int id) async {
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     await db.delete(_tableName, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> clear() async {
-    final db = await AppDatabase.instance;
+    final db = await _databaseProvider();
 
     await db.delete(_tableName);
   }

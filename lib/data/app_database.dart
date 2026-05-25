@@ -26,7 +26,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 15,
+      version: 16,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -166,6 +166,10 @@ class AppDatabase {
     if (oldVersion < 15) {
       await _createSteamGoalsTable(db);
     }
+
+    if (oldVersion >= 4 && oldVersion < 16) {
+      await _addSteamSyncSettingsColumns(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -174,8 +178,24 @@ class AppDatabase {
         id INTEGER PRIMARY KEY CHECK (id = 1),
         theme_mode TEXT NOT NULL,
         language TEXT NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'eur'
+        currency TEXT NOT NULL DEFAULT 'eur',
+        steam_account_identifier TEXT,
+        steam_web_api_key TEXT,
+        steam_include_played_free_games INTEGER NOT NULL DEFAULT 1
       )
+    ''');
+  }
+
+  static Future<void> _addSteamSyncSettingsColumns(Database db) async {
+    await db.execute(
+      'ALTER TABLE app_settings ADD COLUMN steam_account_identifier TEXT',
+    );
+    await db.execute(
+      'ALTER TABLE app_settings ADD COLUMN steam_web_api_key TEXT',
+    );
+    await db.execute('''
+      ALTER TABLE app_settings
+      ADD COLUMN steam_include_played_free_games INTEGER NOT NULL DEFAULT 1
     ''');
   }
 

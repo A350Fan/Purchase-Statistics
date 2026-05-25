@@ -326,6 +326,7 @@ void main() {
     expect(find.text('Darstellung'), findsOneWidget);
     expect(find.text('Sprache'), findsOneWidget);
     expect(find.text('Währung'), findsOneWidget);
+    expect(find.text('Steam-Sync'), findsOneWidget);
 
     await tester.tap(find.text('Hell'));
     await _pumpInteractionFrame(tester);
@@ -342,6 +343,24 @@ void main() {
     await _pumpInteractionFrame(tester);
 
     expect(store.settings.currency, AppCurrency.usd);
+
+    await tester.ensureVisible(find.text('Steam-Sync'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.enterText(find.byType(TextField).at(0), '76561198000000000');
+    await tester.enterText(find.byType(TextField).at(1), 'test-api-key');
+    await tester.ensureVisible(find.text('Steam-Einstellungen speichern'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.tap(find.text('Steam-Einstellungen speichern'));
+    await _pumpInteractionFrame(tester);
+
+    expect(store.settings.steamAccountIdentifier, '76561198000000000');
+    expect(store.settings.steamWebApiKey, 'test-api-key');
+    expect(store.settings.steamIncludePlayedFreeGames, isTrue);
+
+    await tester.ensureVisible(find.text('Englisch'));
+    await _pumpInteractionFrame(tester);
 
     await tester.tap(find.text('Englisch'));
     await _pumpInteractionFrame(tester);

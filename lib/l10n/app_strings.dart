@@ -54,6 +54,8 @@ class AppStrings {
   String get automation => isEnglish ? 'Automation' : 'Automatisierung';
   String get autoLinkSteamApps =>
       isEnglish ? 'Auto-link Steam apps' : 'Steam-Apps automatisch verknüpfen';
+  String get syncSteamPlaytime =>
+      isEnglish ? 'Sync Steam playtime' : 'Steam-Spielzeit synchronisieren';
   String get refreshMissingMetadata =>
       isEnglish ? 'Load missing metadata' : 'Fehlende Metadaten laden';
   String get refreshAllMetadata =>
@@ -66,6 +68,9 @@ class AppStrings {
   String get applyingSteamAppLinks => isEnglish
       ? 'Applying Steam app links...'
       : 'Steam-App-Verknüpfungen werden gespeichert...';
+  String get syncingSteamPlaytime => isEnglish
+      ? 'Syncing Steam playtime...'
+      : 'Steam-Spielzeit wird synchronisiert...';
   String get refreshingMissingMetadata => isEnglish
       ? 'Loading missing Steam metadata...'
       : 'Fehlende Steam-Metadaten werden geladen...';
@@ -88,6 +93,29 @@ class AppStrings {
     return count == 1
         ? '1 Steam-App wurde verknüpft.'
         : '$count Steam-Apps wurden verknüpft.';
+  }
+
+  String get steamSyncCredentialsMissing => isEnglish
+      ? 'Add your Steam account and Web API key in Settings first.'
+      : 'Hinterlege zuerst Steam-Account und Web-API-Key in den Einstellungen.';
+
+  String syncedSteamPlaytime({
+    required int updated,
+    required int matched,
+    required int linked,
+    required int owned,
+  }) {
+    if (isEnglish) {
+      return 'Steam playtime synced: $updated updated, $matched/$linked linked purchases matched, $owned owned games found.';
+    }
+
+    return 'Steam-Spielzeit synchronisiert: $updated aktualisiert, $matched/$linked verknüpfte Käufe gefunden, $owned Steam-Spiele geladen.';
+  }
+
+  String steamPlaytimeSyncFailed(Object error) {
+    return isEnglish
+        ? 'Steam playtime could not be synced: $error'
+        : 'Steam-Spielzeit konnte nicht synchronisiert werden: $error';
   }
 
   String refreshedSteamMetadata({
@@ -561,6 +589,26 @@ class AppStrings {
       AppCurrency.jpy => isEnglish ? 'Japanese yen (¥)' : 'Japanischer Yen (¥)',
     };
   }
+
+  String get steamSync => isEnglish ? 'Steam sync' : 'Steam-Sync';
+  String get steamAccountIdentifier =>
+      isEnglish ? 'SteamID64 or profile name' : 'SteamID64 oder Profilname';
+  String get steamAccountIdentifierHint => isEnglish
+      ? '7656119... or custom URL name'
+      : '7656119... oder Custom-URL-Name';
+  String get steamWebApiKey =>
+      isEnglish ? 'Steam Web API key' : 'Steam-Web-API-Key';
+  String get showSteamApiKey =>
+      isEnglish ? 'Show Steam Web API key' : 'Steam-Web-API-Key anzeigen';
+  String get hideSteamApiKey =>
+      isEnglish ? 'Hide Steam Web API key' : 'Steam-Web-API-Key ausblenden';
+  String get includePlayedFreeGames => isEnglish
+      ? 'Include played free games'
+      : 'Gespielte Free-to-play-Spiele einschließen';
+  String get saveSteamSettings =>
+      isEnglish ? 'Save Steam settings' : 'Steam-Einstellungen speichern';
+  String get steamSettingsSaved =>
+      isEnglish ? 'Steam settings saved.' : 'Steam-Einstellungen gespeichert.';
 
   String get addPurchaseTitle => isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
   String get editPurchaseTitle =>

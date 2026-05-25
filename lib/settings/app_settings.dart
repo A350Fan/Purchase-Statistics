@@ -97,23 +97,41 @@ class AppSettings {
   final AppThemeMode themeMode;
   final AppLanguage language;
   final AppCurrency currency;
+  final String? steamAccountIdentifier;
+  final String? steamWebApiKey;
+  final bool steamIncludePlayedFreeGames;
 
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.german,
     this.currency = AppCurrency.eur,
+    this.steamAccountIdentifier,
+    this.steamWebApiKey,
+    this.steamIncludePlayedFreeGames = true,
   });
 
   AppSettings copyWith({
     AppThemeMode? themeMode,
     AppLanguage? language,
     AppCurrency? currency,
+    String? steamAccountIdentifier,
+    String? steamWebApiKey,
+    bool? steamIncludePlayedFreeGames,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
       language: language ?? this.language,
       currency: currency ?? this.currency,
+      steamAccountIdentifier:
+          steamAccountIdentifier ?? this.steamAccountIdentifier,
+      steamWebApiKey: steamWebApiKey ?? this.steamWebApiKey,
+      steamIncludePlayedFreeGames:
+          steamIncludePlayedFreeGames ?? this.steamIncludePlayedFreeGames,
     );
+  }
+
+  bool get hasSteamSyncCredentials {
+    return _hasValue(steamAccountIdentifier) && _hasValue(steamWebApiKey);
   }
 
   Locale resolveLocale(Locale platformLocale) {
@@ -132,9 +150,23 @@ class AppSettings {
     return other is AppSettings &&
         other.themeMode == themeMode &&
         other.language == language &&
-        other.currency == currency;
+        other.currency == currency &&
+        other.steamAccountIdentifier == steamAccountIdentifier &&
+        other.steamWebApiKey == steamWebApiKey &&
+        other.steamIncludePlayedFreeGames == steamIncludePlayedFreeGames;
   }
 
   @override
-  int get hashCode => Object.hash(themeMode, language, currency);
+  int get hashCode => Object.hash(
+    themeMode,
+    language,
+    currency,
+    steamAccountIdentifier,
+    steamWebApiKey,
+    steamIncludePlayedFreeGames,
+  );
+
+  static bool _hasValue(String? value) {
+    return value != null && value.trim().isNotEmpty;
+  }
 }

@@ -42,6 +42,23 @@ class AppSettingsController extends ChangeNotifier {
     await _updateSettings(_settings.copyWith(currency: currency));
   }
 
+  Future<void> setSteamSyncSettings({
+    required String? steamAccountIdentifier,
+    required String? steamWebApiKey,
+    required bool steamIncludePlayedFreeGames,
+  }) async {
+    await _updateSettings(
+      AppSettings(
+        themeMode: _settings.themeMode,
+        language: _settings.language,
+        currency: _settings.currency,
+        steamAccountIdentifier: _nullableValue(steamAccountIdentifier),
+        steamWebApiKey: _nullableValue(steamWebApiKey),
+        steamIncludePlayedFreeGames: steamIncludePlayedFreeGames,
+      ),
+    );
+  }
+
   Future<void> _updateSettings(AppSettings settings) async {
     if (settings == _settings) {
       return;
@@ -50,6 +67,16 @@ class AppSettingsController extends ChangeNotifier {
     _settings = settings;
     notifyListeners();
     await _store.saveSettings(settings);
+  }
+
+  String? _nullableValue(String? value) {
+    final text = value?.trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
   }
 }
 

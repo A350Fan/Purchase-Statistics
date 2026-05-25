@@ -1,0 +1,348 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'resource_lifecycle.dart';
+import 'steam_purchase_repository.dart';
+
+class SteamOwnedGame {
+  final int appId;
+  final String? name;
+  final int playtimeMinutes;
+
+  const SteamOwnedGame({
+    required this.appId,
+    required this.name,
+    required this.playtimeMinutes,
+  });
+
+  double get playtimeHours => playtimeMinutes / 60;
+}
+
+class SteamPlaytimeSyncResult {
+  final int ownedGameCount;
+  final int linkedPurchaseCount;
+  final int matchedPurchaseCount;
+  final int updatedPurchaseCount;
+
+  const SteamPlaytimeSyncResult({
+    required this.ownedGameCount,
+    required this.linkedPurchaseCount,
+    required this.matchedPurchaseCount,
+    required this.updatedPurchaseCount,
+  });
+}
+
+class SteamPlaytimeSyncException implements Exception {
+  final String message;
+
+  const SteamPlaytimeSyncException(this.message);
+
+  @override
+  String toString() {
+    return message;
+  }
+}
+
+abstract class SteamPlaytimeClient {
+  Future<List<SteamOwnedGame>> fetchOwnedGames({
+    required String apiKey,
+    required String steamId,
+    required bool includePlayedFreeGames,
+  });
+
+  Future<String?> resolveSteamIdFromVanityUrl({
+    required String apiKey,
+    required String vanityUrl,
+  });
+}
+
+class HttpSteamPlaytimeClient
+    implements SteamPlaytimeClient, DisposableResource {
+  final HttpClient _httpClient;
+  final Duration timeout;
+  final bool _ownsHttpClient;
+
+  HttpSteamPlaytimeClient({
+    HttpClient? httpClient,
+    this.timeout = const Duration(seconds: 5),
+  }) : _httpClient = httpClient ?? HttpClient(),
+       _ownsHttpClient = httpClient == null {
+    _httpClient.connectionTimeout = timeout;
+  }
+
+  @override
+  void dispose() {
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
+  }
+
+  @override
+  Future<List<SteamOwnedGame>> fetchOwnedGames({
+    required String apiKey,
+    required String steamId,
+    required bool includePlayedFreeGames,
+  }) async {
+    final uri =
+        Uri.https('api.steampowered.com', '/IPlayerService/GetOwnedGames/v1/', {
+          'key': apiKey,
+          'steamid': steamId,
+          'include_appinfo': 'true',
+          'include_played_free_games': includePlayedFreeGames.toString(),
+          'format': 'json',
+        });
+    final body = await _getJsonBody(uri);
+
+    return SteamOwnedGamesResponseParser.parse(body);
+  }
+
+  @override
+  Future<String?> resolveSteamIdFromVanityUrl({
+    required String apiKey,
+    required String vanityUrl,
+  }) async {
+    final uri = Uri.https(
+      'api.steampowered.com',
+      '/ISteamUser/ResolveVanityURL/v1/',
+      {
+        'key': apiKey,
+        'vanityurl': vanityUrl,
+        'url_type': '1',
+        'format': 'json',
+      },
+    );
+    final body = await _getJsonBody(uri);
+
+    return SteamVanityUrlResponseParser.parseSteamId(body);
+  }
+
+  Future<String> _getJsonBody(Uri uri) async {
+    final request = await _httpClient.getUrl(uri).timeout(timeout);
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+
+    final response = await request.close().timeout(timeout);
+
+    if (response.statusCode != HttpStatus.ok) {
+      throw SteamPlaytimeSyncException(
+        'Steam API returned HTTP ${response.statusCode}.',
+      );
+    }
+
+    return response.transform(utf8.decoder).join().timeout(timeout);
+  }
+}
+
+class SteamPlaytimeSyncService implements DisposableResource {
+  final SteamPlaytimeClient client;
+  final SteamPurchaseRepository repository;
+  final bool _ownsClient;
+
+  SteamPlaytimeSyncService({
+    SteamPlaytimeClient? client,
+    SteamPurchaseRepository? repository,
+  }) : client = client ?? HttpSteamPlaytimeClient(),
+       repository = repository ?? SteamPurchaseRepository(),
+       _ownsClient = client == null;
+
+  @override
+  void dispose() {
+    if (_ownsClient) {
+      disposeResource(client);
+    }
+  }
+
+  Future<SteamPlaytimeSyncResult> syncPlaytime({
+    required String steamAccountIdentifier,
+    required String apiKey,
+    required bool includePlayedFreeGames,
+  }) async {
+    final normalizedAccountIdentifier = _normalizeAccountIdentifier(
+      steamAccountIdentifier,
+    );
+    final normalizedApiKey = apiKey.trim();
+
+    if (normalizedAccountIdentifier.isEmpty || normalizedApiKey.isEmpty) {
+      throw const SteamPlaytimeSyncException(
+        'Steam account and Web API key are required.',
+      );
+    }
+
+    final steamId = await _resolveSteamId(
+      apiKey: normalizedApiKey,
+      accountIdentifier: normalizedAccountIdentifier,
+    );
+    final ownedGames = await client.fetchOwnedGames(
+      apiKey: normalizedApiKey,
+      steamId: steamId,
+      includePlayedFreeGames: includePlayedFreeGames,
+    );
+    final purchases = await repository.getAllPurchases();
+    final linkedPurchases = purchases
+        .where((purchase) {
+          return purchase.steamAppId != null;
+        })
+        .toList(growable: false);
+    final playtimeHoursByAppId = {
+      for (final game in ownedGames) game.appId: game.playtimeHours,
+    };
+    final matchedPurchases = linkedPurchases
+        .where((purchase) {
+          return playtimeHoursByAppId.containsKey(purchase.steamAppId);
+        })
+        .toList(growable: false);
+    final matchedAppIds = matchedPurchases
+        .map((purchase) => purchase.steamAppId)
+        .whereType<int>()
+        .toSet();
+    final updatedPurchaseCount = await repository
+        .updatePlaytimeHoursBySteamAppId({
+          for (final appId in matchedAppIds)
+            appId: playtimeHoursByAppId[appId]!,
+        });
+
+    return SteamPlaytimeSyncResult(
+      ownedGameCount: ownedGames.length,
+      linkedPurchaseCount: linkedPurchases.length,
+      matchedPurchaseCount: matchedPurchases.length,
+      updatedPurchaseCount: updatedPurchaseCount,
+    );
+  }
+
+  Future<String> _resolveSteamId({
+    required String apiKey,
+    required String accountIdentifier,
+  }) async {
+    if (_isSteamId64(accountIdentifier)) {
+      return accountIdentifier;
+    }
+
+    final steamId = await client.resolveSteamIdFromVanityUrl(
+      apiKey: apiKey,
+      vanityUrl: accountIdentifier,
+    );
+
+    if (steamId == null || steamId.trim().isEmpty) {
+      throw const SteamPlaytimeSyncException(
+        'Steam profile could not be resolved.',
+      );
+    }
+
+    return steamId;
+  }
+
+  String _normalizeAccountIdentifier(String value) {
+    final trimmedValue = value.trim();
+    final steamCommunityMatch = RegExp(
+      r'(?:https?://)?(?:www\.)?steamcommunity\.com/(?:id|profiles)/([^/?#]+)',
+      caseSensitive: false,
+    ).firstMatch(trimmedValue);
+
+    if (steamCommunityMatch != null) {
+      return Uri.decodeComponent(steamCommunityMatch.group(1)!).trim();
+    }
+
+    return trimmedValue.replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  bool _isSteamId64(String value) {
+    return RegExp(r'^\d{16,20}$').hasMatch(value);
+  }
+}
+
+class SteamOwnedGamesResponseParser {
+  const SteamOwnedGamesResponseParser._();
+
+  static List<SteamOwnedGame> parse(String responseBody) {
+    final decoded = jsonDecode(responseBody);
+
+    if (decoded is! Map<String, Object?>) {
+      return const [];
+    }
+
+    final response = decoded['response'];
+
+    if (response is! Map<String, Object?>) {
+      return const [];
+    }
+
+    final games = response['games'];
+
+    if (games is! List<Object?>) {
+      return const [];
+    }
+
+    final gamesByAppId = <int, SteamOwnedGame>{};
+
+    for (final game in games) {
+      if (game is! Map<String, Object?>) {
+        continue;
+      }
+
+      final appId = _parseInt(game['appid']);
+      final playtimeMinutes = _parseInt(game['playtime_forever']);
+
+      if (appId == null || playtimeMinutes == null || playtimeMinutes < 0) {
+        continue;
+      }
+
+      final name = game['name']?.toString().trim();
+      final ownedGame = SteamOwnedGame(
+        appId: appId,
+        name: name == null || name.isEmpty ? null : name,
+        playtimeMinutes: playtimeMinutes,
+      );
+      final currentGame = gamesByAppId[appId];
+
+      if (currentGame == null ||
+          ownedGame.playtimeMinutes > currentGame.playtimeMinutes) {
+        gamesByAppId[appId] = ownedGame;
+      }
+    }
+
+    final result = gamesByAppId.values.toList(growable: false)
+      ..sort((a, b) => a.appId.compareTo(b.appId));
+
+    return result;
+  }
+
+  static int? _parseInt(Object? value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '');
+  }
+}
+
+class SteamVanityUrlResponseParser {
+  const SteamVanityUrlResponseParser._();
+
+  static String? parseSteamId(String responseBody) {
+    final decoded = jsonDecode(responseBody);
+
+    if (decoded is! Map<String, Object?>) {
+      return null;
+    }
+
+    final response = decoded['response'];
+
+    if (response is! Map<String, Object?>) {
+      return null;
+    }
+
+    final success = response['success'];
+
+    if (success != 1 && success != '1') {
+      return null;
+    }
+
+    final steamId = response['steamid']?.toString().trim();
+
+    if (steamId == null || steamId.isEmpty) {
+      return null;
+    }
+
+    return steamId;
+  }
+}

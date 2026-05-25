@@ -39,6 +39,7 @@ Implemented so far:
 - Optional DLC name field
 - Optional original price/list price
 - Optional playtime tracking
+- Manual Steam Web API playtime sync for linked Steam App IDs
 - Optional game length estimates for main story, main + extras and completionist playthroughs
 - Optional notes
 - Sorting options for the purchase list
@@ -154,6 +155,23 @@ Supported delimiters:
 
 The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit`, `status` and `notiz`.
 Supported game status values include `open`, `active`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
+
+---
+
+## Steam Playtime Sync
+
+The app can update `playtime_hours` from the Steam Web API for purchases that already have a `steam_app_id`.
+
+Requirements:
+
+- A Steam Web API key
+- A SteamID64 or custom Steam profile name
+- Public game details on the Steam profile
+- Linked Steam App IDs on the purchases that should be updated
+
+The Steam account and API key are stored locally in the app settings. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
+
+The sync does not import purchase dates, paid prices or order history. Those values still need to come from manual entry or CSV import.
 
 ---
 
@@ -291,8 +309,6 @@ Possible next steps:
 - Add more chart types
 - Add full release packaging for Windows
 - Add AppImage packaging for Linux
-- Add Steam Web API integration
-- Add automatic playtime updates
 
 ---
 
@@ -320,8 +336,8 @@ git push
 
 ## Disclaimer
 
-Purchase Statistics is a private/open-source helper project for manually tracking Steam purchases.
+Purchase Statistics is a private/open-source helper project for tracking Steam purchases.
 
-It does **not** connect to Steam automatically yet and does **not** access a Steam account.
+It can optionally connect to the Steam Web API to update playtime for a configured public Steam profile.
 
 Steam, Valve and related names are trademarks of their respective owners.

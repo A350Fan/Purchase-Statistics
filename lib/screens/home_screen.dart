@@ -10,6 +10,7 @@ import '../data/steam_collection_repository.dart';
 import '../data/steam_app_linking_service.dart';
 import '../data/steam_game_metadata_service.dart';
 import '../data/steam_goal_repository.dart';
+import '../data/steam_playtime_sync_service.dart';
 import '../data/steam_purchase_csv.dart';
 import '../data/steam_purchase_repository.dart';
 import '../l10n/app_strings.dart';
@@ -46,6 +47,7 @@ enum PurchaseSortOption {
 
 enum _HomeAction {
   autoLinkSteamApps,
+  syncSteamPlaytime,
   refreshMissingMetadata,
   refreshAllMetadata,
   createSmartCollections,
@@ -59,6 +61,7 @@ class HomeScreen extends StatefulWidget {
   final SteamCollectionRepository? collectionRepository;
   final SteamGameMetadataService? metadataService;
   final SteamAppLinkingService? appLinkingService;
+  final SteamPlaytimeSyncService? playtimeSyncService;
   final SteamGoalStore? goalStore;
 
   const HomeScreen({
@@ -67,6 +70,7 @@ class HomeScreen extends StatefulWidget {
     this.collectionRepository,
     this.metadataService,
     this.appLinkingService,
+    this.playtimeSyncService,
     this.goalStore,
   });
 
@@ -82,10 +86,12 @@ class _HomeScreenState extends State<HomeScreen>
   late final SteamCollectionRepository _collectionRepository;
   late final SteamGameMetadataService _metadataService;
   late final SteamAppLinkingService _appLinkingService;
+  late final SteamPlaytimeSyncService _playtimeSyncService;
   late final SteamGoalStore _goalStore;
   late final TabController _tabController;
   late final bool _ownsMetadataService;
   late final bool _ownsAppLinkingService;
+  late final bool _ownsPlaytimeSyncService;
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
   final _purchaseSearchController = TextEditingController();
 
@@ -115,8 +121,12 @@ class _HomeScreenState extends State<HomeScreen>
         widget.collectionRepository ?? SteamCollectionRepository();
     _ownsMetadataService = widget.metadataService == null;
     _ownsAppLinkingService = widget.appLinkingService == null;
+    _ownsPlaytimeSyncService = widget.playtimeSyncService == null;
     _metadataService = widget.metadataService ?? SteamGameMetadataService();
     _appLinkingService = widget.appLinkingService ?? SteamAppLinkingService();
+    _playtimeSyncService =
+        widget.playtimeSyncService ??
+        SteamPlaytimeSyncService(repository: _repository);
     _goalStore = widget.goalStore ?? SteamGoalRepository();
     _tabController = TabController(length: 6, vsync: this)
       ..addListener(_handleTabSelectionChanged);
@@ -133,6 +143,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (_ownsAppLinkingService) {
       _appLinkingService.dispose();
+    }
+    if (_ownsPlaytimeSyncService) {
+      _playtimeSyncService.dispose();
     }
     super.dispose();
   }
@@ -681,6 +694,53 @@ class _HomeScreenState extends State<HomeScreen>
     await _loadPurchases();
     await _collectionsTabKey.currentState?.refresh();
     _showSnackBar(strings.linkedSteamApps(updatedCount));
+  }
+
+  Future<void> _syncSteamPlaytime() async {
+    final strings = AppStrings.of(context);
+    final settings =
+        AppSettingsScope.maybeOf(context)?.settings ?? const AppSettings();
+
+    if (!settings.hasSteamSyncCredentials) {
+      _showSnackBar(strings.steamSyncCredentialsMissing);
+      return;
+    }
+
+    SteamPlaytimeSyncResult? result;
+
+    try {
+      result = await _runAutomation(
+        message: strings.syncingSteamPlaytime,
+        action: () {
+          return _playtimeSyncService.syncPlaytime(
+            steamAccountIdentifier: settings.steamAccountIdentifier!,
+            apiKey: settings.steamWebApiKey!,
+            includePlayedFreeGames: settings.steamIncludePlayedFreeGames,
+          );
+        },
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar(strings.steamPlaytimeSyncFailed(error));
+      return;
+    }
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _loadPurchases();
+    _showSnackBar(
+      strings.syncedSteamPlaytime(
+        updated: result.updatedPurchaseCount,
+        matched: result.matchedPurchaseCount,
+        linked: result.linkedPurchaseCount,
+        owned: result.ownedGameCount,
+      ),
+    );
   }
 
   Future<void> _refreshMetadataForLinkedPurchases({
@@ -1465,6 +1525,9 @@ class _HomeScreenState extends State<HomeScreen>
       case _HomeAction.autoLinkSteamApps:
         _autoLinkSteamApps();
         break;
+      case _HomeAction.syncSteamPlaytime:
+        _syncSteamPlaytime();
+        break;
       case _HomeAction.refreshMissingMetadata:
         _refreshMetadataForLinkedPurchases(onlyMissing: true);
         break;
@@ -1511,6 +1574,12 @@ class _HomeScreenState extends State<HomeScreen>
         action: _HomeAction.autoLinkSteamApps,
         icon: Icons.link,
         label: strings.autoLinkSteamApps,
+        enabled: !_isAutomationRunning,
+      ),
+      _buildHomeActionMenuItem(
+        action: _HomeAction.syncSteamPlaytime,
+        icon: Icons.timer,
+        label: strings.syncSteamPlaytime,
         enabled: !_isAutomationRunning,
       ),
       _buildHomeActionMenuItem(
