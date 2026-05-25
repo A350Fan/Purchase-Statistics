@@ -12,6 +12,9 @@ class SteamPurchaseCsvException implements Exception {
 }
 
 class SteamPurchaseCsv {
+  static const int maxImportBytes = 5 * 1024 * 1024;
+  static const int maxImportRows = 10000;
+
   static const headers = [
     'purchase_date',
     'purchase_type',
@@ -80,6 +83,12 @@ class SteamPurchaseCsv {
       return [];
     }
 
+    if (rows.length > maxImportRows + 1) {
+      throw SteamPurchaseCsvException(
+        'CSV enthält mehr als $maxImportRows Datenzeilen.',
+      );
+    }
+
     final headerIndexes = _buildHeaderIndexes(rows.first.values);
     final purchases = <SteamPurchase>[];
 
@@ -95,17 +104,31 @@ class SteamPurchaseCsv {
   }
 
   static String _encodeValue(String value) {
+    final sanitizedValue = _escapeSpreadsheetFormula(value);
     final mustQuote =
-        value.contains(',') ||
-        value.contains('"') ||
-        value.contains('\n') ||
-        value.contains('\r');
+        sanitizedValue.contains(',') ||
+        sanitizedValue.contains('"') ||
+        sanitizedValue.contains('\n') ||
+        sanitizedValue.contains('\r');
 
     if (!mustQuote) {
+      return sanitizedValue;
+    }
+
+    return '"${sanitizedValue.replaceAll('"', '""')}"';
+  }
+
+  static String _escapeSpreadsheetFormula(String value) {
+    final trimmedValue = value.trimLeft();
+
+    if (trimmedValue.isEmpty) {
       return value;
     }
 
-    return '"${value.replaceAll('"', '""')}"';
+    return switch (trimmedValue[0]) {
+      '=' || '+' || '-' || '@' => "'$value",
+      _ => value,
+    };
   }
 
   static String _formatDate(DateTime date) {
@@ -181,6 +204,7 @@ class SteamPurchaseCsv {
       } else if (!inQuotes && (char == '\n' || char == '\r')) {
         row.add(value.toString());
         rows.add(_CsvRow(row, rowStartLineNumber));
+        _throwIfTooManyRows(rows.length);
         row = <String>[];
         value = StringBuffer();
 
@@ -208,9 +232,20 @@ class SteamPurchaseCsv {
     if (value.isNotEmpty || row.isNotEmpty) {
       row.add(value.toString());
       rows.add(_CsvRow(row, rowStartLineNumber));
+      _throwIfTooManyRows(rows.length);
     }
 
     return rows;
+  }
+
+  static void _throwIfTooManyRows(int rowCount) {
+    if (rowCount <= maxImportRows + 1) {
+      return;
+    }
+
+    throw SteamPurchaseCsvException(
+      'CSV enthält mehr als $maxImportRows Datenzeilen.',
+    );
   }
 
   static Map<String, int> _buildHeaderIndexes(List<String> headerValues) {

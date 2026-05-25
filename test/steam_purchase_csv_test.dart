@@ -133,6 +133,35 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
       expect(purchases[1].gameStatus, isNull);
     });
 
+    test('escapes spreadsheet formulas in exported text fields', () {
+      final csv = SteamPurchaseCsv.encode([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          gameName: '=HYPERLINK("https://example.invalid")',
+          edition: '+Collector',
+          price: 1.99,
+          note: ' @import',
+        ),
+      ]);
+
+      expect(csv, contains('''"'=HYPERLINK(""https://example.invalid"")"'''));
+      expect(csv, contains(",'+Collector,"));
+      expect(csv, contains(",' @import"));
+    });
+
+    test('rejects CSV files with too many rows', () {
+      final buffer = StringBuffer('purchase_date,game_name,price\n');
+
+      for (var index = 0; index <= SteamPurchaseCsv.maxImportRows; index++) {
+        buffer.writeln('2026-05-22,Game $index,1.99');
+      }
+
+      expect(
+        () => SteamPurchaseCsv.decode(buffer.toString()),
+        throwsA(isA<SteamPurchaseCsvException>()),
+      );
+    });
+
     test('allows zero original price', () {
       const csv = '''
 purchase_date,game_name,price,original_price

@@ -224,11 +224,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSteamSettings(AppStrings strings) async {
     final controller = AppSettingsScope.of(context);
 
-    await controller.setSteamSyncSettings(
-      steamAccountIdentifier: _steamAccountController.text,
-      steamWebApiKey: _steamApiKeyController.text,
-      steamIncludePlayedFreeGames: _includePlayedFreeGames,
-    );
+    try {
+      await controller.setSteamSyncSettings(
+        steamAccountIdentifier: _steamAccountController.text,
+        steamWebApiKey: _steamApiKeyController.text,
+        steamIncludePlayedFreeGames: _includePlayedFreeGames,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(strings.steamSettingsSaveFailed(error))),
+        );
+      return;
+    }
 
     if (!mounted) {
       return;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/steam_game_metadata.dart';
+import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 
 abstract class SteamGameMetadataClient {
@@ -15,6 +16,8 @@ abstract class SteamGameMetadataClient {
 
 class HttpSteamGameMetadataClient
     implements SteamGameMetadataClient, DisposableResource {
+  static const int _maxResponseBytes = 5 * 1024 * 1024;
+
   final HttpClient _httpClient;
   final Duration timeout;
   final bool _ownsHttpClient;
@@ -54,7 +57,11 @@ class HttpSteamGameMetadataClient
       return null;
     }
 
-    final body = await response.transform(utf8.decoder).join().timeout(timeout);
+    final body = await readUtf8HttpBody(
+      response,
+      maxBytes: _maxResponseBytes,
+      timeout: timeout,
+    );
 
     return SteamGameMetadataResponseParser.parse(
       body,

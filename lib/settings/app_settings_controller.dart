@@ -64,9 +64,17 @@ class AppSettingsController extends ChangeNotifier {
       return;
     }
 
+    final previousSettings = _settings;
     _settings = settings;
     notifyListeners();
-    await _store.saveSettings(settings);
+
+    try {
+      await _store.saveSettings(settings);
+    } catch (_) {
+      _settings = previousSettings;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   String? _nullableValue(String? value) {

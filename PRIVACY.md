@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: May 25, 2026
+Last updated: May 26, 2026
 
 This Privacy Policy applies to **Purchase Statistics**. The app is an independent project and is not affiliated with, sponsored by, or endorsed by Valve or Steam.
 
@@ -10,9 +10,9 @@ The app is built as a local desktop/mobile app without a project-operated backen
 
 - The app does not provide or require an app account.
 - The app does not use analytics, tracking, advertising, or telemetry for the project maintainer.
-- Purchases, settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
+- Purchases, non-secret settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
 - Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync.
-- The Steam Web API key is currently stored locally with the app settings and is used only for Steam Web API requests to Valve.
+- The Steam Web API key is stored locally in the platform secure store where available and is used only for Steam Web API requests to Valve.
 
 ## Locally Entered and Stored Data
 
@@ -100,7 +100,7 @@ The app processes this response locally in memory, matches it against purchases 
 
 ## Storage Location and Storage Countries
 
-The app stores its data locally in the SQLite database `steam_stats.db`. SQLite may also create files with the suffixes `-wal` and `-shm` next to the database.
+The app stores most data locally in the SQLite database `steam_stats.db`. SQLite may also create files with the suffixes `-wal` and `-shm` next to the database. The Steam Web API key is stored separately in the platform secure store where available. Older plaintext API keys from previous local databases are migrated to secure storage and cleared from SQLite when secure storage is available.
 
 Default storage locations for currently targeted platforms:
 
@@ -127,7 +127,7 @@ The app does not send local purchase prices, notes, collections, goals, or CSV c
 
 ## Security
 
-The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is currently stored with the local app settings in the SQLite database unless a future platform-specific secure storage implementation is added. The key should be treated as a secret. Do not publish it, share it, or post screenshots that show it.
+The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is stored in platform secure storage where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. The key should still be treated as a secret. Do not publish it, share it, or post screenshots that show it.
 
 ## Steam Data and Availability
 

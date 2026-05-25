@@ -609,6 +609,12 @@ class AppStrings {
       isEnglish ? 'Save Steam settings' : 'Steam-Einstellungen speichern';
   String get steamSettingsSaved =>
       isEnglish ? 'Steam settings saved.' : 'Steam-Einstellungen gespeichert.';
+  String steamSettingsSaveFailed(Object error) {
+    return isEnglish
+        ? 'Steam settings could not be saved securely: $error'
+        : 'Steam-Einstellungen konnten nicht sicher gespeichert werden: $error';
+  }
+
   String get legal => isEnglish ? 'Legal' : 'Rechtliches';
   String get openSourceLicenses =>
       isEnglish ? 'Open source licenses' : 'Open-Source-Lizenzen';

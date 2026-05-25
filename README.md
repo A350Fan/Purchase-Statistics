@@ -40,6 +40,7 @@ Implemented so far:
 - Optional original price/list price
 - Optional playtime tracking
 - Manual Steam Web API playtime sync for linked Steam App IDs
+- Platform secure storage for the Steam Web API key
 - Steam Store search suggestions for purchase editing
 - Steam App ID linking and automatic linking support
 - Local Steam Store search cache
@@ -161,6 +162,8 @@ Supported delimiters:
 The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit`, `status` and `notiz`.
 Supported game status values include `open`, `active`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
 
+CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
+
 ---
 
 ## Steam Playtime Sync
@@ -184,7 +187,7 @@ How to get a Steam Web API key:
 
 Keep the API key private. Do not commit it, publish it or share screenshots that show it.
 
-The Steam account and API key are stored locally in the app settings. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
+The Steam account identifier is stored locally in the app settings. The Steam Web API key is stored in the platform secure store where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Legacy plaintext keys from older local databases are migrated to secure storage when settings are loaded successfully. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
 
 The sync does not import purchase dates, paid prices or order history. Those values still need to come from manual entry or CSV import.
 
@@ -205,6 +208,8 @@ The privacy policy is available in [PRIVACY.md](PRIVACY.md). It documents which 
 - Git
 - Visual Studio Code or Android Studio
 - Platform build tools depending on the target platform
+- Android 6.0/API 23 or newer for Android builds
+- Linux `libsecret` development/runtime packages for secure key storage
 
 Check the local Flutter setup:
 
@@ -216,6 +221,12 @@ Install dependencies:
 
 ```powershell
 flutter pub get
+```
+
+On Ubuntu/Debian-based Linux systems, install the secure storage dependency before building or running the Linux app:
+
+```bash
+sudo apt install libsecret-1-0 libsecret-1-dev
 ```
 
 Run the app:
@@ -289,6 +300,8 @@ The database schema is versioned and currently includes migrations for:
 - Adding Steam Store search caching
 - Adding Steam game metadata
 - Adding collections
+
+The Steam Web API key is not newly written to the SQLite database. Older plaintext values in the `app_settings.steam_web_api_key` column are migrated to platform secure storage and cleared from SQLite when secure storage is available.
 
 ---
 

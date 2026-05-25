@@ -47,7 +47,7 @@ Issues in Valve or Steam services, Steam APIs, Steam accounts, or third-party in
 
 ## Local Data and Secrets
 
-The app stores data locally and does not use a project-operated backend. The local SQLite database is not additionally encrypted by the app. The Steam Web API key is currently stored locally with the app settings and should be treated as a secret.
+The app stores data locally and does not use a project-operated backend. The local SQLite database is not additionally encrypted by the app. The Steam Web API key is stored in platform secure storage where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Older plaintext keys from previous local databases are migrated to secure storage and cleared from SQLite when secure storage is available. The API key should still be treated as a secret.
 
 Users should avoid sharing databases, exported CSV files, logs, or screenshots unless sensitive data has been removed.
 

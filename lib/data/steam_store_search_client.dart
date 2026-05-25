@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
+import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 import 'steam_store_search_text.dart';
 
@@ -19,6 +20,7 @@ abstract class SteamStoreSearchClient {
 class HttpSteamStoreSearchClient
     implements SteamStoreSearchClient, DisposableResource {
   static const Duration _minimumRequestInterval = Duration(seconds: 2);
+  static const int _maxResponseBytes = 512 * 1024;
 
   final HttpClient _httpClient;
   final Duration timeout;
@@ -72,7 +74,11 @@ class HttpSteamStoreSearchClient
       return [];
     }
 
-    final body = await response.transform(utf8.decoder).join().timeout(timeout);
+    final body = await readUtf8HttpBody(
+      response,
+      maxBytes: _maxResponseBytes,
+      timeout: timeout,
+    );
 
     return SteamStoreSearchResponseParser.parse(
       body,

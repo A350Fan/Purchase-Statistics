@@ -29,6 +29,7 @@ Requirements:
 - Dart
 - Git
 - Platform build tools for your target platform
+- Linux `libsecret-1-0` and `libsecret-1-dev` when building or running the Linux app
 
 Check your Flutter setup:
 

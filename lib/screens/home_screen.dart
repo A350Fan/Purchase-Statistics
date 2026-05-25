@@ -917,6 +917,7 @@ class _HomeScreenState extends State<HomeScreen>
     final bytes = file.bytes;
 
     if (bytes != null) {
+      _throwIfCsvFileIsTooLarge(bytes.length);
       return utf8.decode(bytes, allowMalformed: true);
     }
 
@@ -928,7 +929,22 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
-    return File(path).readAsString();
+    final csvFile = File(path);
+    _throwIfCsvFileIsTooLarge(await csvFile.length());
+
+    return csvFile.readAsString();
+  }
+
+  void _throwIfCsvFileIsTooLarge(int byteLength) {
+    if (byteLength <= SteamPurchaseCsv.maxImportBytes) {
+      return;
+    }
+
+    final maxMegabytes = SteamPurchaseCsv.maxImportBytes ~/ (1024 * 1024);
+
+    throw SteamPurchaseCsvException(
+      'Die ausgewählte CSV ist größer als $maxMegabytes MB.',
+    );
   }
 
   Future<void> _exportPurchasesToCsv() async {

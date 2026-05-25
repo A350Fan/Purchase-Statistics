@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 import 'steam_purchase_repository.dart';
 
@@ -59,6 +60,8 @@ abstract class SteamPlaytimeClient {
 
 class HttpSteamPlaytimeClient
     implements SteamPlaytimeClient, DisposableResource {
+  static const int _maxResponseBytes = 10 * 1024 * 1024;
+
   final HttpClient _httpClient;
   final Duration timeout;
   final bool _ownsHttpClient;
@@ -129,7 +132,11 @@ class HttpSteamPlaytimeClient
       );
     }
 
-    return response.transform(utf8.decoder).join().timeout(timeout);
+    return readUtf8HttpBody(
+      response,
+      maxBytes: _maxResponseBytes,
+      timeout: timeout,
+    );
   }
 }
 
