@@ -12,7 +12,7 @@ The app is built as a local desktop/mobile app without a project-operated backen
 - The app does not use analytics, tracking, advertising, or telemetry for the project maintainer.
 - Purchases, settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
 - Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync.
-- The Steam Web API key is stored locally in the app settings and is used only for Steam Web API requests to Valve.
+- The Steam Web API key is currently stored locally with the app settings and is used only for Steam Web API requests to Valve.
 
 ## Locally Entered and Stored Data
 
@@ -39,7 +39,7 @@ The app sends the following data to `store.steampowered.com/api/storesearch/`:
 
 - Search term, for DLCs possibly combined with the associated game name
 - Language
-- Country/currency code
+- Country/region code, which may influence currency and regional Store results
 
 The app receives Steam search suggestions, especially:
 
@@ -57,7 +57,7 @@ The app sends the following data to `store.steampowered.com/api/appdetails`:
 
 - Steam App ID
 - Language
-- Country/currency code
+- Country/region code, which may influence currency and regional Store results
 
 The app stores the following data from Steam, when available:
 
@@ -128,7 +128,7 @@ The app does not send local purchase prices, notes, collections, goals, or CSV c
 
 ## Security
 
-The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is stored locally and should be treated as a secret. Do not publish it, share it, or post screenshots that show it.
+The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is currently stored with the local app settings in the SQLite database unless a future platform-specific secure storage implementation is added. The key should be treated as a secret. Do not publish it, share it, or post screenshots that show it.
 
 ## Steam Data and Availability
 
@@ -140,7 +140,7 @@ This Privacy Policy may be updated when the app's data flows, storage locations,
 
 ## Contact
 
-This project does not operate its own app backend. Questions about app data processing can be raised through a repository issue.
+This project does not operate its own app backend. Questions about app data processing can be raised through a repository issue. Please do not include Steam Web API keys, personal purchase data, or other sensitive information in public issues.
 
 ## Relevant External Terms
 
