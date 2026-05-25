@@ -61,6 +61,24 @@ app.*.map.json
 # Lokale Secrets / API Keys
 .env
 .env.*
+.envrc
+.netrc
+.npmrc
+.pypirc
 *.key
 *.pem
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+key.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
 secrets.*
+secrets.json
+secrets.yaml
+secrets.yml

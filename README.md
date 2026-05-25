@@ -356,6 +356,20 @@ git merge feature/update-readme
 git push
 ```
 
+Before committing, run the repository security scan:
+
+```powershell
+dart tool/security_scan.dart
+```
+
+To enable the local pre-commit hook for this clone:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The hooks scan staged files before commits and reachable Git history before pushes. They block common API keys, private keys, local databases, CSV/XLSX exports, mobile signing keys, Firebase config files, and local environment files. The same history-aware scan also runs in GitHub Actions for pushes and pull requests.
+
 ---
 
 ## Disclaimer

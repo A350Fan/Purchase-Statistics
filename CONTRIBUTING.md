@@ -60,6 +60,12 @@ Run static analysis:
 flutter analyze
 ```
 
+Run the repository security scan:
+
+```powershell
+dart tool/security_scan.dart
+```
+
 Format Dart files:
 
 ```powershell
@@ -83,6 +89,12 @@ Recommended branch prefixes:
 - `docs/` for documentation-only changes
 - `test/` for test-only changes
 - `chore/` for maintenance work
+
+Enable the local hooks once per clone if you want staged files scanned before commits and reachable Git history scanned before pushes:
+
+```powershell
+git config core.hooksPath .githooks
+```
 
 ## Commit Messages
 
@@ -110,6 +122,7 @@ Before opening a pull request, run:
 
 ```powershell
 dart format .
+dart tool/security_scan.dart
 flutter analyze
 flutter test
 ```
@@ -128,6 +141,8 @@ Do not commit or post:
 
 Use fake or minimal sample data in issues, tests, and pull requests.
 
+The repository includes `tool/security_scan.dart`, local hooks under `.githooks`, and a GitHub Actions workflow that reject common secret patterns and private local files. Do not bypass those checks for real data; replace sensitive values with placeholders instead.
+
 If a change affects stored data, Steam requests, app settings, CSV export/import, caching, or retention behavior, update `PRIVACY.md` in the same pull request.
 
 If a change adds or updates runtime dependencies, bundled assets, generated binaries, or third-party code, check the license compatibility and update `THIRD_PARTY_NOTICES.md` in the same pull request.
@@ -145,6 +160,7 @@ Before submitting a pull request, check that:
 - The change has a clear purpose and scope.
 - New behavior is covered by tests where practical.
 - `dart format .` has been run.
+- `dart tool/security_scan.dart` passes.
 - `flutter analyze` passes.
 - `flutter test` passes.
 - Documentation is updated when user-facing behavior changes.

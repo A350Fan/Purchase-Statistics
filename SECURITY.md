@@ -51,6 +51,24 @@ The app stores data locally and does not use a project-operated backend. The loc
 
 Users should avoid sharing databases, exported CSV files, logs, or screenshots unless sensitive data has been removed.
 
+## Repository Leak Prevention
+
+This repository includes guardrails to reduce the risk of publishing secrets or private local data:
+
+- `.gitignore` blocks local databases, CSV/XLSX exports, environment files, mobile signing keys, Firebase config files, and common secret file names.
+- `tool/security_scan.dart` scans tracked files by default, staged files with `--staged`, and reachable Git history with `--history`.
+- `.githooks/pre-commit` runs the staged scan before commits when enabled with `git config core.hooksPath .githooks`.
+- `.githooks/pre-push` runs the history scan before pushes when hooks are enabled.
+- `.github/workflows/security.yml` runs the same history-aware scan for pushes and pull requests.
+
+Run the scan manually before publishing:
+
+```powershell
+dart tool/security_scan.dart
+```
+
+These checks are a safety net, not a guarantee. If a real secret was committed or pushed, remove it from the repository, rotate the secret at the provider, and treat the exposed value as compromised.
+
 ## Response Expectations
 
 After a vulnerability report is received, the maintainer will try to:
