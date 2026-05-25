@@ -6,6 +6,8 @@ import 'app_database.dart';
 class SteamGameMetadataRepository {
   static const String metadataTable = 'steam_game_metadata';
   static const String metadataValuesTable = 'steam_game_metadata_values';
+  static const String unavailableMetadataTable =
+      'steam_game_metadata_unavailable';
 
   final Future<Database> Function() _databaseProvider;
   final DateTime Function() _now;
@@ -64,6 +66,11 @@ class SteamGameMetadataRepository {
     final db = await _databaseProvider();
 
     await db.transaction((transaction) async {
+      await transaction.delete(
+        unavailableMetadataTable,
+        where: 'steam_app_id = ?',
+        whereArgs: [metadata.steamAppId],
+      );
       await transaction.insert(metadataTable, {
         'steam_app_id': metadata.steamAppId,
         'name': metadata.name,
@@ -104,6 +111,43 @@ class SteamGameMetadataRepository {
       );
       await batch.commit(noResult: true);
     });
+  }
+
+  Future<bool> hasRecentUnavailableMetadata(
+    int steamAppId, {
+    required Duration retryAfter,
+  }) async {
+    final db = await _databaseProvider();
+    final rows = await db.query(
+      unavailableMetadataTable,
+      columns: ['last_checked_at'],
+      where: 'steam_app_id = ?',
+      whereArgs: [steamAppId],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      return false;
+    }
+
+    final lastCheckedAt = DateTime.tryParse(
+      rows.single['last_checked_at']?.toString() ?? '',
+    );
+
+    if (lastCheckedAt == null) {
+      return false;
+    }
+
+    return _now().difference(lastCheckedAt) < retryAfter;
+  }
+
+  Future<void> markMetadataUnavailable(int steamAppId) async {
+    final db = await _databaseProvider();
+
+    await db.insert(unavailableMetadataTable, {
+      'steam_app_id': steamAppId,
+      'last_checked_at': _now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   void _addValuesToBatch(

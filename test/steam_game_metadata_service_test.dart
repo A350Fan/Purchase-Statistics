@@ -146,6 +146,45 @@ void main() {
     expect(client.requestedSteamAppIds, [400]);
     expect((await repository.getMetadata(400))?.name, 'Portal');
   });
+
+  test('skips recently unavailable Steam metadata during refresh', () async {
+    final client = _MappedSteamGameMetadataClient({1080110: null});
+    final service = SteamGameMetadataService(
+      client: client,
+      repository: repository,
+      unavailableMetadataRetryDelay: const Duration(days: 7),
+    );
+    final purchases = [
+      SteamPurchase(
+        id: 1,
+        purchaseDate: DateTime(2026, 5, 24),
+        gameName: 'F1 2020',
+        steamAppId: 1080110,
+        price: 9.99,
+      ),
+    ];
+
+    final firstResult = await service.refreshMetadataForPurchases(
+      purchases: purchases,
+      language: 'german',
+      countryCode: 'DE',
+      onlyMissing: true,
+    );
+    final secondResult = await service.refreshMetadataForPurchases(
+      purchases: purchases,
+      language: 'german',
+      countryCode: 'DE',
+      onlyMissing: true,
+    );
+
+    expect(firstResult.attempted, 1);
+    expect(firstResult.refreshed, 0);
+    expect(firstResult.failed, 1);
+    expect(secondResult.attempted, 0);
+    expect(secondResult.skipped, 1);
+    expect(secondResult.failed, 0);
+    expect(client.requestedSteamAppIds, [1080110]);
+  });
 }
 
 class _FakeSteamGameMetadataClient implements SteamGameMetadataClient {
@@ -166,7 +205,7 @@ class _FakeSteamGameMetadataClient implements SteamGameMetadataClient {
 }
 
 class _MappedSteamGameMetadataClient implements SteamGameMetadataClient {
-  final Map<int, SteamGameMetadata> metadataBySteamAppId;
+  final Map<int, SteamGameMetadata?> metadataBySteamAppId;
   final List<int> requestedSteamAppIds = [];
 
   _MappedSteamGameMetadataClient(this.metadataBySteamAppId);
@@ -203,6 +242,13 @@ Future<void> _createTestSchema(Database db) async {
       FOREIGN KEY(steam_app_id)
         REFERENCES steam_game_metadata(steam_app_id)
         ON DELETE CASCADE
+    )
+  ''');
+
+  await db.execute('''
+    CREATE TABLE steam_game_metadata_unavailable (
+      steam_app_id INTEGER PRIMARY KEY,
+      last_checked_at TEXT NOT NULL
     )
   ''');
 }

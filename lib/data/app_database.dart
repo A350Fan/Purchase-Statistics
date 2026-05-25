@@ -25,7 +25,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 16,
+      version: 17,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -269,6 +269,10 @@ class AppDatabase {
     if (oldVersion >= 4 && oldVersion < 16) {
       await _addSteamSyncSettingsColumns(db);
     }
+
+    if (oldVersion < 17) {
+      await _createSteamGameMetadataUnavailableTable(db);
+    }
   }
 
   static Future<void> _createSettingsTable(Database db) async {
@@ -422,6 +426,18 @@ class AppDatabase {
 
     await _createSteamMetadataRuleLookupIndex(db);
     await _createSteamMetadataReleaseDateIndex(db);
+    await _createSteamGameMetadataUnavailableTable(db);
+  }
+
+  static Future<void> _createSteamGameMetadataUnavailableTable(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_game_metadata_unavailable (
+        steam_app_id INTEGER PRIMARY KEY,
+        last_checked_at TEXT NOT NULL
+      )
+    ''');
   }
 
   static Future<void> _createSteamMetadataRuleLookupIndex(Database db) async {

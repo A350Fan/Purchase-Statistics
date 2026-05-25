@@ -54,7 +54,10 @@ class HttpSteamGameMetadataClient
     final response = await request.close().timeout(timeout);
 
     if (response.statusCode != HttpStatus.ok) {
-      return null;
+      throw HttpException(
+        'Steam appdetails returned HTTP ${response.statusCode}.',
+        uri: uri,
+      );
     }
 
     final body = await readUtf8HttpBody(

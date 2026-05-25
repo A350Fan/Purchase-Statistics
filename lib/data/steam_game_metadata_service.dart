@@ -21,11 +21,13 @@ class SteamGameMetadataRefreshResult {
 class SteamGameMetadataService implements DisposableResource {
   final SteamGameMetadataClient client;
   final SteamGameMetadataRepository repository;
+  final Duration unavailableMetadataRetryDelay;
   final bool _ownsClient;
 
   SteamGameMetadataService({
     SteamGameMetadataClient? client,
     SteamGameMetadataRepository? repository,
+    this.unavailableMetadataRetryDelay = const Duration(days: 7),
   }) : client = client ?? HttpSteamGameMetadataClient(),
        repository = repository ?? SteamGameMetadataRepository(),
        _ownsClient = client == null;
@@ -48,6 +50,13 @@ class SteamGameMetadataService implements DisposableResource {
     required String language,
     required String countryCode,
   }) async {
+    if (await repository.hasRecentUnavailableMetadata(
+      steamAppId,
+      retryAfter: unavailableMetadataRetryDelay,
+    )) {
+      return null;
+    }
+
     final metadata = await client.fetchMetadata(
       steamAppId: steamAppId,
       language: language,
@@ -55,6 +64,7 @@ class SteamGameMetadataService implements DisposableResource {
     );
 
     if (metadata == null) {
+      await repository.markMetadataUnavailable(steamAppId);
       return null;
     }
 
@@ -100,6 +110,14 @@ class SteamGameMetadataService implements DisposableResource {
     var failed = 0;
 
     for (final steamAppId in steamAppIds) {
+      if (await repository.hasRecentUnavailableMetadata(
+        steamAppId,
+        retryAfter: unavailableMetadataRetryDelay,
+      )) {
+        skipped++;
+        continue;
+      }
+
       if (onlyMissing && await repository.getMetadata(steamAppId) != null) {
         skipped++;
         continue;

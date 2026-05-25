@@ -44,7 +44,7 @@ Implemented so far:
 - Steam Store search suggestions for purchase editing
 - Steam App ID linking and automatic linking support
 - Local Steam Store search cache
-- Steam game metadata lookup, preview and refresh
+- Steam game metadata lookup, preview and refresh, including seven-day retry throttling for unavailable or delisted Steam App IDs
 - Collections for organizing purchases
 - Optional game length estimates for main story, main + extras and completionist playthroughs
 - Optional notes
@@ -299,6 +299,7 @@ The database schema is versioned and currently includes migrations for:
 - Adding goal tracking
 - Adding Steam Store search caching
 - Adding Steam game metadata
+- Adding unavailable Steam metadata refresh markers
 - Adding collections
 
 The Steam Web API key is not newly written to the SQLite database. Older plaintext values in the `app_settings.steam_web_api_key` column are migrated to platform secure storage and cleared from SQLite when secure storage is available.

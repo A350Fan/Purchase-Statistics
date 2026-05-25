@@ -23,7 +23,7 @@ The app may store the following data locally:
 | Purchase data | Purchase date, game name, DLC name, edition, paid price, list price, status, notes | Purchase tracking, statistics, filters, and charts |
 | Steam links | Steam App ID per purchase | Linking local purchases to Steam games or DLCs |
 | Playtime data | `playtime_hours` per linked Steam App ID | Price-per-hour statistics and playtime analysis |
-| Game metadata | Name, release date, genres, tags/categories, developers, publishers | Collections, filters, previews, and metadata display |
+| Game metadata | Name, release date, genres, tags/categories, developers, publishers, unavailable metadata refresh markers | Collections, filters, previews, metadata display, and avoiding repeated requests for unavailable Steam metadata |
 | Steam sync settings | SteamID64, Steam profile name or profile URL, Steam Web API key, include played free games option | Steam playtime sync |
 | Steam Store search cache | Normalized search term, language, country, purchase type, result names, App IDs, result type, expiration time | Faster Steam search and fewer repeated requests |
 | App settings | Theme, language, currency | App display and localization |
@@ -68,6 +68,8 @@ The app stores the following data from Steam, when available:
 - Developers
 - Publishers
 - Local update timestamp
+
+If Steam does not return metadata for a linked Steam App ID, for example because the Store page is unavailable or delisted, the app may store the App ID and a local last-checked timestamp. This marker is used only to skip repeated metadata refresh attempts for a seven-day retry period; it does not remove the Steam App ID from the purchase and does not affect playtime sync.
 
 ### Steam Web API Playtime Sync
 
@@ -120,7 +122,7 @@ The app does not send local purchase prices, notes, collections, goals, or CSV c
 
 ## Retention and Deletion
 
-- Purchase data, collections, goals, settings, Steam App IDs, stored playtime, and metadata remain stored locally until you change or delete them in the app or remove the app data.
+- Purchase data, collections, goals, settings, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
 - You can remove Steam sync credentials by saving the Steam settings fields as empty values.
 - You can fully remove the local search cache by deleting the local app database or app data.
 - CSV exports are created only at the location you choose during export.

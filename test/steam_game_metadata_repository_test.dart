@@ -80,6 +80,30 @@ void main() {
 
     expect(storedMetadata!.genres, ['Adventure']);
   });
+
+  test('tracks unavailable metadata and clears marker after upsert', () async {
+    await repository.markMetadataUnavailable(1080110);
+
+    expect(
+      await repository.hasRecentUnavailableMetadata(
+        1080110,
+        retryAfter: const Duration(days: 7),
+      ),
+      isTrue,
+    );
+
+    await repository.upsertMetadata(
+      const SteamGameMetadata(steamAppId: 1080110, name: 'F1 2020'),
+    );
+
+    expect(
+      await repository.hasRecentUnavailableMetadata(
+        1080110,
+        retryAfter: const Duration(days: 7),
+      ),
+      isFalse,
+    );
+  });
 }
 
 Future<void> _createTestSchema(Database db) async {
@@ -108,5 +132,12 @@ Future<void> _createTestSchema(Database db) async {
   await db.execute('''
     CREATE UNIQUE INDEX idx_steam_metadata_values_unique
     ON steam_game_metadata_values(steam_app_id, field, value)
+  ''');
+
+  await db.execute('''
+    CREATE TABLE steam_game_metadata_unavailable (
+      steam_app_id INTEGER PRIMARY KEY,
+      last_checked_at TEXT NOT NULL
+    )
   ''');
 }
