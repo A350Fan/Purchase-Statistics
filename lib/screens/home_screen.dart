@@ -56,6 +56,8 @@ enum _HomeAction {
   settings,
 }
 
+enum _PurchaseCardAction { edit, delete }
+
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
   final SteamCollectionRepository? collectionRepository;
@@ -81,6 +83,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   static final RegExp _searchWhitespacePattern = RegExp(r'\s+');
+  static const double _overviewMaxContentWidth = 1240;
+  static const double _purchaseTablePriceColumnWidth = 120;
+  static const double _purchaseTableDiscountColumnWidth = 104;
+  static const double _purchaseTablePlaytimeColumnWidth = 112;
+  static const double _purchaseTableCostColumnWidth = 128;
+  static const double _purchaseTableActionsColumnWidth = 96;
 
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
@@ -1102,7 +1110,8 @@ class _HomeScreenState extends State<HomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 760;
+              final isCompact = constraints.maxWidth < 560;
+              final isMedium = constraints.maxWidth < 760;
               final titleSection = _buildPurchaseTitleSection(
                 purchase,
                 strings,
@@ -1117,6 +1126,17 @@ class _HomeScreenState extends State<HomeScreen>
               final actions = _buildPurchaseActions(purchase, strings);
 
               if (isCompact) {
+                return _buildCompactPurchaseCard(
+                  purchase: purchase,
+                  strings: strings,
+                  priceText: _formatCurrency(purchase.price, currency),
+                  discountText: discountText,
+                  playtimeText: playtimeText,
+                  pricePerHourText: pricePerHourText,
+                );
+              }
+
+              if (isMedium) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1147,6 +1167,74 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCompactPurchaseCard({
+    required SteamPurchase purchase,
+    required AppStrings strings,
+    required String priceText,
+    required String? discountText,
+    required String? playtimeText,
+    required String? pricePerHourText,
+  }) {
+    final theme = Theme.of(context);
+    final chips = [
+      if (discountText != null)
+        _buildCompactPurchaseMetricChip(
+          icon: Icons.percent,
+          label: strings.discount,
+          value: discountText,
+        ),
+      if (playtimeText != null)
+        _buildCompactPurchaseMetricChip(
+          icon: Icons.timer,
+          label: strings.playtime,
+          value: playtimeText,
+        ),
+      if (pricePerHourText != null)
+        _buildCompactPurchaseMetricChip(
+          icon: Icons.speed,
+          label: strings.cost,
+          value: pricePerHourText,
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildPurchaseTitleSection(purchase, strings)),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 116),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      priceText,
+                      maxLines: 1,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  _buildCompactPurchaseActionMenu(purchase, strings),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (chips.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: chips),
+        ],
+      ],
     );
   }
 
@@ -1293,6 +1381,252 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildCompactPurchaseMetricChip({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Chip(
+      avatar: Icon(icon, size: 16),
+      label: Text('$label: $value'),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
+  Widget _buildCompactPurchaseActionMenu(
+    SteamPurchase purchase,
+    AppStrings strings,
+  ) {
+    return PopupMenuButton<_PurchaseCardAction>(
+      tooltip: strings.moreActions,
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) {
+        switch (action) {
+          case _PurchaseCardAction.edit:
+            _openEditPurchaseScreen(purchase);
+            break;
+          case _PurchaseCardAction.delete:
+            _confirmDeletePurchase(purchase);
+            break;
+        }
+      },
+      itemBuilder: (context) {
+        return [
+          PopupMenuItem(
+            value: _PurchaseCardAction.edit,
+            child: ListTile(
+              leading: const Icon(Icons.edit),
+              title: Text(strings.edit),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+          ),
+          PopupMenuItem(
+            value: _PurchaseCardAction.delete,
+            child: ListTile(
+              leading: const Icon(Icons.delete),
+              title: Text(strings.delete),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+          ),
+        ];
+      },
+    );
+  }
+
+  Widget _buildPurchaseTableHeader(AppStrings strings, AppCurrency currency) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+    );
+
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withAlpha(10),
+          colorScheme.surface,
+        ),
+        border: Border.all(color: colorScheme.outline.withAlpha(32)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              strings.purchases,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: labelStyle,
+            ),
+          ),
+          _buildPurchaseTableHeaderCell(
+            strings.price,
+            width: _purchaseTablePriceColumnWidth,
+            style: labelStyle,
+          ),
+          _buildPurchaseTableHeaderCell(
+            strings.discount,
+            width: _purchaseTableDiscountColumnWidth,
+            style: labelStyle,
+          ),
+          _buildPurchaseTableHeaderCell(
+            strings.playtime,
+            width: _purchaseTablePlaytimeColumnWidth,
+            style: labelStyle,
+          ),
+          _buildPurchaseTableHeaderCell(
+            strings.cost,
+            width: _purchaseTableCostColumnWidth,
+            style: labelStyle,
+          ),
+          const SizedBox(width: _purchaseTableActionsColumnWidth),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPurchaseTableHeaderCell(
+    String label, {
+    required double width,
+    required TextStyle? style,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.right,
+        style: style,
+      ),
+    );
+  }
+
+  Widget _buildPurchaseTableRow(
+    SteamPurchase purchase,
+    SteamStatistics stats,
+    AppCurrency currency,
+  ) {
+    final strings = AppStrings.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final discountText = purchase.discount == null
+        ? '-'
+        : '${(purchase.discount! * 100).toStringAsFixed(1)} %';
+    final playtimeText = _formatPlaytime(purchase.playtimeHours) ?? '-';
+    final pricePerHour = stats.pricePerHourForPurchase(purchase);
+    final pricePerHourText = pricePerHour == null
+        ? '-'
+        : _formatPricePerHour(pricePerHour, currency);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: theme.cardTheme.color ?? colorScheme.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: InkWell(
+          onTap: () => _openEditPurchaseScreen(purchase),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 68),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: colorScheme.outline.withAlpha(24)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _buildPurchaseTableTitle(purchase, strings)),
+                _buildPurchaseTableValueCell(
+                  _formatCurrency(purchase.price, currency),
+                  width: _purchaseTablePriceColumnWidth,
+                ),
+                _buildPurchaseTableValueCell(
+                  discountText,
+                  width: _purchaseTableDiscountColumnWidth,
+                ),
+                _buildPurchaseTableValueCell(
+                  playtimeText,
+                  width: _purchaseTablePlaytimeColumnWidth,
+                ),
+                _buildPurchaseTableValueCell(
+                  pricePerHourText,
+                  width: _purchaseTableCostColumnWidth,
+                ),
+                SizedBox(
+                  width: _purchaseTableActionsColumnWidth,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _buildPurchaseActions(purchase, strings),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPurchaseTableTitle(SteamPurchase purchase, AppStrings strings) {
+    final theme = Theme.of(context);
+    final gameStatus = purchase.purchaseType == SteamPurchaseType.game
+        ? purchase.gameStatus
+        : null;
+    final subtitleParts = [
+      _getPurchaseTypeLabel(purchase.purchaseType, strings),
+      _formatDate(purchase.purchaseDate),
+      if (gameStatus != null) strings.gameStatusLabel(gameStatus),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          purchase.displayName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitleParts.join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPurchaseTableValueCell(String value, {required double width}) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: width,
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.right,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _buildPurchaseActions(SteamPurchase purchase, AppStrings strings) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1334,7 +1668,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildPurchaseListHeader(AppStrings strings, AppCurrency currency) {
+  Widget _buildPurchaseListHeader(
+    AppStrings strings,
+    AppCurrency currency, {
+    bool showTableColumns = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1347,7 +1685,19 @@ class _HomeScreenState extends State<HomeScreen>
             );
             final sortMenu = DropdownButton<PurchaseSortOption>(
               value: _sortOption,
-              isExpanded: isCompact,
+              isExpanded: true,
+              selectedItemBuilder: (context) {
+                return PurchaseSortOption.values.map((option) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _getSortLabel(option, strings, currency),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList();
+              },
               onChanged: (value) {
                 if (value == null || value == _sortOption) {
                   return;
@@ -1361,7 +1711,11 @@ class _HomeScreenState extends State<HomeScreen>
               items: PurchaseSortOption.values.map((option) {
                 return DropdownMenuItem(
                   value: option,
-                  child: Text(_getSortLabel(option, strings, currency)),
+                  child: Text(
+                    _getSortLabel(option, strings, currency),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
             );
@@ -1388,56 +1742,92 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   title,
                   const SizedBox(height: 8),
-                  SizedBox(width: double.infinity, child: sortMenu),
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerLeft, child: filterButton),
+                  Row(
+                    children: [
+                      filterButton,
+                      const SizedBox(width: 8),
+                      Expanded(child: sortMenu),
+                    ],
+                  ),
                 ],
               );
             }
 
+            final searchField = Expanded(
+              child: _buildPurchaseSearchField(strings),
+            );
+
             return Row(
               children: [
                 title,
-                const Spacer(),
+                const SizedBox(width: 20),
+                searchField,
+                const SizedBox(width: 12),
                 filterButton,
                 const SizedBox(width: 12),
-                sortMenu,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 220,
+                    maxWidth: 300,
+                  ),
+                  child: sortMenu,
+                ),
               ],
             );
           },
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _purchaseSearchController,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search),
-            labelText: strings.purchaseSearch,
-            border: const OutlineInputBorder(),
-            suffixIcon: _purchaseSearchController.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: strings.clearSearch,
-                    onPressed: () {
-                      setState(() {
-                        _purchaseSearchController.clear();
-                        _invalidateFilteredPurchaseCache();
-                      });
-                    },
-                    icon: const Icon(Icons.clear),
-                  ),
-          ),
-          textInputAction: TextInputAction.search,
-          onChanged: (_) {
-            setState(() {
-              _invalidateFilteredPurchaseCache();
-            });
+        Builder(
+          builder: (context) {
+            final isCompact = MediaQuery.sizeOf(context).width < 620;
+
+            if (!isCompact) {
+              return const SizedBox.shrink();
+            }
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _buildPurchaseSearchField(strings),
+            );
           },
         ),
         if (_purchaseFilters.hasFilters) ...[
           const SizedBox(height: 8),
           _buildActiveFilterChips(strings, currency),
         ],
+        if (showTableColumns) ...[
+          const SizedBox(height: 12),
+          _buildPurchaseTableHeader(strings, currency),
+        ],
       ],
+    );
+  }
+
+  Widget _buildPurchaseSearchField(AppStrings strings) {
+    return TextField(
+      controller: _purchaseSearchController,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.search),
+        labelText: strings.purchaseSearch,
+        border: const OutlineInputBorder(),
+        suffixIcon: _purchaseSearchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: strings.clearSearch,
+                onPressed: () {
+                  setState(() {
+                    _purchaseSearchController.clear();
+                    _invalidateFilteredPurchaseCache();
+                  });
+                },
+                icon: const Icon(Icons.clear),
+              ),
+      ),
+      textInputAction: TextInputAction.search,
+      onChanged: (_) {
+        setState(() {
+          _invalidateFilteredPurchaseCache();
+        });
+      },
     );
   }
 
@@ -1457,47 +1847,34 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  List<_HomeDestination> _homeDestinations(AppStrings strings) {
+    return [
+      _HomeDestination(icon: Icons.dashboard, label: strings.overviewTab),
+      _HomeDestination(icon: Icons.bar_chart, label: strings.statisticsTab),
+      _HomeDestination(icon: Icons.show_chart, label: strings.chartsTab),
+      _HomeDestination(icon: Icons.insights, label: strings.smartInsightsTab),
+      _HomeDestination(icon: Icons.track_changes, label: strings.goalsTab),
+      _HomeDestination(icon: Icons.folder, label: strings.collectionsTab),
+    ];
+  }
+
   PreferredSizeWidget _buildTabBar(AppStrings strings) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(kTextTabBarHeight),
       child: Builder(
         builder: (context) {
           final showLabels = MediaQuery.sizeOf(context).width >= 520;
+          final destinations = _homeDestinations(strings);
 
           return TabBar(
             controller: _tabController,
-            tabs: [
-              _buildTab(
-                icon: Icons.dashboard,
-                label: strings.overviewTab,
+            tabs: destinations.map((destination) {
+              return _buildTab(
+                icon: destination.icon,
+                label: destination.label,
                 showLabel: showLabels,
-              ),
-              _buildTab(
-                icon: Icons.bar_chart,
-                label: strings.statisticsTab,
-                showLabel: showLabels,
-              ),
-              _buildTab(
-                icon: Icons.show_chart,
-                label: strings.chartsTab,
-                showLabel: showLabels,
-              ),
-              _buildTab(
-                icon: Icons.insights,
-                label: strings.smartInsightsTab,
-                showLabel: showLabels,
-              ),
-              _buildTab(
-                icon: Icons.track_changes,
-                label: strings.goalsTab,
-                showLabel: showLabels,
-              ),
-              _buildTab(
-                icon: Icons.folder,
-                label: strings.collectionsTab,
-                showLabel: showLabels,
-              ),
-            ],
+              );
+            }).toList(),
           );
         },
       ),
@@ -1518,6 +1895,50 @@ class _HomeScreenState extends State<HomeScreen>
     return Tab(
       icon: Tooltip(message: label, child: tabIcon),
     );
+  }
+
+  Widget _buildBottomNavigationBar(AppStrings strings) {
+    final destinations = _homeDestinations(strings);
+
+    return NavigationBar(
+      selectedIndex: _selectedTabIndex,
+      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      onDestinationSelected: (index) {
+        if (_selectedTabIndex != index) {
+          setState(() {
+            _selectedTabIndex = index;
+          });
+        }
+        _tabController.animateTo(index);
+      },
+      destinations: destinations.map((destination) {
+        return NavigationDestination(
+          icon: Icon(destination.icon),
+          label: destination.label,
+          tooltip: destination.label,
+        );
+      }).toList(),
+    );
+  }
+
+  double _purchaseListHeaderExtent(
+    AppStrings strings,
+    AppCurrency currency, {
+    required bool showTableColumns,
+  }) {
+    var extent = 64.0;
+
+    if (_purchaseFilters.hasFilters) {
+      final chipCount = _activeFilterLabels(strings, currency).length + 1;
+      final chipRows = ((chipCount + 3) / 4).ceil();
+      extent += 8 + chipRows * 36;
+    }
+
+    if (showTableColumns) {
+      extent += 48;
+    }
+
+    return extent;
   }
 
   void _handleHomeAction(_HomeAction action) {
@@ -1664,6 +2085,346 @@ class _HomeScreenState extends State<HomeScreen>
     ];
   }
 
+  List<_DashboardMetric> _dashboardMetrics(
+    AppStrings strings,
+    SteamStatistics stats,
+    AppCurrency currency,
+  ) {
+    return [
+      _DashboardMetric(
+        icon: Icons.receipt_long,
+        title: strings.purchases,
+        value: stats.totalPurchases.toString(),
+      ),
+      _DashboardMetric(
+        icon: Icons.sports_esports,
+        title: strings.games,
+        value: stats.totalGames.toString(),
+      ),
+      _DashboardMetric(
+        icon: Icons.extension,
+        title: strings.dlcs,
+        value: stats.totalDlcs.toString(),
+      ),
+      _DashboardMetric(
+        icon: Icons.payments,
+        title: strings.totalSpent,
+        value: _formatCurrency(stats.totalSpent, currency),
+      ),
+      _DashboardMetric(
+        icon: Icons.percent,
+        title: strings.averageDiscount,
+        value: stats.averageDiscount == null
+            ? '-'
+            : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
+      ),
+      _DashboardMetric(
+        icon: Icons.timer,
+        title: strings.playtime,
+        value: _formatTotalPlaytime(stats.totalPlaytimeHours),
+      ),
+      _DashboardMetric(
+        icon: Icons.speed,
+        title: strings.averagePricePerHour(currency.symbol),
+        value: stats.pricePerHour == null
+            ? '-'
+            : _formatPricePerHour(stats.pricePerHour!, currency),
+      ),
+    ];
+  }
+
+  List<Widget> _buildDashboardSlivers({
+    required BoxConstraints constraints,
+    required AppStrings strings,
+    required SteamStatistics stats,
+    required AppCurrency currency,
+  }) {
+    final metrics = _dashboardMetrics(strings, stats, currency);
+    final isCompact = constraints.maxWidth < 560;
+
+    if (isCompact) {
+      return [
+        SliverToBoxAdapter(child: _buildCompactDashboardSummary(metrics)),
+      ];
+    }
+
+    if (constraints.maxWidth >= 900) {
+      return [
+        SliverToBoxAdapter(child: _buildDesktopDashboardSummary(metrics)),
+      ];
+    }
+
+    final isWide = constraints.maxWidth > 700;
+    final dashboardColumnCount = constraints.maxWidth > 1200
+        ? 5
+        : isWide
+        ? 3
+        : 2;
+
+    return [
+      SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: dashboardColumnCount,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: isWide ? 2.4 : 1.9,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final metric = metrics[index];
+
+          return StatCard(title: metric.title, value: metric.value);
+        }, childCount: metrics.length),
+      ),
+    ];
+  }
+
+  Widget _buildDesktopDashboardSummary(List<_DashboardMetric> metrics) {
+    final primaryMetrics = [metrics[3], metrics[0], metrics[5]];
+    final secondaryMetrics = [metrics[1], metrics[2], metrics[4], metrics[6]];
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final primaryWidth = constraints.maxWidth >= 980
+                ? (constraints.maxWidth - 24) / 3
+                : (constraints.maxWidth - 12) / 2;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: primaryMetrics.map((metric) {
+                    return SizedBox(
+                      width: primaryWidth,
+                      child: _buildDashboardHeroMetric(metric),
+                    );
+                  }).toList(),
+                ),
+                const Divider(height: 28),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: secondaryMetrics.map((metric) {
+                    return _buildDesktopDashboardFact(metric);
+                  }).toList(),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactDashboardSummary(List<_DashboardMetric> metrics) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final primaryMetric = metrics[3];
+    final supportingMetrics = [metrics[0], metrics[1], metrics[5]];
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(primaryMetric.icon, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    primaryMetric.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  primaryMetric.value,
+                  maxLines: 1,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final tileWidth = constraints.maxWidth < 300
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 12) / 2;
+
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: supportingMetrics.map((metric) {
+                    return SizedBox(
+                      width: tileWidth,
+                      child: _buildCompactDashboardMetric(metric),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardHeroMetric(_DashboardMetric metric) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 98),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withAlpha(14),
+          colorScheme.surface,
+        ),
+        border: Border.all(color: colorScheme.outline.withAlpha(36)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(metric.icon, size: 28, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    metric.value,
+                    maxLines: 1,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopDashboardFact(_DashboardMetric metric) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 160, minHeight: 42),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outline.withAlpha(32)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(metric.icon, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            metric.title,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            metric.value,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactDashboardMetric(_DashboardMetric metric) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withAlpha(12),
+          colorScheme.surface,
+        ),
+        border: Border.all(color: colorScheme.outline.withAlpha(34)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(metric.icon, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  metric.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  metric.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -1672,17 +2433,21 @@ class _HomeScreenState extends State<HomeScreen>
     final stats = _getStatistics();
     final sortedPurchases = _getSortedPurchases(stats);
     final filteredPurchases = _getFilteredPurchases(sortedPurchases, strings);
+    final isCompactShell = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(strings.appTitle),
         actions: _buildAppBarActions(strings),
 
-        // Die TabBar hängt direkt unter der AppBar.
-        // Übersicht, Zahlen, Diagramme, Insights, Ziele und Kollektionen bleiben getrennt.
-        bottom: _buildTabBar(strings),
+        // Auf breiten Layouts bleibt die TabBar oben, mobil wandert die
+        // Navigation nach unten und nimmt weniger Raum im Kopfbereich ein.
+        bottom: isCompactShell ? null : _buildTabBar(strings),
       ),
       floatingActionButton: _buildFloatingActionButton(strings),
+      bottomNavigationBar: isCompactShell
+          ? _buildBottomNavigationBar(strings)
+          : null,
 
       // Loading bleibt global, damit die Tabs erst angezeigt werden,
       // wenn die Käufe aus der Datenbank geladen wurden.
@@ -1697,103 +2462,118 @@ class _HomeScreenState extends State<HomeScreen>
                   padding: const EdgeInsets.all(16),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final isWide = constraints.maxWidth > 700;
-                      final dashboardColumnCount = constraints.maxWidth > 1200
-                          ? 5
-                          : isWide
-                          ? 3
-                          : 2;
+                      final useTableLayout = constraints.maxWidth >= 980;
+                      final horizontalInset =
+                          constraints.maxWidth > _overviewMaxContentWidth
+                          ? (constraints.maxWidth - _overviewMaxContentWidth) /
+                                2
+                          : 0.0;
+
+                      Widget constrainSliver(Widget sliver) {
+                        if (horizontalInset <= 0) {
+                          return sliver;
+                        }
+
+                        return SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalInset,
+                          ),
+                          sliver: sliver,
+                        );
+                      }
+
+                      final purchaseHeader = _buildPurchaseListHeader(
+                        strings,
+                        currency,
+                        showTableColumns: useTableLayout,
+                      );
+                      final purchaseHeaderSliver = useTableLayout
+                          ? SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _FixedHeaderDelegate(
+                                extent: _purchaseListHeaderExtent(
+                                  strings,
+                                  currency,
+                                  showTableColumns: true,
+                                ),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).scaffoldBackgroundColor,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: purchaseHeader,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : SliverToBoxAdapter(child: purchaseHeader);
 
                       return CustomScrollView(
                         slivers: [
-                          SliverToBoxAdapter(
-                            child: Text(
-                              strings.dashboard,
-                              style: Theme.of(context).textTheme.headlineMedium,
+                          constrainSliver(
+                            SliverToBoxAdapter(
+                              child: Text(
+                                strings.dashboard,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
+                              ),
                             ),
                           ),
                           const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                          SliverGrid(
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: dashboardColumnCount,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: isWide ? 2.4 : 1.9,
-                                ),
-                            delegate: SliverChildListDelegate.fixed([
-                              StatCard(
-                                title: strings.purchases,
-                                value: stats.totalPurchases.toString(),
-                              ),
-                              StatCard(
-                                title: strings.games,
-                                value: stats.totalGames.toString(),
-                              ),
-                              StatCard(
-                                title: strings.dlcs,
-                                value: stats.totalDlcs.toString(),
-                              ),
-                              StatCard(
-                                title: strings.totalSpent,
-                                value: _formatCurrency(
-                                  stats.totalSpent,
-                                  currency,
-                                ),
-                              ),
-                              StatCard(
-                                title: strings.averageDiscount,
-                                value: stats.averageDiscount == null
-                                    ? '-'
-                                    : '${(stats.averageDiscount! * 100).toStringAsFixed(1)} %',
-                              ),
-                              StatCard(
-                                title: strings.playtime,
-                                value: _formatTotalPlaytime(
-                                  stats.totalPlaytimeHours,
-                                ),
-                              ),
-                              StatCard(
-                                title: strings.averagePricePerHour(
-                                  currency.symbol,
-                                ),
-                                value: stats.pricePerHour == null
-                                    ? '-'
-                                    : _formatPricePerHour(
-                                        stats.pricePerHour!,
-                                        currency,
-                                      ),
-                              ),
-                            ]),
-                          ),
+                          ..._buildDashboardSlivers(
+                            constraints: constraints,
+                            strings: strings,
+                            stats: stats,
+                            currency: currency,
+                          ).map(constrainSliver),
                           const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                          SliverToBoxAdapter(
-                            child: _buildPurchaseListHeader(strings, currency),
-                          ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          constrainSliver(purchaseHeaderSliver),
+                          if (!useTableLayout)
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 12),
+                            ),
                           if (_purchases.isEmpty)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: Center(child: Text(strings.noPurchases)),
+                            constrainSliver(
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: Center(child: Text(strings.noPurchases)),
+                              ),
                             )
                           else if (filteredPurchases.isEmpty)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: Center(
-                                child: Text(strings.noMatchingPurchases),
+                            constrainSliver(
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: Center(
+                                  child: Text(strings.noMatchingPurchases),
+                                ),
                               ),
                             )
                           else
-                            SliverList.builder(
-                              itemCount: filteredPurchases.length,
-                              itemBuilder: (context, index) {
-                                final purchase = filteredPurchases[index];
-                                return _buildPurchaseCard(
-                                  purchase,
-                                  stats,
-                                  currency,
-                                );
-                              },
+                            constrainSliver(
+                              SliverList.builder(
+                                itemCount: filteredPurchases.length,
+                                itemBuilder: (context, index) {
+                                  final purchase = filteredPurchases[index];
+
+                                  if (useTableLayout) {
+                                    return _buildPurchaseTableRow(
+                                      purchase,
+                                      stats,
+                                      currency,
+                                    );
+                                  }
+
+                                  return _buildPurchaseCard(
+                                    purchase,
+                                    stats,
+                                    currency,
+                                  );
+                                },
+                              ),
                             ),
                           const SliverToBoxAdapter(child: SizedBox(height: 88)),
                         ],
@@ -1826,6 +2606,52 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
     );
+  }
+}
+
+class _HomeDestination {
+  final IconData icon;
+  final String label;
+
+  const _HomeDestination({required this.icon, required this.label});
+}
+
+class _DashboardMetric {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _DashboardMetric({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+}
+
+class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double extent;
+  final Widget child;
+
+  const _FixedHeaderDelegate({required this.extent, required this.child});
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant _FixedHeaderDelegate oldDelegate) {
+    return oldDelegate.extent != extent || oldDelegate.child != child;
   }
 }
 
