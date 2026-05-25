@@ -185,6 +185,12 @@ The sync does not import purchase dates, paid prices or order history. Those val
 
 ---
 
+## Privacy Policy
+
+The privacy policy is available in [PRIVACY.md](PRIVACY.md). It documents which local and Steam-related data the app reads, when Steam requests are made, where data is stored and how long local data is kept.
+
+---
+
 ## Setup
 
 ### Requirements
