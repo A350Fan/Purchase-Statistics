@@ -21,8 +21,7 @@ class AppDatabase {
       _configureDesktopFactory();
     }
 
-    final databasePath = await getDatabasesPath();
-    final path = join(databasePath, 'steam_stats.db');
+    final path = await _databaseFilePath();
 
     return openDatabase(
       path,
@@ -41,6 +40,106 @@ class AppDatabase {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     _isDesktopFactoryConfigured = true;
+  }
+
+  static Future<String> _databaseFilePath() async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return _desktopDatabaseFilePath();
+    }
+
+    final databasePath = await getDatabasesPath();
+    return join(databasePath, 'steam_stats.db');
+  }
+
+  static Future<String> _desktopDatabaseFilePath() async {
+    final databaseDirectory = _desktopDatabaseDirectory();
+    await databaseDirectory.create(recursive: true);
+
+    final databasePath = join(databaseDirectory.path, 'steam_stats.db');
+    await _migrateLegacyDesktopDatabase(databasePath);
+
+    return databasePath;
+  }
+
+  static Directory _desktopDatabaseDirectory() {
+    final environment = Platform.environment;
+
+    if (Platform.isWindows) {
+      final appData = environment['APPDATA']?.trim();
+
+      if (appData != null && appData.isNotEmpty) {
+        return Directory(join(appData, 'PurchaseStatistics'));
+      }
+
+      final userProfile = environment['USERPROFILE']?.trim();
+
+      if (userProfile != null && userProfile.isNotEmpty) {
+        return Directory(
+          join(userProfile, 'AppData', 'Roaming', 'PurchaseStatistics'),
+        );
+      }
+    }
+
+    if (Platform.isMacOS) {
+      final home = environment['HOME']?.trim();
+
+      if (home != null && home.isNotEmpty) {
+        return Directory(
+          join(home, 'Library', 'Application Support', 'PurchaseStatistics'),
+        );
+      }
+    }
+
+    final xdgDataHome = environment['XDG_DATA_HOME']?.trim();
+
+    if (xdgDataHome != null && xdgDataHome.isNotEmpty) {
+      return Directory(join(xdgDataHome, 'purchase_statistics'));
+    }
+
+    final home = environment['HOME']?.trim();
+
+    if (home != null && home.isNotEmpty) {
+      return Directory(join(home, '.local', 'share', 'purchase_statistics'));
+    }
+
+    return Directory(join(Directory.current.path, '.purchase_statistics'));
+  }
+
+  static Future<void> _migrateLegacyDesktopDatabase(String databasePath) async {
+    final databaseFile = File(databasePath);
+
+    if (await databaseFile.exists()) {
+      return;
+    }
+
+    final legacyDatabasePath = join(await getDatabasesPath(), 'steam_stats.db');
+
+    if (legacyDatabasePath == databasePath) {
+      return;
+    }
+
+    final legacyDatabaseFile = File(legacyDatabasePath);
+
+    if (!await legacyDatabaseFile.exists()) {
+      return;
+    }
+
+    await _copyFileIfExists(legacyDatabasePath, databasePath);
+    await _copyFileIfExists('$legacyDatabasePath-wal', '$databasePath-wal');
+    await _copyFileIfExists('$legacyDatabasePath-shm', '$databasePath-shm');
+  }
+
+  static Future<void> _copyFileIfExists(
+    String sourcePath,
+    String targetPath,
+  ) async {
+    final sourceFile = File(sourcePath);
+
+    if (!await sourceFile.exists()) {
+      return;
+    }
+
+    await sourceFile.copy(targetPath);
   }
 
   static Future<void> _configureDatabase(Database db) async {

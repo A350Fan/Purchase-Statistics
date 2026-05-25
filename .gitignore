@@ -46,7 +46,21 @@ app.*.map.json
 
 # Lokale App-Datenbanken / private Testdaten
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.csv
 *.xlsx
+.purchase_statistics/
+
+# Lokale Secrets / API Keys
+.env
+.env.*
+*.key
+*.pem
+secrets.*
