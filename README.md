@@ -169,6 +169,16 @@ Requirements:
 - Public game details on the Steam profile
 - Linked Steam App IDs on the purchases that should be updated
 
+How to get a Steam Web API key:
+
+1. Sign in to Steam in your browser.
+2. Open <https://steamcommunity.com/dev/apikey>.
+3. Enter a domain name for the key. For local private use, `localhost` is usually sufficient.
+4. Accept the Steam Web API terms and create/register the key.
+5. Copy the generated key into the app settings under `Steam sync`.
+
+Keep the API key private. Do not commit it, publish it or share screenshots that show it.
+
 The Steam account and API key are stored locally in the app settings. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
 
 The sync does not import purchase dates, paid prices or order history. Those values still need to come from manual entry or CSV import.
