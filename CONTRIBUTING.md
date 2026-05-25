@@ -130,6 +130,8 @@ Use fake or minimal sample data in issues, tests, and pull requests.
 
 If a change affects stored data, Steam requests, app settings, CSV export/import, caching, or retention behavior, update `PRIVACY.md` in the same pull request.
 
+If a change adds or updates runtime dependencies, bundled assets, generated binaries, or third-party code, check the license compatibility and update `THIRD_PARTY_NOTICES.md` in the same pull request.
+
 ## Security
 
 Security issues should be reported privately when possible. See `SECURITY.md` for supported versions, reporting guidance, and scope.
@@ -147,6 +149,7 @@ Before submitting a pull request, check that:
 - `flutter test` passes.
 - Documentation is updated when user-facing behavior changes.
 - `PRIVACY.md` is updated when data flows or storage behavior change.
+- `THIRD_PARTY_NOTICES.md` is updated when dependencies, bundled assets, or third-party code change.
 
 In the pull request description, include:
 
@@ -170,4 +173,6 @@ For feature requests, describe the workflow or problem first. A proposed solutio
 
 ## License
 
-By contributing, you agree that your contribution will be licensed under the same license as this repository.
+By contributing, you agree that your contribution will be licensed under the same license as this repository: GNU General Public License version 3 or later (`GPL-3.0-or-later`).
+
+Do not submit code, assets, or dependencies that cannot be distributed with a GPLv3-or-later app.

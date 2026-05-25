@@ -344,29 +344,41 @@ void main() {
 
     expect(store.settings.currency, AppCurrency.usd);
 
-    await tester.ensureVisible(find.text('Steam-Sync'));
-    await _pumpInteractionFrame(tester);
-
-    await tester.enterText(find.byType(TextField).at(0), '76561198000000000');
-    await tester.enterText(find.byType(TextField).at(1), 'test-api-key');
-    await tester.ensureVisible(find.text('Steam-Einstellungen speichern'));
-    await _pumpInteractionFrame(tester);
-
-    await tester.tap(find.text('Steam-Einstellungen speichern'));
-    await _pumpInteractionFrame(tester);
-
-    expect(store.settings.steamAccountIdentifier, '76561198000000000');
-    expect(store.settings.steamWebApiKey, 'test-api-key');
-    expect(store.settings.steamIncludePlayedFreeGames, isTrue);
-
-    await tester.ensureVisible(find.text('Englisch'));
-    await _pumpInteractionFrame(tester);
-
     await tester.tap(find.text('Englisch'));
     await _pumpInteractionFrame(tester);
 
     expect(store.settings.language, AppLanguage.english);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Steam sync'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.enterText(find.byType(TextField).at(0), '76561198000000000');
+    await tester.enterText(find.byType(TextField).at(1), 'test-api-key');
+    await tester.ensureVisible(find.text('Save Steam settings'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.tap(find.text('Save Steam settings'));
+    await _pumpInteractionFrame(tester);
+
+    expect(store.settings.steamAccountIdentifier, '76561198000000000');
+    expect(store.settings.steamWebApiKey, 'test-api-key');
+    expect(store.settings.steamIncludePlayedFreeGames, isTrue);
+
+    await tester.scrollUntilVisible(
+      find.text('Open source licenses'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await _pumpInteractionFrame(tester);
+
+    expect(find.text('Legal'), findsOneWidget);
+    expect(find.text('Open source licenses'), findsOneWidget);
+
+    await tester.tap(find.text('Open source licenses'));
+    await _pumpInteractionFrame(tester);
+
+    expect(find.byType(LicensePage), findsOneWidget);
   });
 }

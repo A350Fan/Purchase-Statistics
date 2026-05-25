@@ -370,4 +370,8 @@ Steam, Valve and related names are trademarks of their respective owners.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License version 3 or later (`GPL-3.0-or-later`). See [LICENSE](LICENSE) for details.
+
+Third-party Flutter and Dart dependencies remain under their own licenses. The reviewed runtime dependency notices are summarized in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and the app exposes generated license notices under **Settings > Legal > Open source licenses**.
+
+When distributing binary builds, provide the corresponding source code for the GPL-covered app and include the third-party license notices with the release package.

@@ -609,6 +609,15 @@ class AppStrings {
       isEnglish ? 'Save Steam settings' : 'Steam-Einstellungen speichern';
   String get steamSettingsSaved =>
       isEnglish ? 'Steam settings saved.' : 'Steam-Einstellungen gespeichert.';
+  String get legal => isEnglish ? 'Legal' : 'Rechtliches';
+  String get openSourceLicenses =>
+      isEnglish ? 'Open source licenses' : 'Open-Source-Lizenzen';
+  String get openSourceLicensesDescription => isEnglish
+      ? 'App and third-party license notices'
+      : 'Lizenzhinweise der App und Drittanbieter';
+  String get applicationLegalese => isEnglish
+      ? 'Copyright (C) 2026 A350Fan\nLicensed under GNU GPL v3.0 or later.'
+      : 'Copyright (C) 2026 A350Fan\nLizenziert unter GNU GPL v3.0 oder neuer.';
 
   String get addPurchaseTitle => isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
   String get editPurchaseTitle =>

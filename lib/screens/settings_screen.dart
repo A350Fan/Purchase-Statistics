@@ -196,6 +196,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            _SettingsSection(
+              title: strings.legal,
+              icon: Icons.balance,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined),
+                title: Text(strings.openSourceLicenses),
+                subtitle: Text(strings.openSourceLicensesDescription),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  showLicensePage(
+                    context: context,
+                    applicationName: strings.appTitle,
+                    applicationLegalese: strings.applicationLegalese,
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
