@@ -102,12 +102,11 @@ The app processes this response locally in memory, matches it against purchases 
 
 The app stores its data locally in the SQLite database `steam_stats.db`. SQLite may also create files with the suffixes `-wal` and `-shm` next to the database.
 
-Default storage locations:
+Default storage locations for currently targeted platforms:
 
 | Platform | Storage location |
 | --- | --- |
 | Windows | `%APPDATA%\PurchaseStatistics\steam_stats.db` |
-| macOS | `~/Library/Application Support/PurchaseStatistics/steam_stats.db` |
 | Linux | `$XDG_DATA_HOME/purchase_statistics/steam_stats.db` or `~/.local/share/purchase_statistics/steam_stats.db` |
 | Android | App-specific database directory managed by Android |
 

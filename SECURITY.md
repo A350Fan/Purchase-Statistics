@@ -19,7 +19,7 @@ Please include:
 
 - A short description of the issue
 - Steps to reproduce the issue
-- The affected platform, for example Windows, Linux, Android, macOS, iOS, or web
+- The affected target platform, for example Windows, Linux, or Android
 - The app version, commit, or branch you tested
 - Any relevant logs or screenshots with secrets removed
 

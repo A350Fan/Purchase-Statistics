@@ -40,6 +40,11 @@ Implemented so far:
 - Optional original price/list price
 - Optional playtime tracking
 - Manual Steam Web API playtime sync for linked Steam App IDs
+- Steam Store search suggestions for purchase editing
+- Steam App ID linking and automatic linking support
+- Local Steam Store search cache
+- Steam game metadata lookup, preview and refresh
+- Collections for organizing purchases
 - Optional game length estimates for main story, main + extras and completionist playthroughs
 - Optional notes
 - Sorting options for the purchase list
@@ -281,6 +286,9 @@ The database schema is versioned and currently includes migrations for:
 - Adding game status
 - Adding game length estimates
 - Adding goal tracking
+- Adding Steam Store search caching
+- Adding Steam game metadata
+- Adding collections
 
 ---
 
@@ -320,7 +328,7 @@ Possible next steps:
 - Improve Android layout
 - Add XLSX import
 - Add backup and restore
-- Add categories/tags
+- Add user-defined categories/tags
 - Add optional HowLongToBeat length lookup
 - Add more chart types
 - Add full release packaging for Windows
@@ -352,8 +360,14 @@ git push
 
 ## Disclaimer
 
-Purchase Statistics is a private/open-source helper project for tracking Steam purchases.
+Purchase Statistics is a personal open-source helper project for tracking Steam purchases.
 
 It can optionally connect to the Steam Web API to update playtime for a configured public Steam profile.
 
 Steam, Valve and related names are trademarks of their respective owners.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
