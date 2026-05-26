@@ -102,7 +102,7 @@ The app processes this response locally in memory, matches it against purchases 
 
 ## Storage Location and Storage Countries
 
-The app stores most data locally in the SQLite database `steam_stats.db`. SQLite may also create files with the suffixes `-wal` and `-shm` next to the database. The Steam Web API key is stored separately in the platform secure store where available. Older plaintext API keys from previous local databases are migrated to secure storage and cleared from SQLite when secure storage is available.
+The app stores most data locally in the SQLite database `steam_stats.db`. SQLite may also create files with the suffixes `-wal` and `-shm` next to the database. The Steam Web API key is stored separately in the platform secure store where available. Older plaintext API keys from previous local databases are migrated to secure storage and cleared from SQLite after the migration attempt. If secure storage is unavailable during migration, the plaintext key is still removed from SQLite and must be entered again.
 
 Default storage locations for currently targeted platforms:
 
@@ -129,7 +129,7 @@ The app does not send local purchase prices, notes, collections, goals, or CSV c
 
 ## Security
 
-The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is stored in platform secure storage where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. The key should still be treated as a secret. Do not publish it, share it, or post screenshots that show it.
+The app relies on the security protections of your operating system and user account. The local SQLite database is currently not additionally encrypted by the app. The Steam Web API key is stored in platform secure storage where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Steam sync error messages shown by the app are sanitized and do not include raw request URLs. The key should still be treated as a secret. Do not publish it, share it, or post screenshots that show it.
 
 ## Steam Data and Availability
 

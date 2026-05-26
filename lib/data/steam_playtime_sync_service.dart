@@ -45,6 +45,32 @@ class SteamPlaytimeSyncException implements Exception {
   }
 }
 
+Future<T> _runSteamApiOperation<T>(Future<T> Function() operation) async {
+  try {
+    return await operation();
+  } on SteamPlaytimeSyncException {
+    rethrow;
+  } on TimeoutException {
+    throw const SteamPlaytimeSyncException('Steam API request timed out.');
+  } on SocketException {
+    throw const SteamPlaytimeSyncException(
+      'Steam API request failed. Check your network connection.',
+    );
+  } on HttpBodyTooLargeException {
+    throw const SteamPlaytimeSyncException(
+      'Steam API response was larger than expected.',
+    );
+  } on FormatException {
+    throw const SteamPlaytimeSyncException(
+      'Steam API response could not be read.',
+    );
+  } on HttpException {
+    throw const SteamPlaytimeSyncException('Steam API request failed.');
+  } catch (_) {
+    throw const SteamPlaytimeSyncException('Steam API request failed.');
+  }
+}
+
 abstract class SteamPlaytimeClient {
   Future<List<SteamOwnedGame>> fetchOwnedGames({
     required String apiKey,
@@ -87,17 +113,22 @@ class HttpSteamPlaytimeClient
     required String steamId,
     required bool includePlayedFreeGames,
   }) async {
-    final uri =
-        Uri.https('api.steampowered.com', '/IPlayerService/GetOwnedGames/v1/', {
+    return _runSteamApiOperation(() async {
+      final uri = Uri.https(
+        'api.steampowered.com',
+        '/IPlayerService/GetOwnedGames/v1/',
+        {
           'key': apiKey,
           'steamid': steamId,
           'include_appinfo': 'true',
           'include_played_free_games': includePlayedFreeGames.toString(),
           'format': 'json',
-        });
-    final body = await _getJsonBody(uri);
+        },
+      );
+      final body = await _getJsonBody(uri);
 
-    return SteamOwnedGamesResponseParser.parse(body);
+      return SteamOwnedGamesResponseParser.parse(body);
+    });
   }
 
   @override
@@ -105,19 +136,21 @@ class HttpSteamPlaytimeClient
     required String apiKey,
     required String vanityUrl,
   }) async {
-    final uri = Uri.https(
-      'api.steampowered.com',
-      '/ISteamUser/ResolveVanityURL/v1/',
-      {
-        'key': apiKey,
-        'vanityurl': vanityUrl,
-        'url_type': '1',
-        'format': 'json',
-      },
-    );
-    final body = await _getJsonBody(uri);
+    return _runSteamApiOperation(() async {
+      final uri = Uri.https(
+        'api.steampowered.com',
+        '/ISteamUser/ResolveVanityURL/v1/',
+        {
+          'key': apiKey,
+          'vanityurl': vanityUrl,
+          'url_type': '1',
+          'format': 'json',
+        },
+      );
+      final body = await _getJsonBody(uri);
 
-    return SteamVanityUrlResponseParser.parseSteamId(body);
+      return SteamVanityUrlResponseParser.parseSteamId(body);
+    });
   }
 
   Future<String> _getJsonBody(Uri uri) async {
@@ -175,14 +208,18 @@ class SteamPlaytimeSyncService implements DisposableResource {
       );
     }
 
-    final steamId = await _resolveSteamId(
-      apiKey: normalizedApiKey,
-      accountIdentifier: normalizedAccountIdentifier,
+    final steamId = await _runSteamApiOperation(
+      () => _resolveSteamId(
+        apiKey: normalizedApiKey,
+        accountIdentifier: normalizedAccountIdentifier,
+      ),
     );
-    final ownedGames = await client.fetchOwnedGames(
-      apiKey: normalizedApiKey,
-      steamId: steamId,
-      includePlayedFreeGames: includePlayedFreeGames,
+    final ownedGames = await _runSteamApiOperation(
+      () => client.fetchOwnedGames(
+        apiKey: normalizedApiKey,
+        steamId: steamId,
+        includePlayedFreeGames: includePlayedFreeGames,
+      ),
     );
     final purchases = await repository.getAllPurchases();
     final linkedPurchases = purchases

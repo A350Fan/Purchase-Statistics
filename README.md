@@ -187,7 +187,7 @@ How to get a Steam Web API key:
 
 Keep the API key private. Do not commit it, publish it or share screenshots that show it.
 
-The Steam account identifier is stored locally in the app settings. The Steam Web API key is stored in the platform secure store where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Legacy plaintext keys from older local databases are migrated to secure storage when settings are loaded successfully. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
+The Steam account identifier is stored locally in the app settings. The Steam Web API key is stored in the platform secure store where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Legacy plaintext keys from older local databases are migrated to secure storage when settings are loaded successfully and are cleared from SQLite after the migration attempt. If secure storage is unavailable during that migration, the legacy key is not kept in SQLite and must be entered again. Steam sync error messages shown in the app use sanitized text and do not include raw request URLs. Use the automation menu to run the playtime sync. Steam returns playtime in minutes; the app converts it to hours before saving.
 
 The sync does not import purchase dates, paid prices or order history. Those values still need to come from manual entry or CSV import.
 
@@ -253,6 +253,19 @@ build/windows/x64/runner/Release
 
 ### Android APK
 
+Android release builds must be signed with a private release keystore. The project does not fall back to the Android debug key for release builds.
+
+Create `android/key.properties` locally before building a release:
+
+```properties
+storeFile=../release-keystore.jks
+storePassword=your-store-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
+```
+
+`android/key.properties` and keystore files are ignored by Git. If this file is missing or incomplete, `flutter build apk --release` fails instead of producing a debug-signed release.
+
 ```powershell
 flutter build apk --release
 ```
@@ -302,7 +315,7 @@ The database schema is versioned and currently includes migrations for:
 - Adding unavailable Steam metadata refresh markers
 - Adding collections
 
-The Steam Web API key is not newly written to the SQLite database. Older plaintext values in the `app_settings.steam_web_api_key` column are migrated to platform secure storage and cleared from SQLite when secure storage is available.
+The Steam Web API key is not newly written to the SQLite database. Older plaintext values in the `app_settings.steam_web_api_key` column are migrated to platform secure storage and cleared from SQLite after the migration attempt. If secure storage cannot accept the legacy key, the plaintext value is still removed from SQLite and the user must enter the key again.
 
 ---
 

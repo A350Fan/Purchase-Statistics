@@ -1,8 +1,27 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val releaseKeystorePropertiesFile = rootProject.file("key.properties")
+val releaseKeystoreProperties = Properties().apply {
+    if (releaseKeystorePropertiesFile.exists()) {
+        releaseKeystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+fun releaseKeystoreProperty(name: String): String? =
+    releaseKeystoreProperties.getProperty(name)?.trim()?.takeIf { it.isNotEmpty() }
+
+val hasReleaseSigningConfig = listOf(
+    "storeFile",
+    "storePassword",
+    "keyAlias",
+    "keyPassword",
+).all { releaseKeystoreProperty(it) != null }
 
 android {
     namespace = "com.example.steam_stats_app"
@@ -25,12 +44,37 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(releaseKeystoreProperty("storeFile")!!)
+                storePassword = releaseKeystoreProperty("storePassword")
+                keyAlias = releaseKeystoreProperty("keyAlias")
+                keyPassword = releaseKeystoreProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val buildsAndroidRelease = allTasks.any { task ->
+        task.project == project &&
+            (task.name == "assembleRelease" || task.name == "bundleRelease")
+    }
+
+    if (buildsAndroidRelease && !hasReleaseSigningConfig) {
+        throw GradleException(
+            "Android release signing is not configured. Create android/key.properties " +
+                "with storeFile, storePassword, keyAlias, and keyPassword before building a release."
+        )
     }
 }
 

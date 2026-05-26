@@ -138,11 +138,12 @@ class SettingsRepository implements AppSettingsStore {
 
     try {
       await _secretStore.saveSteamWebApiKey(legacySteamWebApiKey);
-      await _clearLegacySteamWebApiKey(db);
 
       return legacySteamWebApiKey;
     } catch (_) {
       return null;
+    } finally {
+      await _clearLegacySteamWebApiKey(db);
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/data/steam_playtime_sync_service.dart';
 import 'package:purchase_statistics/data/steam_purchase_repository.dart';
@@ -142,6 +144,42 @@ void main() {
       expect(client.fetchSteamIds, ['76561198000000000']);
       expect(client.includePlayedFreeGamesValues, [false]);
     });
+
+    test('sanitizes raw client errors before exposing them', () async {
+      final client = _ThrowingSteamPlaytimeClient(
+        HttpException(
+          'failed',
+          uri: Uri.https('api.steampowered.com', '/test', {
+            'key': 'secret-api-key',
+          }),
+        ),
+      );
+      final service = SteamPlaytimeSyncService(
+        client: client,
+        repository: _FakeSteamPurchaseRepository(const []),
+      );
+
+      await expectLater(
+        service.syncPlaytime(
+          steamAccountIdentifier: '76561198000000000',
+          apiKey: 'secret-api-key',
+          includePlayedFreeGames: false,
+        ),
+        throwsA(
+          isA<SteamPlaytimeSyncException>()
+              .having(
+                (error) => error.message,
+                'message',
+                'Steam API request failed.',
+              )
+              .having(
+                (error) => error.toString(),
+                'rendered error',
+                isNot(contains('secret-api-key')),
+              ),
+        ),
+      );
+    });
   });
 }
 
@@ -174,6 +212,29 @@ class _FakeSteamPlaytimeClient implements SteamPlaytimeClient {
     vanityUrls.add(vanityUrl);
 
     return resolvedSteamId;
+  }
+}
+
+class _ThrowingSteamPlaytimeClient implements SteamPlaytimeClient {
+  final Object error;
+
+  const _ThrowingSteamPlaytimeClient(this.error);
+
+  @override
+  Future<List<SteamOwnedGame>> fetchOwnedGames({
+    required String apiKey,
+    required String steamId,
+    required bool includePlayedFreeGames,
+  }) async {
+    throw error;
+  }
+
+  @override
+  Future<String?> resolveSteamIdFromVanityUrl({
+    required String apiKey,
+    required String vanityUrl,
+  }) async {
+    throw error;
   }
 }
 

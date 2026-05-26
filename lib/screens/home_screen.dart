@@ -732,7 +732,10 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      _showSnackBar(strings.steamPlaytimeSyncFailed(error));
+      final safeError = error is SteamPlaytimeSyncException
+          ? error.message
+          : strings.unexpectedSteamPlaytimeSyncError;
+      _showSnackBar(strings.steamPlaytimeSyncFailed(safeError));
       return;
     }
 

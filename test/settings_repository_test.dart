@@ -82,6 +82,28 @@ void main() {
       expect(rows.single['steam_web_api_key'], isNull);
     },
   );
+
+  test('clears legacy SQLite key when secure migration fails', () async {
+    await db.insert('app_settings', {
+      'id': 1,
+      'theme_mode': AppThemeMode.dark.storageValue,
+      'language': AppLanguage.german.storageValue,
+      'currency': AppCurrency.eur.storageValue,
+      'steam_account_identifier': 'profile-name',
+      'steam_web_api_key': 'legacy-api-key',
+      'steam_include_played_free_games': 1,
+    });
+    repository = SettingsRepository(
+      databaseProvider: () async => db,
+      secretStore: _FailingAppSecretStore(),
+    );
+
+    final settings = await repository.loadSettings();
+    final rows = await db.query('app_settings');
+
+    expect(settings.steamWebApiKey, isNull);
+    expect(rows.single['steam_web_api_key'], isNull);
+  });
 }
 
 class _MemoryAppSecretStore implements AppSecretStore {
@@ -98,6 +120,18 @@ class _MemoryAppSecretStore implements AppSecretStore {
     steamWebApiKey = trimmedApiKey == null || trimmedApiKey.isEmpty
         ? null
         : trimmedApiKey;
+  }
+}
+
+class _FailingAppSecretStore implements AppSecretStore {
+  @override
+  Future<String?> readSteamWebApiKey() async {
+    return null;
+  }
+
+  @override
+  Future<void> saveSteamWebApiKey(String? apiKey) async {
+    throw const FormatException('secure storage unavailable');
   }
 }
 

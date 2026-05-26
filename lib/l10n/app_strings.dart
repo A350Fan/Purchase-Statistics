@@ -118,6 +118,10 @@ class AppStrings {
         : 'Steam-Spielzeit konnte nicht synchronisiert werden: $error';
   }
 
+  String get unexpectedSteamPlaytimeSyncError => isEnglish
+      ? 'Unexpected Steam API or network error.'
+      : 'Unerwarteter Steam-API- oder Netzwerkfehler.';
+
   String refreshedSteamMetadata({
     required int refreshed,
     required int skipped,
@@ -609,11 +613,9 @@ class AppStrings {
       isEnglish ? 'Save Steam settings' : 'Steam-Einstellungen speichern';
   String get steamSettingsSaved =>
       isEnglish ? 'Steam settings saved.' : 'Steam-Einstellungen gespeichert.';
-  String steamSettingsSaveFailed(Object error) {
-    return isEnglish
-        ? 'Steam settings could not be saved securely: $error'
-        : 'Steam-Einstellungen konnten nicht sicher gespeichert werden: $error';
-  }
+  String get steamSettingsSaveFailed => isEnglish
+      ? 'Steam settings could not be saved securely.'
+      : 'Steam-Einstellungen konnten nicht sicher gespeichert werden.';
 
   String get legal => isEnglish ? 'Legal' : 'Rechtliches';
   String get openSourceLicenses =>

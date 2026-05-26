@@ -230,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         steamWebApiKey: _steamApiKeyController.text,
         steamIncludePlayedFreeGames: _includePlayedFreeGames,
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
@@ -238,7 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text(strings.steamSettingsSaveFailed(error))),
+          SnackBar(content: Text(strings.steamSettingsSaveFailed)),
         );
       return;
     }
