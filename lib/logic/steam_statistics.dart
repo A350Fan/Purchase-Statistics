@@ -1,5 +1,6 @@
 import '../models/steam_purchase.dart';
 
+/// Statistischer Jahreswert fuer Tabellen und Diagramme.
 class AnnualStatistics {
   final int year;
   final double spending;
@@ -18,6 +19,7 @@ class AnnualStatistics {
   });
 }
 
+/// Zusammenfassung ueber alle Jahreswerte.
 class AnnualStatisticsSummary {
   final double averageSpending;
   final double totalSpending;
@@ -36,6 +38,7 @@ class AnnualStatisticsSummary {
   });
 }
 
+/// Statistischer Quartalswert innerhalb eines Jahres.
 class QuarterlyStatistics {
   final int quarter;
   final double spending;
@@ -54,6 +57,10 @@ class QuarterlyStatistics {
   });
 }
 
+/// Jahreszusammenfassung fuer die Quartalsansicht.
+///
+/// Fuer das aktuelle Jahr enthaelt `projectedSpending` eine Hochrechnung auf das
+/// Gesamtjahr, fuer vergangene Jahre ist es identisch mit den Ist-Ausgaben.
 class QuarterlyStatisticsSummary {
   final int year;
   final double actualSpending;
@@ -76,6 +83,11 @@ class QuarterlyStatisticsSummary {
   });
 }
 
+/// Berechnet alle Ausgaben-, Rabatt- und Spielzeitstatistiken aus Kaeufen.
+///
+/// Die Klasse ist bewusst zustandslos nach aussen: Sie bekommt eine Kauf-Liste
+/// und berechnet daraus lazy gecachte Kennzahlen. So koennen Screens die Werte
+/// mehrfach abfragen, ohne dieselben Aggregationen neu zu bauen.
 class SteamStatistics {
   final List<SteamPurchase> purchases;
   final DateTime currentDate;
@@ -115,10 +127,15 @@ class SteamStatistics {
           ? DateTime.now()
           : DateTime(currentDate.year, currentDate.month, currentDate.day);
 
+  /// Anzahl aller gespeicherten Kaufzeilen, Spiele und DLCs zusammen.
   int get totalPurchases {
     return purchases.length;
   }
 
+  /// Preis eines Spiels inklusive zugehoeriger DLC-Ausgaben.
+  ///
+  /// DLCs werden ueber den normalisierten Spielnamen mit dem Basisspiel
+  /// verbunden. Das ist wichtig fuer Kosten-pro-Stunde-Kennzahlen.
   double priceIncludingLinkedDlcsForPurchase(SteamPurchase purchase) {
     if (purchase.purchaseType != SteamPurchaseType.game) {
       return purchase.price;
@@ -128,6 +145,8 @@ class SteamStatistics {
         (_dlcSpendingByGameName[_gameNameKey(purchase.gameName)] ?? 0.0);
   }
 
+  /// Preis pro Spielstunde fuer einen einzelnen Kauf, wenn Spielzeit vorhanden
+  /// ist.
   double? pricePerHourForPurchase(SteamPurchase purchase) {
     final hours = purchase.playtimeHours;
 
@@ -138,6 +157,8 @@ class SteamStatistics {
     return priceIncludingLinkedDlcsForPurchase(purchase) / hours;
   }
 
+  /// Baut immer vier Quartalszeilen, auch wenn es in einzelnen Quartalen keine
+  /// Kaeufe gab.
   List<QuarterlyStatistics> quarterlyStatisticsForYear(int year) {
     final rows = <QuarterlyStatistics>[];
     final aggregate = _quarterAggregateForYear(year);
@@ -162,6 +183,7 @@ class SteamStatistics {
     return rows;
   }
 
+  /// Zusammenfassung und ggf. Hochrechnung eines Jahres.
   QuarterlyStatisticsSummary quarterlySummaryForYear(int year) {
     final aggregate = _quarterAggregateForYear(year);
     final actualSpending = aggregate.actualSpending;
@@ -243,6 +265,9 @@ class SteamStatistics {
     final untrackedDlcSpendingByYearAndGameName =
         <({int year, String gameNameKey}), double>{};
 
+    // Erster Durchlauf: Summen je Jahr/Gesamtwert und bekannte Spielzeiten
+    // sammeln. DLC-Ausgaben ohne eigene Spielzeit werden zunaechst separat
+    // geparkt.
     for (final purchase in purchases) {
       final year = purchase.year;
       final gameNameKey = _gameNameKey(purchase.gameName);
@@ -262,6 +287,8 @@ class SteamStatistics {
         case SteamPurchaseType.game:
           aggregate.totalGames++;
 
+          // Ein Basisspiel mit Spielzeit erlaubt, seine DLC-Kosten spaeter in
+          // Kosten-pro-Stunde einzurechnen.
           if (hasPlaytime) {
             aggregate.gameNamesWithTrackedPlaytime.add(gameNameKey);
           }
@@ -273,6 +300,8 @@ class SteamStatistics {
               purchase.price;
 
           if (!hasPlaytime) {
+            // DLCs ohne eigene Spielzeit koennen nur dann in
+            // Kosten-pro-Stunde einfliessen, wenn das Basisspiel Spielzeit hat.
             final key = (year: year, gameNameKey: gameNameKey);
             untrackedDlcSpendingByYearAndGameName[key] =
                 (untrackedDlcSpendingByYearAndGameName[key] ?? 0.0) +
@@ -292,6 +321,8 @@ class SteamStatistics {
           (aggregate.spendingWithPlaytimeByYear[year] ?? 0.0) + purchase.price;
     }
 
+    // Zweiter Durchlauf ueber die geparkten DLC-Ausgaben: Nur DLCs zu Spielen
+    // mit bekannter Spielzeit werden in "spendingWithPlaytime" aufgenommen.
     for (final entry in untrackedDlcSpendingByYearAndGameName.entries) {
       if (!aggregate.gameNamesWithTrackedPlaytime.contains(
         entry.key.gameNameKey,
@@ -349,6 +380,8 @@ class SteamStatistics {
       }
 
       if (_countsTowardsPricePerHourSpending(purchase)) {
+        // Fuer Preis/Stunde zaehlen Kaeufe mit direkter Spielzeit und DLCs,
+        // deren Basisspiel Spielzeit besitzt.
         aggregate.trackedSpending[quarter] += purchase.price;
         aggregate.totalTrackedSpending += purchase.price;
       }
@@ -358,6 +391,8 @@ class SteamStatistics {
   }
 
   double _projectCurrentYearSpending(double spending) {
+    // Simple lineare Hochrechnung: bisherige Ausgaben pro vergangenem Tag mal
+    // Tage im Jahr.
     final elapsedDays = _elapsedDaysInYear(currentDate);
     final daysInYear = _daysInYear(currentDate.year);
 
@@ -408,6 +443,7 @@ class SteamStatistics {
   }
 }
 
+/// Interner Sammelcontainer fuer jahresuebergreifende Werte.
 class _StatisticsAggregate {
   final Set<String> gameNamesWithTrackedPlaytime = {};
   final Map<String, double> dlcSpendingByGameName = {};
@@ -429,6 +465,8 @@ class _StatisticsAggregate {
   double? get averageDiscount => totalDiscount.averageDiscount;
 
   void addYear(int year) {
+    // Merkt sich den kleinsten und groessten Kaufjahrgang, ohne die Liste
+    // vorab sortieren zu muessen.
     final currentFirstYear = firstYear;
     final currentLastYear = lastYear;
 
@@ -448,7 +486,9 @@ class _StatisticsAggregate {
   }
 }
 
+/// Interner Sammelcontainer fuer ein Jahr mit vier Quartalen.
 class _QuarterAggregate {
+  // Index 0 bleibt ungenutzt, damit Quartal 1 direkt auf Index 1 liegt.
   final List<double> spending = List.filled(5, 0.0);
   final List<double> playtime = List.filled(5, 0.0);
   final List<double> trackedSpending = List.filled(5, 0.0);
@@ -479,6 +519,7 @@ class _QuarterAggregate {
   }
 }
 
+/// Sammelt bezahlten und urspruenglichen Preis fuer Rabattdurchschnitte.
 class _DiscountAggregate {
   double paidPrice = 0.0;
   double originalPrice = 0.0;

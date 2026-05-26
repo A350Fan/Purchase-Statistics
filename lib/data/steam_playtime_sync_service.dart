@@ -6,6 +6,7 @@ import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 import 'steam_purchase_repository.dart';
 
+/// Spielzeile aus der Steam-Owned-Games-API.
 class SteamOwnedGame {
   final int appId;
   final String? name;
@@ -20,6 +21,8 @@ class SteamOwnedGame {
   double get playtimeHours => playtimeMinutes / 60;
 }
 
+/// Ergebnis eines Spielzeit-Syncs, damit die UI eine konkrete Zusammenfassung
+/// anzeigen kann.
 class SteamPlaytimeSyncResult {
   final int ownedGameCount;
   final int linkedPurchaseCount;
@@ -34,6 +37,10 @@ class SteamPlaytimeSyncResult {
   });
 }
 
+/// Fachlicher Fehler fuer den Steam-Sync.
+///
+/// Netzwerk-, Timeout- und Parsing-Details werden in nutzerverstaendliche
+/// Meldungen uebersetzt.
 class SteamPlaytimeSyncException implements Exception {
   final String message;
 
@@ -45,6 +52,7 @@ class SteamPlaytimeSyncException implements Exception {
   }
 }
 
+/// Normalisiert technische Steam-API-Fehler in `SteamPlaytimeSyncException`.
 Future<T> _runSteamApiOperation<T>(Future<T> Function() operation) async {
   try {
     return await operation();
@@ -71,6 +79,7 @@ Future<T> _runSteamApiOperation<T>(Future<T> Function() operation) async {
   }
 }
 
+/// Schnittstelle fuer die beiden Steam-Web-API-Aufrufe, die der Sync braucht.
 abstract class SteamPlaytimeClient {
   Future<List<SteamOwnedGame>> fetchOwnedGames({
     required String apiKey,
@@ -84,6 +93,7 @@ abstract class SteamPlaytimeClient {
   });
 }
 
+/// HTTP-Implementierung fuer Steam-Web-API-Spielzeiten.
 class HttpSteamPlaytimeClient
     implements SteamPlaytimeClient, DisposableResource {
   static const int _maxResponseBytes = 10 * 1024 * 1024;
@@ -160,6 +170,8 @@ class HttpSteamPlaytimeClient
     final response = await request.close().timeout(timeout);
 
     if (response.statusCode != HttpStatus.ok) {
+      // Nicht-200 wird als fachlicher Sync-Fehler gemeldet, damit die UI keinen
+      // rohen HttpException-Text anzeigen muss.
       throw SteamPlaytimeSyncException(
         'Steam API returned HTTP ${response.statusCode}.',
       );
@@ -173,6 +185,10 @@ class HttpSteamPlaytimeClient
   }
 }
 
+/// Synchronisiert Steam-Spielzeiten in lokale Kaeufe.
+///
+/// Der Service loest Vanity-URLs auf, liest die Steam-Bibliothek, matched ueber
+/// gespeicherte App-IDs und schreibt nur geaenderte Spielzeiten zurueck.
 class SteamPlaytimeSyncService implements DisposableResource {
   final SteamPlaytimeClient client;
   final SteamPurchaseRepository repository;
@@ -222,6 +238,8 @@ class SteamPlaytimeSyncService implements DisposableResource {
       ),
     );
     final purchases = await repository.getAllPurchases();
+    // Nur Kaeufe mit Steam-App-ID koennen gegen die Steam-Bibliothek gematcht
+    // werden.
     final linkedPurchases = purchases
         .where((purchase) {
           return purchase.steamAppId != null;
@@ -257,6 +275,8 @@ class SteamPlaytimeSyncService implements DisposableResource {
     required String apiKey,
     required String accountIdentifier,
   }) async {
+    // SteamID64 kann direkt verwendet werden; Vanity-Namen muessen ueber die API
+    // aufgeloest werden.
     if (_isSteamId64(accountIdentifier)) {
       return accountIdentifier;
     }
@@ -283,6 +303,8 @@ class SteamPlaytimeSyncService implements DisposableResource {
     ).firstMatch(trimmedValue);
 
     if (steamCommunityMatch != null) {
+      // Aus kompletten Profil-URLs wird nur der relevante id/profiles-Teil
+      // extrahiert.
       return Uri.decodeComponent(steamCommunityMatch.group(1)!).trim();
     }
 
@@ -294,6 +316,7 @@ class SteamPlaytimeSyncService implements DisposableResource {
   }
 }
 
+/// Parser fuer `IPlayerService/GetOwnedGames`.
 class SteamOwnedGamesResponseParser {
   const SteamOwnedGamesResponseParser._();
 
@@ -318,6 +341,8 @@ class SteamOwnedGamesResponseParser {
 
     final gamesByAppId = <int, SteamOwnedGame>{};
 
+    // Falls Steam eine App mehrfach liefert, behalten wir die Variante mit der
+    // hoechsten Spielzeit.
     for (final game in games) {
       if (game is! Map<String, Object?>) {
         continue;
@@ -359,6 +384,7 @@ class SteamOwnedGamesResponseParser {
   }
 }
 
+/// Parser fuer `ISteamUser/ResolveVanityURL`.
 class SteamVanityUrlResponseParser {
   const SteamVanityUrlResponseParser._();
 

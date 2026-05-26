@@ -3,12 +3,16 @@ import 'package:sqflite/sqflite.dart';
 import '../models/steam_goal_settings.dart';
 import 'app_database.dart';
 
+/// Speicher-Schnittstelle fuer Ziele.
 abstract class SteamGoalStore {
   Future<SteamGoalSettings> loadGoals();
 
   Future<void> saveGoals(SteamGoalSettings goals);
 }
 
+/// SQLite-Implementierung fuer die Ziel-Einstellungen.
+///
+/// Wie bei den App-Settings gibt es genau eine Zeile mit ID 1.
 class SteamGoalRepository implements SteamGoalStore {
   static const String _tableName = 'steam_goals';
   static const int _goalsId = 1;

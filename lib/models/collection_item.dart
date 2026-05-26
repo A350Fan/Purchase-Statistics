@@ -1,3 +1,8 @@
+/// Verknuepfung zwischen einer manuellen Sammlung und einem Kauf.
+///
+/// Automatische Sammlungen verwenden keine gespeicherten Items; sie berechnen
+/// ihre Inhalte ueber Regeln. Dieses Modell ist also nur fuer manuelle
+/// Zuordnungen gedacht.
 class CollectionItem {
   static const Object _unset = Object();
 
@@ -17,6 +22,7 @@ class CollectionItem {
     required this.createdAt,
   });
 
+  /// Erstellt ein neues Item mit normalisierter Notiz und aktuellem Zeitstempel.
   factory CollectionItem.create({
     required int collectionId,
     required int purchaseId,
@@ -33,6 +39,8 @@ class CollectionItem {
     );
   }
 
+  /// Kopiert ein Item. Das `_unset`-Sentinel erlaubt, `note` gezielt auf `null`
+  /// zu setzen, ohne es mit "nicht uebergeben" zu verwechseln.
   CollectionItem copyWith({
     int? id,
     int? collectionId,
@@ -51,6 +59,7 @@ class CollectionItem {
     );
   }
 
+  /// Serialisiert das Item in die Spaltennamen von `collection_items`.
   Map<String, Object?> toMap() {
     return {
       'id': id,
@@ -62,6 +71,7 @@ class CollectionItem {
     };
   }
 
+  /// Baut ein Item aus einer Datenbankzeile.
   factory CollectionItem.fromMap(Map<String, Object?> map) {
     return CollectionItem(
       id: map['id'] as int?,

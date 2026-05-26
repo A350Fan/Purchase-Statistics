@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+/// Wird geworfen, wenn eine HTTP-Antwort groesser ist als fuer diesen Endpoint
+/// erwartet.
 class HttpBodyTooLargeException implements Exception {
   final int maxBytes;
 
@@ -15,6 +17,8 @@ class HttpBodyTooLargeException implements Exception {
   }
 }
 
+/// Liest eine `HttpClientResponse` als UTF-8-String mit Groessenlimit und
+/// Timeout.
 Future<String> readUtf8HttpBody(
   HttpClientResponse response, {
   required int maxBytes,
@@ -28,12 +32,16 @@ Future<String> readUtf8HttpBody(
   );
 }
 
+/// Stream-basierte Variante, die auch in Tests ohne echten HttpClient genutzt
+/// werden kann.
 Future<String> readUtf8ByteStream(
   Stream<List<int>> stream, {
   int contentLength = -1,
   required int maxBytes,
   required Duration timeout,
 }) async {
+  // Wenn der Server Content-Length setzt, kann eine zu grosse Antwort schon vor
+  // dem Lesen abgelehnt werden.
   if (contentLength > maxBytes) {
     throw HttpBodyTooLargeException(maxBytes);
   }
@@ -44,6 +52,8 @@ Future<String> readUtf8ByteStream(
   await for (final chunk in stream.timeout(timeout)) {
     byteCount += chunk.length;
 
+    // Das Limit wird auch waehrend des Lesens geprueft, weil Content-Length
+    // fehlen oder falsch sein kann.
     if (byteCount > maxBytes) {
       throw HttpBodyTooLargeException(maxBytes);
     }

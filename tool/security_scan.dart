@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+/// Legt fest, welcher Git-Dateibestand gescannt wird.
 enum ScanMode { tracked, staged, all, history }
 
+// Erkennungsmuster fuer haeufige Geheimnisse. Die Werte selbst werden beim
+// Reporting nie ausgegeben, damit der Scanner nicht versehentlich Secrets in
+// Logs kopiert.
 final List<_SecretRule> _secretRules = [
   _SecretRule(
     'private key block',
@@ -53,6 +57,8 @@ Future<void> main(List<String> args) async {
 
   final mode = _parseMode(args);
   final repoRoot = await _repoRoot();
+  // Fuer den History-Scan werden aktuelle Dateien normal gescannt; die
+  // Commit-Historie kommt anschliessend separat dazu.
   final files = await _collectFiles(
     mode == ScanMode.history ? ScanMode.tracked : mode,
     repoRoot,
@@ -68,6 +74,8 @@ Future<void> main(List<String> args) async {
     }
 
     if (_isForbiddenPath(normalizedPath)) {
+      // Bestimmte private Dateien sollen unabhaengig vom Inhalt nicht in Git
+      // landen.
       findings.add(
         _Finding(
           path: normalizedPath,
@@ -90,6 +98,7 @@ Future<void> main(List<String> args) async {
   }
 
   if (mode == ScanMode.history) {
+    // History ist teurer, deshalb laeuft sie nur explizit mit --history.
     findings.addAll(await _scanHistory(repoRoot));
   }
 
@@ -125,6 +134,7 @@ Future<void> main(List<String> args) async {
 }
 
 ScanMode _parseMode(List<String> args) {
+  // Standard ist der schnelle Scan der getrackten Dateien.
   var mode = ScanMode.tracked;
 
   for (final arg in args) {
@@ -157,6 +167,7 @@ void _printUsage() {
 }
 
 Future<Directory> _repoRoot() async {
+  // Der Scanner nutzt Git als Quelle der Wahrheit fuer das Repository-Root.
   final result = await Process.run(
     'git',
     ['rev-parse', '--show-toplevel'],
@@ -174,6 +185,8 @@ Future<Directory> _repoRoot() async {
 }
 
 Future<List<String>> _collectFiles(ScanMode mode, Directory repoRoot) async {
+  // Die verschiedenen Modi mappen direkt auf Git-Kommandos. Null-separierte
+  // Ausgabe vermeidet Probleme mit Leerzeichen in Dateinamen.
   final args = switch (mode) {
     ScanMode.tracked => ['ls-files', '-z'],
     ScanMode.staged => [
@@ -209,6 +222,8 @@ Future<List<String>> _collectFiles(ScanMode mode, Directory repoRoot) async {
 }
 
 Future<List<_Finding>> _scanHistory(Directory repoRoot) async {
+  // History-Scan prueft alle erreichbaren Commits auf Treffer, ohne Secret-Werte
+  // auszugeben.
   final findings = <_Finding>[];
   final commitsResult = await Process.run(
     'git',
@@ -312,6 +327,8 @@ Future<List<_Finding>> _scanHistory(Directory repoRoot) async {
 }
 
 List<_Finding> _scanFile(String path, String contents) {
+  // Jeder Text wird zeilenweise geprueft, damit Findings konkrete
+  // Datei-/Zeilennummern enthalten.
   final findings = <_Finding>[];
   final lines = const LineSplitter().convert(contents);
 
@@ -337,6 +354,8 @@ List<_Finding> _scanFile(String path, String contents) {
 }
 
 Future<String?> _readTextFile(String path) async {
+  // Binaerdateien und sehr grosse Dateien werden ausgelassen, weil sie fuer
+  // Regex-Scans wenig Nutzen bringen und viele False Positives erzeugen.
   final file = File(path);
 
   if (!await file.exists()) {
@@ -359,6 +378,7 @@ Future<String?> _readTextFile(String path) async {
 }
 
 bool _looksBinary(List<int> bytes) {
+  // Ein Nullbyte in der Stichprobe ist ein einfacher Hinweis auf Binaerdaten.
   final sampleLength = bytes.length < 8000 ? bytes.length : 8000;
 
   for (var index = 0; index < sampleLength; index += 1) {
@@ -371,6 +391,8 @@ bool _looksBinary(List<int> bytes) {
 }
 
 bool _hasSecretContext(String line) {
+  // Hex-Strings werden nur gemeldet, wenn die Zeile nach API-Key/Secret-Kontext
+  // aussieht. Das reduziert False Positives bei Hashes.
   final lower = line.toLowerCase();
 
   if (lower.contains('sha256') ||
@@ -391,6 +413,7 @@ bool _hasSecretContext(String line) {
 }
 
 bool _isPlaceholderValue(String? value) {
+  // Beispiele und Platzhalter sollen nicht als echte Secrets blockieren.
   if (value == null) {
     return true;
   }
@@ -414,6 +437,7 @@ bool _isPlaceholderValue(String? value) {
 }
 
 bool _isForbiddenPath(String path) {
+  // Bekannte lokale Secret-Dateien werden schon anhand des Pfads blockiert.
   final lower = path.toLowerCase();
   final fileName = lower.split('/').last;
 
@@ -476,14 +500,18 @@ bool _isExampleFile(String fileName) {
 }
 
 String _normalizePath(String path) {
+  // Git liefert Pfade mit Slash; diese Funktion haelt das auch auf Windows
+  // stabil.
   return path.replaceAll('\\', '/').replaceFirst(RegExp(r'^\./'), '');
 }
 
 String _pathFromRepoRoot(Directory repoRoot, String normalizedPath) {
+  // Fuer Dateizugriff wird aus dem Git-Pfad wieder ein Plattformpfad.
   final nativePath = normalizedPath.split('/').join(Platform.pathSeparator);
   return '${repoRoot.path}${Platform.pathSeparator}$nativePath';
 }
 
+/// Ein einzelnes Secret-Erkennungsmuster.
 class _SecretRule {
   final String description;
   final RegExp pattern;
@@ -492,6 +520,7 @@ class _SecretRule {
   const _SecretRule(this.description, this.pattern, {this.shouldReport});
 }
 
+/// Ergebnis eines Scanner-Treffers ohne Secret-Wert.
 class _Finding {
   final String path;
   final int? line;

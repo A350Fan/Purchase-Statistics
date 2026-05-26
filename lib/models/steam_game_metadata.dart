@@ -1,3 +1,5 @@
+/// Metadatenfelder, die aus Steam gelesen und fuer automatische Sammlungen
+/// verwendet werden.
 enum SteamMetadataField {
   genre('genre'),
   tag('tag'),
@@ -18,6 +20,7 @@ enum SteamMetadataField {
   }
 }
 
+/// Regel fuer den Vergleich einer Sammlung gegen Steam-Metadaten.
 class SteamCollectionMetadataRule {
   final SteamMetadataField field;
   final String value;
@@ -29,6 +32,10 @@ class SteamCollectionMetadataRule {
   }
 }
 
+/// Von Steam geladene Zusatzdaten zu einem Spiel.
+///
+/// Die Listen sind bewusst einfache Strings, weil sie direkt aus der Steam-API
+/// kommen und fuer Anzeige, Suche und automatische Sammlungen verwendet werden.
 class SteamGameMetadata {
   final int steamAppId;
   final String name;
@@ -50,6 +57,9 @@ class SteamGameMetadata {
     this.publishers = const [],
   });
 
+  /// Prueft, ob eines der passenden Metadatenfelder exakt mit der Regel
+  /// uebereinstimmt. Der Vergleich normalisiert Gross-/Kleinschreibung und
+  /// Whitespace, laesst den sichtbaren Wert aber unveraendert.
   bool matchesRule(SteamCollectionMetadataRule rule) {
     final values = switch (rule.field) {
       SteamMetadataField.genre => genres,

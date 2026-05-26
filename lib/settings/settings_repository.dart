@@ -4,18 +4,26 @@ import 'package:sqflite/sqflite.dart';
 import '../data/app_database.dart';
 import 'app_settings.dart';
 
+/// Abstraktion fuer den persistenten Settings-Speicher.
+///
+/// Tests koennen diese Schnittstelle mit In-Memory-Speichern ersetzen.
 abstract class AppSettingsStore {
   Future<AppSettings> loadSettings();
 
   Future<void> saveSettings(AppSettings settings);
 }
 
+/// Separater Speicher fuer Geheimnisse.
+///
+/// Der Steam-Web-API-Key soll nicht mehr dauerhaft in der normalen SQLite-Zeile
+/// liegen, sondern im plattformspezifischen Secure Storage.
 abstract class AppSecretStore {
   Future<String?> readSteamWebApiKey();
 
   Future<void> saveSteamWebApiKey(String? apiKey);
 }
 
+/// Secure-Storage-Implementierung fuer den Steam-Web-API-Key.
 class SecureAppSecretStore implements AppSecretStore {
   static const String _steamWebApiKeyKey = 'steam_web_api_key';
 
@@ -33,6 +41,8 @@ class SecureAppSecretStore implements AppSecretStore {
   Future<void> saveSteamWebApiKey(String? apiKey) async {
     final normalizedApiKey = _nullableString(apiKey);
 
+    // Leere Werte bedeuten "Key entfernen" und halten den Secure Storage
+    // sauber, statt leere Strings zu persistieren.
     if (normalizedApiKey == null) {
       await _storage.delete(key: _steamWebApiKeyKey);
       return;
@@ -52,6 +62,11 @@ class SecureAppSecretStore implements AppSecretStore {
   }
 }
 
+/// SQLite-Repository fuer normale App-Einstellungen.
+///
+/// Es liest/schreibt die sichtbaren Einstellungen aus `app_settings` und
+/// migriert alte API-Keys in den sicheren Speicher, falls sie noch in der
+/// Datenbank liegen.
 class SettingsRepository implements AppSettingsStore {
   static const String _tableName = 'app_settings';
   static const int _settingsId = 1;
@@ -81,6 +96,8 @@ class SettingsRepository implements AppSettingsStore {
 
     final row = rows.single;
     final legacySteamWebApiKey = _nullableString(row['steam_web_api_key']);
+    // Fruehere Versionen speicherten den Key in SQLite. Beim Laden wird er, wenn
+    // moeglich, in den Secure Storage verschoben und danach aus SQLite entfernt.
     final steamWebApiKey = await _resolveSteamWebApiKey(
       db,
       legacySteamWebApiKey,
@@ -124,6 +141,8 @@ class SettingsRepository implements AppSettingsStore {
   ) async {
     final secureSteamWebApiKey = await _readSecureSteamWebApiKey();
 
+    // Secure Storage hat Vorrang. Ein eventuell noch vorhandener Legacy-Wert
+    // wird nur bereinigt.
     if (secureSteamWebApiKey != null) {
       if (legacySteamWebApiKey != null) {
         await _clearLegacySteamWebApiKey(db);
@@ -136,6 +155,8 @@ class SettingsRepository implements AppSettingsStore {
       return null;
     }
 
+    // Migration: alten SQLite-Wert in Secure Storage schreiben. Wenn das
+    // fehlschlaegt, wird aus Sicherheitsgruenden kein Key zurueckgegeben.
     try {
       await _secretStore.saveSteamWebApiKey(legacySteamWebApiKey);
 

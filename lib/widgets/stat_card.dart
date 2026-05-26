@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// Kleine Kennzahlenkarte fuer Dashboard- und Statistikwerte.
+///
+/// Der Wert wird in eine `FittedBox` gelegt, damit lange Zahlen auf engen
+/// Breiten verkleinert werden statt den Kartenrand zu sprengen.
 class StatCard extends StatelessWidget {
   final String title;
   final String value;

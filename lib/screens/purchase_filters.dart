@@ -10,6 +10,10 @@ enum PurchasePlaytimeFilterOption { all, withPlaytime, withoutPlaytime }
 
 enum PurchaseDiscountFilterOption { all, withDiscount, withoutDiscount }
 
+/// Alle aktiven Filter fuer die Kaufuebersicht.
+///
+/// Das Modell ist unveraenderlich und enthaelt die komplette Filterlogik ueber
+/// `matches`, damit HomeScreen und Dialog dieselbe Bedeutung verwenden.
 class PurchaseFilters {
   final PurchaseTypeFilterOption purchaseType;
   final Set<SteamGameStatus> statuses;
@@ -31,6 +35,7 @@ class PurchaseFilters {
 
   bool get hasFilters => activeCount > 0;
 
+  /// Zaehlt Filtergruppen, nicht einzelne Statuswerte.
   int get activeCount {
     var count = 0;
 
@@ -61,6 +66,7 @@ class PurchaseFilters {
     return count;
   }
 
+  /// Prueft, ob ein Kauf alle aktiven Filterbedingungen erfuellt.
   bool matches(SteamPurchase purchase) {
     switch (purchaseType) {
       case PurchaseTypeFilterOption.all:
@@ -135,6 +141,7 @@ class PurchaseFilters {
   }
 }
 
+/// Dialog zum Bearbeiten der Kauf-Filter.
 class PurchaseFiltersDialog extends StatefulWidget {
   final PurchaseFilters initialFilters;
   final List<int> availableYears;
@@ -184,6 +191,8 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
   }
 
   void _apply() {
+    // Nur wenn Preisfelder gueltig sind, wird ein neues Filterobjekt
+    // zurueckgegeben.
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -204,6 +213,8 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
   }
 
   void _reset() {
+    // Ein leeres Filterobjekt signalisiert dem HomeScreen, alle Filter zu
+    // entfernen.
     Navigator.of(context).pop(const PurchaseFilters());
   }
 
@@ -228,6 +239,7 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
   }
 
   String? _validateMinPrice(String? value) {
+    // Min/Max validieren sich gegenseitig, damit der Preisbereich logisch bleibt.
     final strings = AppStrings.of(context);
     final parsedValue = _parseFilterNumber(value ?? '');
 
@@ -340,6 +352,7 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
     required IconData Function(T value) iconBuilder,
     required ValueChanged<T> onSelected,
   }) {
+    // Wiederverwendete Chip-Auswahl fuer Enum-basierte Filtergruppen.
     return Wrap(
       spacing: 8,
       runSpacing: 8,

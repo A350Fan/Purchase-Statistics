@@ -1,5 +1,6 @@
 import '../models/steam_purchase.dart';
 
+/// Fachlicher Fehler fuer CSV-Import/-Export.
 class SteamPurchaseCsvException implements Exception {
   final String message;
 
@@ -11,6 +12,11 @@ class SteamPurchaseCsvException implements Exception {
   }
 }
 
+/// CSV-Codec fuer `SteamPurchase`.
+///
+/// Die Klasse unterstuetzt robuste Imports aus deutsch/englisch benannten
+/// Spalten, schuetzt vor zu grossen Dateien und escaped CSV-Werte so, dass sie
+/// in Tabellenkalkulationen keine Formeln ausfuehren.
 class SteamPurchaseCsv {
   static const int maxImportBytes = 5 * 1024 * 1024;
   static const int maxImportRows = 10000;
@@ -33,6 +39,8 @@ class SteamPurchaseCsv {
   ];
 
   static String encode(List<SteamPurchase> purchases) {
+    // Export schreibt immer die aktuellen Standard-Header, damit die Datei
+    // spaeter wieder eindeutig importiert werden kann.
     final buffer = StringBuffer()..writeln(_encodeRow(headers));
 
     for (final purchase in purchases) {
@@ -74,6 +82,8 @@ class SteamPurchaseCsv {
   }
 
   static List<SteamPurchase> decode(String source) {
+    // Der Import akzeptiert Komma, Semikolon und Tabulator, weil CSV-Dateien aus
+    // deutschen Excel-Setups haeufig Semikolons verwenden.
     final delimiter = _detectDelimiter(source);
     final rows = _parseRows(source, delimiter)
         .where((row) => row.values.any((value) => value.trim().isNotEmpty))
@@ -92,6 +102,8 @@ class SteamPurchaseCsv {
     final headerIndexes = _buildHeaderIndexes(rows.first.values);
     final purchases = <SteamPurchase>[];
 
+    // Nach dem Header wird jede Datenzeile validiert und in ein Modell
+    // ueberfuehrt. Fehler enthalten die CSV-Zeilennummer.
     for (final row in rows.skip(1)) {
       purchases.add(_decodePurchase(row, headerIndexes));
     }
@@ -125,6 +137,7 @@ class SteamPurchaseCsv {
       return value;
     }
 
+    // Formel-Injection-Schutz fuer Programme wie Excel oder LibreOffice.
     return switch (trimmedValue[0]) {
       '=' || '+' || '-' || '@' => "'$value",
       _ => value,
@@ -151,6 +164,8 @@ class SteamPurchaseCsv {
         .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '');
     final candidates = [',', ';', '\t'];
 
+    // Der Kandidat mit den meisten Trennzeichen in der ersten nichtleeren Zeile
+    // ist in der Praxis der wahrscheinlichste Delimiter.
     return candidates.reduce((best, candidate) {
       return _countDelimiter(firstLine, candidate) >
               _countDelimiter(firstLine, best)
@@ -167,6 +182,8 @@ class SteamPurchaseCsv {
       final char = line[i];
 
       if (char == '"') {
+        // Zwei doppelte Anfuehrungszeichen innerhalb eines quoted Werts
+        // repraesentieren ein echtes Anfuehrungszeichen.
         if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
           i++;
         } else {
@@ -199,9 +216,11 @@ class SteamPurchaseCsv {
           inQuotes = !inQuotes;
         }
       } else if (!inQuotes && char == delimiter) {
+        // Delimiter ausserhalb von Quotes beendet den aktuellen Wert.
         row.add(value.toString());
         value = StringBuffer();
       } else if (!inQuotes && (char == '\n' || char == '\r')) {
+        // Zeilenumbrueche ausserhalb von Quotes beenden die aktuelle CSV-Zeile.
         row.add(value.toString());
         rows.add(_CsvRow(row, rowStartLineNumber));
         _throwIfTooManyRows(rows.length);
@@ -217,6 +236,8 @@ class SteamPurchaseCsv {
       } else {
         value.write(char);
 
+        // Zeilenumbrueche innerhalb von Quotes gehoeren zum Wert, zaehlen aber
+        // fuer praezise Fehlermeldungen trotzdem als neue Textzeile.
         if (inQuotes && char == '\n') {
           lineNumber++;
         }
@@ -254,6 +275,8 @@ class SteamPurchaseCsv {
     for (var i = 0; i < headerValues.length; i++) {
       final key = _canonicalHeader(headerValues[i]);
 
+      // Unbekannte Spalten werden ignoriert, bekannte Synonyme auf den
+      // kanonischen Spaltennamen gemappt.
       if (key != null) {
         indexes[key] = i;
       }
@@ -269,6 +292,8 @@ class SteamPurchaseCsv {
   }
 
   static String? _canonicalHeader(String value) {
+    // Header werden tolerant normalisiert, damit z.B. "Kaufdatum" und
+    // "purchase_date" beide funktionieren.
     final normalized = value
         .trim()
         .replaceFirst('\uFEFF', '')
@@ -359,6 +384,8 @@ class SteamPurchaseCsv {
     _CsvRow row,
     Map<String, int> headerIndexes,
   ) {
+    // Jede Spalte wird einzeln gelesen und validiert. Dadurch zeigen
+    // Importfehler auf die konkrete Zeile und den konkreten Feldnamen.
     final gameName = _requiredValue(row, headerIndexes, 'game_name');
     final dlcName = _optionalValue(row, headerIndexes, 'dlc_name').trim();
     final purchaseType = _parsePurchaseType(
@@ -428,6 +455,8 @@ class SteamPurchaseCsv {
     }
 
     if (price < 0) {
+      // Fachliche Validierung nach dem Parsen: negative Geld- oder Stundenwerte
+      // sind fuer die App nicht sinnvoll.
       throw SteamPurchaseCsvException(
         'Zeile ${row.lineNumber}: Preis darf nicht negativ sein.',
       );
@@ -590,6 +619,8 @@ class SteamPurchaseCsv {
     final lastComma = compactValue.lastIndexOf(',');
     final lastDot = compactValue.lastIndexOf('.');
 
+    // Wenn Komma und Punkt vorkommen, wird das spaeter auftretende Zeichen als
+    // Dezimaltrenner interpretiert. So funktionieren "1.234,56" und "1,234.56".
     if (lastComma >= 0 && lastDot >= 0) {
       if (lastComma > lastDot) {
         return double.tryParse(
@@ -636,6 +667,7 @@ class SteamPurchaseCsv {
     );
 
     if (normalized.isEmpty) {
+      // Ohne expliziten Typ entscheidet ein vorhandener DLC-Name.
       return dlcName.isEmpty ? SteamPurchaseType.game : SteamPurchaseType.dlc;
     }
 
@@ -677,6 +709,7 @@ class SteamPurchaseCsv {
   }
 }
 
+/// Interne CSV-Zeile plus Startzeilennummer fuer Fehlermeldungen.
 class _CsvRow {
   final List<String> values;
   final int lineNumber;

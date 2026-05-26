@@ -3,13 +3,20 @@ import 'package:flutter/widgets.dart';
 import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 
+/// Kleine, manuell gepflegte Lokalisierungsklasse.
+///
+/// Statt generierter ARB-Dateien liegen deutsche und englische Texte hier direkt
+/// nebeneinander. Jeder Getter entscheidet ueber `isEnglish`, welchen Text die
+/// UI bekommt.
 class AppStrings {
+  /// Locales, die MaterialApp offiziell anbietet.
   static const supportedLocales = [Locale('de'), Locale('en')];
 
   final Locale locale;
 
   const AppStrings._(this.locale);
 
+  /// Waehlt Deutsch als Fallback, wenn die Locale nicht explizit Englisch ist.
   static AppStrings forLocale(Locale locale) {
     if (locale.languageCode == 'en') {
       return const AppStrings._(Locale('en'));
@@ -18,6 +25,10 @@ class AppStrings {
     return const AppStrings._(Locale('de'));
   }
 
+  /// Holt die Texte aus dem naechsten `AppTextScope`.
+  ///
+  /// Der Fallback verhindert Crashes in Tests oder isolierten Widgets, die ohne
+  /// kompletten App-Baum gepumpt werden.
   static AppStrings of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppTextScope>();
 
@@ -26,6 +37,7 @@ class AppStrings {
 
   bool get isEnglish => locale.languageCode == 'en';
 
+  // Navigation, Dashboard und globale Aktionen.
   String get appTitle => 'Purchase Statistics';
   String get dashboard => isEnglish ? 'Dashboard' : 'Dashboard';
   String get purchases => isEnglish ? 'Purchases' : 'Käufe';
@@ -99,6 +111,7 @@ class AppStrings {
       ? 'Add your Steam account and Web API key in Settings first.'
       : 'Hinterlege zuerst Steam-Account und Web-API-Key in den Einstellungen.';
 
+  // Automatisierungs- und Steam-Sync-Meldungen.
   String syncedSteamPlaytime({
     required int updated,
     required int matched,
@@ -168,6 +181,8 @@ class AppStrings {
       isEnglish ? 'Clear filters' : 'Filter zurücksetzen';
   String get resetFilters => isEnglish ? 'Reset' : 'Zurücksetzen';
   String get applyFilters => isEnglish ? 'Apply' : 'Anwenden';
+
+  // Kauffilter und leere Zustände.
   String get purchaseFiltersTitle =>
       isEnglish ? 'Filter purchases' : 'Käufe filtern';
   String get status => isEnglish ? 'Status' : 'Status';
@@ -204,6 +219,8 @@ class AppStrings {
       isEnglish ? 'No chart data yet.' : 'Noch keine Diagrammdaten vorhanden.';
   String get noInsightsData =>
       isEnglish ? 'No insights yet.' : 'Noch keine Insights vorhanden.';
+
+  // Ziele und Zielvalidierung.
   String get editGoals => isEnglish ? 'Edit goals' : 'Ziele bearbeiten';
   String get annualSpendingGoal =>
       isEnglish ? 'Annual spending' : 'Jahresausgaben';
@@ -245,6 +262,8 @@ class AppStrings {
   String get percentOutOfRange => isEnglish
       ? 'Percent must be between 0 and 100'
       : 'Prozentwert muss zwischen 0 und 100 liegen';
+
+  // Kollektionen, automatische Regeln und Sammlungsdetails.
   String get noCollections => isEnglish
       ? 'No collections yet. Create your first collection.'
       : 'Noch keine Kollektionen vorhanden. Erstelle deine erste Kollektion.';
@@ -532,6 +551,7 @@ class AppStrings {
         : 'CSV konnte nicht exportiert werden: $error';
   }
 
+  // Statistik-Tabellen und Diagrammtexte.
   String get annualValues => isEnglish ? 'Annual values' : 'Jahreswerte';
   String get year => isEnglish ? 'Year' : 'Jahr';
   String get spending => isEnglish ? 'Spending' : 'Ausgaben';
@@ -573,6 +593,7 @@ class AppStrings {
       ? 'Cumulative spending in selected year'
       : 'Gesamtausgaben im gewählten Jahr';
 
+  // Einstellungen und rechtliche App-Informationen.
   String get settingsTitle => isEnglish ? 'Settings' : 'Einstellungen';
   String get appearance => isEnglish ? 'Appearance' : 'Darstellung';
   String get system => isEnglish ? 'System' : 'System';
@@ -627,6 +648,7 @@ class AppStrings {
       ? 'Copyright (C) 2026 A350Fan\nLicensed under GNU GPL v3.0 or later.'
       : 'Copyright (C) 2026 A350Fan\nLizenziert unter GNU GPL v3.0 oder neuer.';
 
+  // Kauf-Editor und Formularvalidierung.
   String get addPurchaseTitle => isEnglish ? 'Add purchase' : 'Kauf hinzufügen';
   String get editPurchaseTitle =>
       isEnglish ? 'Edit purchase' : 'Kauf bearbeiten';
@@ -738,6 +760,10 @@ class AppStrings {
   }
 }
 
+/// InheritedWidget fuer lokalisierte Texte.
+///
+/// Der Scope wird in `main.dart` oberhalb von `MaterialApp.home` gesetzt, damit
+/// alle Screens ueber `AppStrings.of(context)` dieselbe Sprachinstanz nutzen.
 class AppTextScope extends InheritedWidget {
   final AppStrings strings;
 

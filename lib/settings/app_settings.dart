@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// App-eigener Theme-Modus.
+///
+/// Diese Enum trennt die gespeicherte Einstellung von Flutters `ThemeMode` und
+/// kapselt die Umrechnung an einer Stelle.
 enum AppThemeMode {
   system,
   light,
@@ -31,6 +35,10 @@ enum AppThemeMode {
   }
 }
 
+/// Sprachauswahl der App.
+///
+/// `system` folgt der Plattformsprache, alle anderen Werte erzwingen eine
+/// konkrete Locale.
 enum AppLanguage {
   system,
   german,
@@ -54,6 +62,7 @@ enum AppLanguage {
   }
 }
 
+/// Waehrungen, in denen Preise angezeigt werden koennen.
 enum AppCurrency {
   eur,
   usd,
@@ -93,6 +102,11 @@ enum AppCurrency {
   }
 }
 
+/// Alle benutzerbezogenen App-Einstellungen.
+///
+/// Die Steam-Web-API-Daten werden zwar zusammen mit den Settings im UI
+/// verwaltet, der geheime API-Key wird vom Repository aber in den Secure
+/// Storage ausgelagert.
 class AppSettings {
   final AppThemeMode themeMode;
   final AppLanguage language;
@@ -110,6 +124,7 @@ class AppSettings {
     this.steamIncludePlayedFreeGames = true,
   });
 
+  /// Erstellt eine geaenderte Kopie der Einstellungen.
   AppSettings copyWith({
     AppThemeMode? themeMode,
     AppLanguage? language,
@@ -130,10 +145,12 @@ class AppSettings {
     );
   }
 
+  /// Gibt an, ob beide benoetigten Werte fuer Steam-Sync vorhanden sind.
   bool get hasSteamSyncCredentials {
     return _hasValue(steamAccountIdentifier) && _hasValue(steamWebApiKey);
   }
 
+  /// Bestimmt die tatsaechliche Locale, die MaterialApp verwenden soll.
   Locale resolveLocale(Locale platformLocale) {
     return switch (language) {
       AppLanguage.german => const Locale('de'),

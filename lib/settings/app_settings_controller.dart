@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 import 'app_settings.dart';
 import 'settings_repository.dart';
 
+/// Bindeglied zwischen persistierten Einstellungen und Flutter-UI.
+///
+/// Der Controller erbt von `ChangeNotifier`, damit Widgets automatisch neu
+/// bauen koennen, wenn Theme, Sprache, Waehrung oder Steam-Sync-Daten geaendert
+/// werden.
 class AppSettingsController extends ChangeNotifier {
   final AppSettingsStore _store;
 
@@ -24,6 +29,7 @@ class AppSettingsController extends ChangeNotifier {
     return _settings.resolveLocale(PlatformDispatcher.instance.locale);
   }
 
+  /// Laedt die gespeicherten Einstellungen einmalig beim App-Start.
   Future<void> load() async {
     _settings = await _store.loadSettings();
     _isLoaded = true;
@@ -59,6 +65,10 @@ class AppSettingsController extends ChangeNotifier {
     );
   }
 
+  /// Aktualisiert die Einstellungen optimistisch.
+  ///
+  /// Die UI wird sofort benachrichtigt. Falls das Speichern fehlschlaegt, wird
+  /// der alte Zustand wiederhergestellt und der Fehler weitergereicht.
   Future<void> _updateSettings(AppSettings settings) async {
     if (settings == _settings) {
       return;
@@ -88,6 +98,8 @@ class AppSettingsController extends ChangeNotifier {
   }
 }
 
+/// InheritedNotifier, ueber den Screens den `AppSettingsController` aus dem
+/// BuildContext holen koennen.
 class AppSettingsScope extends InheritedNotifier<AppSettingsController> {
   const AppSettingsScope({
     super.key,

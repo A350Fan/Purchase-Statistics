@@ -9,10 +9,17 @@ import 'l10n/app_strings.dart';
 import 'screens/home_screen.dart';
 import 'settings/app_settings_controller.dart';
 
+// Einstiegspunkt der Flutter-App. `runApp` uebergibt das oberste Widget an
+// Flutter; ab hier baut Flutter den gesamten Widget-Baum auf.
 void main() {
   runApp(const SteamStatsApp());
 }
 
+/// Oberstes App-Widget.
+///
+/// Die optionalen Repositories/Services sind vor allem fuer Tests wichtig:
+/// Produktiv werden die Standardimplementierungen verwendet, in Tests koennen
+/// In-Memory- oder Fake-Objekte injiziert werden.
 class SteamStatsApp extends StatefulWidget {
   final AppSettingsController? settingsController;
   final SteamPurchaseRepository? purchaseRepository;
@@ -34,6 +41,8 @@ class SteamStatsApp extends StatefulWidget {
 }
 
 class _SteamStatsAppState extends State<SteamStatsApp> {
+  // Gemeinsame helle Theme-Konfiguration. MaterialApp verwendet dieses Theme,
+  // wenn in den Einstellungen "Hell" oder systemseitig hell gewaehlt ist.
   static final ThemeData _lightTheme = ThemeData(
     colorScheme: ColorScheme.fromSeed(
       seedColor: Colors.blueGrey,
@@ -57,6 +66,8 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
     useMaterial3: true,
   );
 
+  // Dunkles Gegenstueck zum Light Theme. Die Farben sind zentral hier
+  // definiert, damit alle Screens dieselbe visuelle Basis verwenden.
   static final ThemeData _darkTheme = ThemeData(
     colorScheme: ColorScheme.fromSeed(
       seedColor: Colors.blueGrey,
@@ -87,6 +98,8 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
   void initState() {
     super.initState();
 
+    // Wenn kein Controller uebergeben wurde, besitzt dieses Widget den
+    // Controller selbst und muss ihn spaeter auch entsorgen.
     _settingsController = widget.settingsController ?? AppSettingsController();
     _ownsSettingsController = widget.settingsController == null;
     _settingsController.load();
@@ -103,6 +116,9 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Der SettingsScope macht den Controller fuer untergeordnete Widgets
+    // erreichbar. AnimatedBuilder baut MaterialApp neu, sobald sich Theme,
+    // Sprache oder andere Einstellungen aendern.
     return AppSettingsScope(
       controller: _settingsController,
       child: AnimatedBuilder(

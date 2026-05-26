@@ -3,6 +3,10 @@ final _ignoredSteamSearchSymbolPattern = RegExp(
 );
 final _whitespacePattern = RegExp(r'\s+');
 
+/// Normalisiert Suchtexte fuer Cache-Keys und fuzzy Vergleiche.
+///
+/// Trademark-Symbole und mehrfacher Whitespace wuerden sonst dazu fuehren, dass
+/// eigentlich gleiche Steam-Titel als unterschiedlich behandelt werden.
 String normalizeSteamStoreSearchText(String value) {
   return value
       .toLowerCase()

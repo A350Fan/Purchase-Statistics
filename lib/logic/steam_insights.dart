@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../models/steam_purchase.dart';
 import 'steam_statistics.dart';
 
+/// Gruende, die erklaeren, warum ein Kauf in einer Insight-Liste auftaucht.
 enum SteamInsightReason {
   missingStatus,
   noPlaytime,
@@ -17,6 +18,7 @@ enum SteamInsightReason {
   nearlyFinished,
 }
 
+/// Aufbereitete Empfehlung/Einordnung fuer einen einzelnen Kauf.
 class SteamPurchaseInsight {
   final SteamPurchase purchase;
   final double totalPrice;
@@ -39,6 +41,11 @@ class SteamPurchaseInsight {
   });
 }
 
+/// Berechnet Backlog-, Status- und Kosten-Insights aus den Kaeufen.
+///
+/// Anders als `SteamStatistics` geht es hier weniger um reine Summen und mehr
+/// um priorisierte Listen: Was ist ungespielt teuer, was sollte als Naechstes
+/// gespielt werden, welche Status fehlen?
 class SteamInsights {
   static const double nextUpPlaytimeLimit = 20;
   static const double wellPlayedStatusReviewLimit = 40;
@@ -112,6 +119,7 @@ class SteamInsights {
   SteamInsights(this.purchases, {DateTime? currentDate})
     : currentDate = _dateOnly(currentDate ?? DateTime.now());
 
+  /// Preis eines Spiels inklusive verknuepfter DLCs.
   double priceIncludingLinkedDlcsForPurchase(SteamPurchase purchase) {
     return _statistics.priceIncludingLinkedDlcsForPurchase(purchase);
   }
@@ -126,6 +134,10 @@ class SteamInsights {
     return priceIncludingLinkedDlcsForPurchase(purchase) / playtimeHours;
   }
 
+  /// Spielzeit eines Kaufs.
+  ///
+  /// Bei DLCs oder doppelten Spielnamen kann Spielzeit vom Basisspiel geerbt
+  /// werden. Der groesste bekannte Wert gewinnt.
   double? playtimeForPurchase(SteamPurchase purchase) {
     final directPlaytime = purchase.playtimeHours;
     final inheritedPlaytime =
@@ -138,11 +150,14 @@ class SteamInsights {
     return inheritedPlaytime;
   }
 
+  /// Laengenschaetzung aus direkter Angabe oder einem anderen Kauf desselben
+  /// Spiels.
   double? estimatedLengthForPurchase(SteamPurchase purchase) {
     return _directLengthEstimateForPurchase(purchase) ??
         _lengthEstimateByGameName[_gameNameKey(purchase.gameName)];
   }
 
+  /// Geschaetzter Fortschritt als Spielzeit geteilt durch erwartete Laenge.
   double? estimatedProgressForPurchase(SteamPurchase purchase) {
     final playtimeHours = playtimeForPurchase(purchase);
     final estimatedLengthHours = estimatedLengthForPurchase(purchase);
@@ -158,6 +173,8 @@ class SteamInsights {
   }
 
   List<SteamPurchaseInsight> _buildBacklogPriority() {
+    // Priorisiert offene/aktive Backlog-Spiele, die noch nicht fertig wirken
+    // oder wenig Spielzeit haben.
     final insights =
         backlogGames
             .where((purchase) {
@@ -185,6 +202,7 @@ class SteamInsights {
   }
 
   List<SteamPurchaseInsight> _buildExpensiveUnplayedGames() {
+    // Teure ungespielte Backlog-Titel zuerst, bei gleichem Preis aeltere zuerst.
     final insights = unplayedBacklogGames.map(_insightForPurchase).toList()
       ..sort((a, b) {
         final priceCompare = b.totalPrice.compareTo(a.totalPrice);
@@ -200,6 +218,8 @@ class SteamInsights {
   }
 
   List<SteamPurchaseInsight> _buildStartedBacklog() {
+    // Begonnene Backlog-Spiele werden so sortiert, dass aktive und bereits
+    // investierte Titel sichtbar nach oben kommen.
     final insights = startedBacklogGames.map(_insightForPurchase).toList()
       ..sort((a, b) {
         final activeCompare = _activeRank(
@@ -381,6 +401,8 @@ class SteamInsights {
         ? _clamp01(playtimeHours / 80) * 35
         : 0.0;
 
+    // Score-Heuristik: teuer, alt, offen/aktiv und kurz/fast fertig erhoehen die
+    // Prioritaet; sehr viel Spielzeit ohne Laengenschaetzung senkt sie.
     return math.max(
       0,
       costScore +
@@ -393,6 +415,8 @@ class SteamInsights {
   }
 
   List<SteamInsightReason> _reasonsForPurchase(SteamPurchase purchase) {
+    // Die Gruende sind bewusst getrennt vom Score, damit die UI erklaeren kann,
+    // warum ein Spiel vorgeschlagen wird.
     final reasons = <SteamInsightReason>[];
     final playtimeHours = playtimeForPurchase(purchase) ?? 0;
     final estimatedLength = estimatedLengthForPurchase(purchase);
@@ -507,6 +531,8 @@ class SteamInsights {
       }
 
       final gameNameKey = _gameNameKey(purchase.gameName);
+      // Bei mehrfachen Eintraegen desselben Spiels behalten wir die hoechste
+      // bekannte Spielzeit.
       result[gameNameKey] = math.max(result[gameNameKey] ?? 0, playtimeHours);
     }
 
@@ -529,6 +555,8 @@ class SteamInsights {
 
       final gameNameKey = _gameNameKey(purchase.gameName);
       final currentEstimate = result[gameNameKey];
+      // Fuer Backlog-Prioritaet ist die kuerzeste plausible Laenge hilfreicher:
+      // ein Spiel kann dadurch als "schnell abschliessbar" erkannt werden.
       result[gameNameKey] = currentEstimate == null
           ? lengthEstimate
           : math.min(currentEstimate, lengthEstimate);

@@ -4,6 +4,8 @@ import '../l10n/app_strings.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+/// Einstellungsseite fuer Darstellung, Sprache, Waehrung, Steam-Sync und
+/// Lizenzinformationen.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -12,6 +14,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // Controller fuer die Steam-Sync-Formularfelder. Theme/Sprache/Waehrung
+  // werden direkt ueber den AppSettingsController gesetzt.
   final _steamAccountController = TextEditingController();
   final _steamApiKeyController = TextEditingController();
 
@@ -23,6 +27,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
+    // Die gespeicherten Steam-Felder werden erst geladen, wenn der
+    // AppSettingsController im Kontext verfuegbar ist.
     if (_hasLoadedSteamSettings) {
       return;
     }
@@ -221,6 +227,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Speichert nur die Steam-Sync-Einstellungen.
+  ///
+  /// Die anderen Einstellungen werden schon beim Auswaehlen gespeichert.
   Future<void> _saveSteamSettings(AppStrings strings) async {
     final controller = AppSettingsScope.of(context);
 
@@ -253,6 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+/// Wiederverwendeter Abschnitt mit Titel und eingeruecktem Inhalt.
 class _SettingsSection extends StatelessWidget {
   final String title;
   final IconData icon;

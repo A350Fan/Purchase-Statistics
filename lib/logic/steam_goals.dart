@@ -3,10 +3,16 @@ import '../models/steam_purchase.dart';
 import 'steam_insights.dart';
 import 'steam_statistics.dart';
 
+/// Gibt an, ob ein Ziel einen Hoechstwert oder einen Mindestwert beschreibt.
 enum SteamGoalDirection { maximum, minimum }
 
+/// Bewertungszustand eines Ziels fuer die UI.
 enum SteamGoalState { unset, onTrack, atRisk, offTrack }
 
+/// Ergebnis einer einzelnen Zielpruefung.
+///
+/// `actualValue` ist der aktuelle Stand. `projectedValue` ist optional und wird
+/// z.B. fuer Jahresausgaben verwendet, um eine Hochrechnung zu bewerten.
 class SteamGoalResult {
   final double actualValue;
   final double? projectedValue;
@@ -22,8 +28,14 @@ class SteamGoalResult {
 
   bool get isSet => targetValue != null;
 
+  /// Wert, der fuer die Ampelentscheidung genutzt wird: Projektion vor Istwert,
+  /// falls vorhanden.
   double get comparisonValue => projectedValue ?? actualValue;
 
+  /// Fortschritt relativ zum Ziel.
+  ///
+  /// Der Wert kann groesser als 1 sein, wenn ein Ziel ueber- bzw.
+  /// unterschritten wurde; die UI kann ihn bei Bedarf begrenzen.
   double? get progress {
     final target = targetValue;
 
@@ -51,6 +63,8 @@ class SteamGoalResult {
     final isActualMet = _meetsTarget(actualValue, target);
     final isComparisonMet = _meetsTarget(comparisonValue, target);
 
+    // Wenn die Projektion passt, ist das Ziel auf Kurs. Wenn nur der aktuelle
+    // Wert passt, die Projektion aber nicht, ist das Ziel gefaehrdet.
     if (isComparisonMet) {
       return SteamGoalState.onTrack;
     }
@@ -70,6 +84,10 @@ class SteamGoalResult {
   }
 }
 
+/// Aggregiert alle Zielwerte, die der Ziele-Tab anzeigt.
+///
+/// Die Klasse kombiniert Statistik- und Insight-Berechnungen, damit die UI nur
+/// noch fertige `SteamGoalResult`s rendern muss.
 class SteamGoalsOverview {
   final List<SteamPurchase> purchases;
   final SteamGoalSettings settings;
@@ -129,6 +147,8 @@ class SteamGoalsOverview {
   }) : currentDate = _dateOnly(currentDate ?? DateTime.now());
 
   double _spendingForYear(int year) {
+    // Jahresausgaben werden direkt aus der Kauf-Liste summiert, damit auch ein
+    // ausgewaehltes vergangenes Jahr unabhaengig vom aktuellen Datum funktioniert.
     var spending = 0.0;
 
     for (final purchase in purchases) {

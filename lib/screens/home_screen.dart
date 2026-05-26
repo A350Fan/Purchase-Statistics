@@ -30,6 +30,7 @@ import 'settings_screen.dart';
 import 'smart_insights_tab.dart';
 import 'statistics_tab.dart';
 
+/// Sortiermoeglichkeiten fuer die Kaufuebersicht.
 enum PurchaseSortOption {
   dateNewestFirst,
   dateOldestFirst,
@@ -45,6 +46,7 @@ enum PurchaseSortOption {
   pricePerHourHighestFirst,
 }
 
+/// Aktionen aus App-Bar- und Automatisierungsmenues.
 enum _HomeAction {
   autoLinkSteamApps,
   syncSteamPlaytime,
@@ -58,6 +60,11 @@ enum _HomeAction {
 
 enum _PurchaseCardAction { edit, delete }
 
+/// Hauptscreen der App.
+///
+/// Er haelt die geladene Kauf-Liste, koordiniert Repositories/Services und
+/// verteilt die Daten an Dashboard, Statistik, Diagramme, Insights, Ziele und
+/// Kollektionen.
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
   final SteamCollectionRepository? collectionRepository;
@@ -82,6 +89,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
+  // Layout-Konstanten fuer die responsive Kaufuebersicht.
   static final RegExp _searchWhitespacePattern = RegExp(r'\s+');
   static const double _overviewMaxContentWidth = 1240;
   static const double _purchaseTablePriceColumnWidth = 120;
@@ -103,6 +111,8 @@ class _HomeScreenState extends State<HomeScreen>
   final _collectionsTabKey = GlobalKey<CollectionsTabState>();
   final _purchaseSearchController = TextEditingController();
 
+  // Kaufdaten plus Caches fuer teurere abgeleitete Listen/Werte. Caches werden
+  // invalidiert, sobald Kaeufe, Sortierung, Suche, Filter oder Locale wechseln.
   List<SteamPurchase> _purchases = [];
   SteamStatistics? _cachedStatistics;
   DateTime? _cachedStatisticsDate;
@@ -124,6 +134,8 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    // Repositories/Services koennen von Tests injiziert werden. Wenn der
+    // HomeScreen sie selbst erstellt, ist er auch fuer `dispose` verantwortlich.
     _repository = widget.repository ?? SteamPurchaseRepository();
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
@@ -169,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadPurchases() async {
+    // Zentraler Reload nach Import, Bearbeiten, Loeschen und Automatisierung.
     final purchases = await _repository.getAllPurchases();
 
     if (!mounted) {
@@ -212,6 +225,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   SteamStatistics _getStatistics() {
+    // Statistikberechnungen werden pro Tag gecacht, weil Projektionen vom
+    // aktuellen Datum abhaengen.
     final today = _today();
     final cachedStatistics = _cachedStatistics;
 
@@ -226,6 +241,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   List<SteamPurchase> _getSortedPurchases(SteamStatistics stats) {
+    // Sortieren kann haeufig durch Rebuilds ausgeloest werden, deshalb wird das
+    // Ergebnis pro Sortieroption gecacht.
     final cachedSortedPurchases = _cachedSortedPurchases;
 
     if (cachedSortedPurchases != null && _cachedSortOption == _sortOption) {
@@ -306,6 +323,8 @@ class _HomeScreenState extends State<HomeScreen>
     List<SteamPurchase> purchases,
     AppStrings strings,
   ) {
+    // Filtercache haengt neben Kauf-Liste und Suchtext auch von der Locale ab,
+    // weil einzelne Suchlabels/Statusnamen sprachabhaengig sind.
     final query = _normalizeSearchText(_purchaseSearchController.text);
     final filterLocale = strings.locale;
     final cachedFilteredPurchases = _cachedFilteredPurchases;
@@ -490,6 +509,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openAddPurchaseScreen() async {
+    // Der Editor liefert das fertige Kaufmodell zurueck; gespeichert wird hier,
+    // damit HomeScreen die Liste danach zentral neu laden kann.
     final result = await Navigator.of(context).push<PurchaseEditorResult>(
       MaterialPageRoute(
         builder: (context) => AddPurchaseScreen(
@@ -532,6 +553,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openEditPurchaseScreen(SteamPurchase purchase) async {
+    // Beim Bearbeiten werden neben dem Kauf auch manuelle Sammlungszuordnungen
+    // aktualisiert.
     final result = await Navigator.of(context).push<PurchaseEditorResult>(
       MaterialPageRoute(
         builder: (context) => AddPurchaseScreen(
@@ -591,6 +614,8 @@ class _HomeScreenState extends State<HomeScreen>
     required String message,
     required Future<T> Function() action,
   }) async {
+    // Gemeinsamer Wrapper fuer laenger laufende Aktionen: verhindert parallele
+    // Automatisierungen, zeigt Fortschritt und meldet Fehler per SnackBar.
     if (_isAutomationRunning) {
       return null;
     }
@@ -633,6 +658,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _autoLinkSteamApps() async {
+    // Sucht Steam-App-Kandidaten und laesst unsichere Treffer vor dem Speichern
+    // im Review-Dialog bestaetigen.
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
@@ -705,6 +732,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _syncSteamPlaytime() async {
+    // Nutzt die in den Einstellungen hinterlegten Steam-Zugangsdaten und
+    // schreibt gefundene Spielzeiten in verknuepfte Kaeufe.
     final strings = AppStrings.of(context);
     final settings =
         AppSettingsScope.maybeOf(context)?.settings ?? const AppSettings();
@@ -757,6 +786,8 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshMetadataForLinkedPurchases({
     required bool onlyMissing,
   }) async {
+    // Aktualisiert Steam-Metadaten fuer Kaeufe mit App-ID. `onlyMissing`
+    // begrenzt die Arbeit auf bisher nicht gespeicherte Metadaten.
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
@@ -789,6 +820,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _createSmartCollectionPresets() async {
+    // Legt vordefinierte automatische Sammlungen an, ohne vorhandene
+    // gleichnamige Presets doppelt zu erzeugen.
     final strings = AppStrings.of(context);
     final createdCount = await _runAutomation(
       message: strings.creatingSmartCollections,
@@ -870,6 +903,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _importPurchasesFromCsv() async {
+    // Datei auswaehlen, Groesse pruefen, CSV parsen und anschliessend als Batch
+    // speichern.
     if (_isCsvOperationRunning) {
       return;
     }
@@ -951,6 +986,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _exportPurchasesToCsv() async {
+    // Exportiert die aktuell sortierte Kauf-Liste, damit die CSV der sichtbaren
+    // Reihenfolge entspricht.
     if (_isCsvOperationRunning) {
       return;
     }
@@ -1110,6 +1147,7 @@ class _HomeScreenState extends State<HomeScreen>
     SteamStatistics stats,
     AppCurrency currency,
   ) {
+    // Kartenlayout fuer schmale Viewports und kompaktere Listenansichten.
     final strings = AppStrings.of(context);
     final discountText = purchase.discount == null
         ? null
@@ -1532,6 +1570,8 @@ class _HomeScreenState extends State<HomeScreen>
     SteamStatistics stats,
     AppCurrency currency,
   ) {
+    // Tabellenlayout fuer breite Viewports. Inhaltlich nutzt es dieselben Werte
+    // wie die Kartenansicht.
     final strings = AppStrings.of(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -1692,6 +1732,8 @@ class _HomeScreenState extends State<HomeScreen>
     AppCurrency currency, {
     bool showTableColumns = false,
   }) {
+    // Kopfzeile der Kaufuebersicht mit Suche, Sortierung, Filter und
+    // aktivierten Filterchips.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2158,6 +2200,8 @@ class _HomeScreenState extends State<HomeScreen>
     required SteamStatistics stats,
     required AppCurrency currency,
   }) {
+    // Dashboard wird als Sliver-Liste gebaut, damit es mit Kaufuebersicht und
+    // Headern in einem gemeinsamen ScrollView funktioniert.
     final metrics = _dashboardMetrics(strings, stats, currency);
     final isCompact = constraints.maxWidth < 560;
 
@@ -2628,6 +2672,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
+/// Zieldefinition fuer NavigationBar/NavigationRail.
 class _HomeDestination {
   final IconData icon;
   final String label;
@@ -2635,6 +2680,7 @@ class _HomeDestination {
   const _HomeDestination({required this.icon, required this.label});
 }
 
+/// Dashboard-Kennzahl mit Icon, Titel und Wert.
 class _DashboardMetric {
   final IconData icon;
   final String title;
@@ -2647,6 +2693,7 @@ class _DashboardMetric {
   });
 }
 
+/// Sliver-Header, der die Kaufuebersicht beim Scrollen oben halten kann.
 class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double extent;
   final Widget child;
@@ -2674,6 +2721,7 @@ class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
+/// Definition einer automatisch anzulegenden Smart-Kollektion.
 class _SmartCollectionPreset {
   final String name;
   final String description;
@@ -2686,6 +2734,7 @@ class _SmartCollectionPreset {
   });
 }
 
+/// Review-Dialog fuer automatisch gefundene Steam-App-Verknuepfungen.
 class _SteamAppLinkReviewDialog extends StatefulWidget {
   final List<SteamAppLinkCandidate> candidates;
 
@@ -2697,6 +2746,8 @@ class _SteamAppLinkReviewDialog extends StatefulWidget {
 }
 
 class _SteamAppLinkReviewDialogState extends State<_SteamAppLinkReviewDialog> {
+  // Hochsichere Kandidaten sind standardmaessig ausgewaehlt, unsicherere kann
+  // der Nutzer manuell hinzunehmen.
   late final Set<int> _selectedPurchaseIds = widget.candidates
       .where((candidate) => candidate.isHighConfidence)
       .map((candidate) => candidate.purchase.id)

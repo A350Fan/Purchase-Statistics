@@ -9,6 +9,7 @@ import 'resource_lifecycle.dart';
 import 'steam_store_search_client.dart';
 import 'steam_store_search_text.dart';
 
+/// Gemeinsame Suchschnittstelle fuer echte Steam-Suche und Test-Doubles.
 abstract class SteamStoreSearchSource {
   Future<List<SteamStoreSearchSuggestion>> search({
     required String query,
@@ -19,6 +20,11 @@ abstract class SteamStoreSearchSource {
   });
 }
 
+/// Kombiniert Steam-Store-Suche mit lokalem SQLite-Cache.
+///
+/// Das Repository entscheidet, ob eine Suchanfrage lang genug ist, baut bei DLCs
+/// einen besseren Suchbegriff und faellt bei Netzwerkfehlern auf vorhandene
+/// Cache-Daten zurueck.
 class SteamStoreSearchRepository
     implements SteamStoreSearchSource, DisposableResource {
   static const int minimumQueryLength = 3;
@@ -58,6 +64,8 @@ class SteamStoreSearchRepository
     required String countryCode,
     String? associatedGameName,
   }) async {
+    // DLC-Suchen funktionieren bei Steam oft besser, wenn der Name des
+    // Basisspiels vorangestellt wird.
     final searchTerm = _buildSearchTerm(
       query: query,
       purchaseType: purchaseType,
@@ -69,6 +77,8 @@ class SteamStoreSearchRepository
       return [];
     }
 
+    // Der Cache-Key enthaelt Sprache, Land und Kaufart, weil Steam je nach
+    // Region/Sprache andere Treffer liefern kann.
     final cacheKey = SteamStoreSearchCacheKey(
       normalizedSearchTerm: normalizedSearchTerm,
       purchaseType: purchaseType,
@@ -93,6 +103,8 @@ class SteamStoreSearchRepository
           ? emptyResultCacheDuration
           : resultCacheDuration;
 
+      // Leere Ergebnisse werden kuerzer gecacht, weil Tippfehler oder neue
+      // Steam-Eintraege sich schneller aendern koennen.
       await cache.write(
         cacheKey,
         SteamStoreSearchCacheEntry(
@@ -103,6 +115,8 @@ class SteamStoreSearchRepository
 
       return suggestions;
     } catch (_) {
+      // Autocomplete soll bei Netzproblemen nicht hart fehlschlagen. Abgelaufene
+      // Cache-Daten sind dann besser als gar keine Vorschlaege.
       return cachedEntry?.suggestions ?? [];
     }
   }
@@ -136,6 +150,7 @@ class SteamStoreSearchRepository
   }
 }
 
+/// Stabiler Cache-Schluessel fuer Steam-Store-Suchergebnisse.
 class SteamStoreSearchCacheKey {
   final String normalizedSearchTerm;
   final SteamPurchaseType purchaseType;
@@ -159,6 +174,7 @@ class SteamStoreSearchCacheKey {
   }
 }
 
+/// Cache-Wert inklusive Ablaufzeit.
 class SteamStoreSearchCacheEntry {
   final List<SteamStoreSearchSuggestion> suggestions;
   final DateTime expiresAt;
@@ -169,6 +185,7 @@ class SteamStoreSearchCacheEntry {
   });
 }
 
+/// Abstraktion fuer den Suchcache.
 abstract class SteamStoreSearchCache {
   Future<SteamStoreSearchCacheEntry?> read(SteamStoreSearchCacheKey key);
 
@@ -178,6 +195,7 @@ abstract class SteamStoreSearchCache {
   );
 }
 
+/// SQLite-Implementierung des Suchcaches.
 class SqliteSteamStoreSearchCache implements SteamStoreSearchCache {
   static const String tableName = 'steam_store_search_cache';
 
@@ -236,6 +254,8 @@ class SqliteSteamStoreSearchCache implements SteamStoreSearchCache {
         ),
       );
     } catch (_) {
+      // Defekte Cache-Eintraege werden ignoriert; die naechste erfolgreiche
+      // Suche schreibt den Eintrag neu.
       return null;
     }
   }

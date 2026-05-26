@@ -1,5 +1,9 @@
 import 'steam_game_metadata.dart';
 
+/// Sortiermodus fuer Inhalte innerhalb einer Sammlung.
+///
+/// `storageValue` ist der stabile Wert fuer SQLite, damit Enum-Namen im Code
+/// spaeter geaendert werden koennen, ohne vorhandene Daten zu brechen.
 enum SteamCollectionSortMode {
   manual('manual'),
   releaseDateAsc('release_date_asc'),
@@ -19,6 +23,8 @@ enum SteamCollectionSortMode {
   }
 }
 
+/// Gibt an, ob eine Sammlung manuell gepflegt oder ueber eine Regel berechnet
+/// wird.
 enum SteamCollectionType {
   manual('manual'),
   automatic('automatic');
@@ -37,6 +43,10 @@ enum SteamCollectionType {
   }
 }
 
+/// Felder, auf denen automatische Sammlungsregeln basieren koennen.
+///
+/// `titleContains` arbeitet direkt auf Kauf-/Metadaten-Titeln, die anderen
+/// Felder werden ueber Steam-Metadaten wie Genre, Tags oder Publisher gematcht.
 enum SteamCollectionRuleField {
   titleContains('title_contains'),
   genre('genre'),
@@ -77,6 +87,11 @@ enum SteamCollectionRuleField {
   }
 }
 
+/// Datenmodell fuer eine Sammlung.
+///
+/// Manuelle Sammlungen besitzen konkrete `CollectionItem`-Eintraege.
+/// Automatische Sammlungen speichern nur eine Regel; die passenden Kaeufe
+/// werden beim Laden aus der Datenbank berechnet.
 class SteamCollection {
   static const SteamCollectionSortMode manualSortMode =
       SteamCollectionSortMode.manual;
@@ -109,6 +124,10 @@ class SteamCollection {
   bool get isManual => collectionType == SteamCollectionType.manual;
   bool get isAutomatic => collectionType == SteamCollectionType.automatic;
 
+  /// Uebersetzt eine automatische Sammlungsregel in eine Metadatenregel.
+  ///
+  /// Fuer reine Titelsuchen gibt es keine Metadatenregel, deshalb kann hier
+  /// `null` zurueckkommen.
   SteamCollectionMetadataRule? get metadataRule {
     final value = _emptyToNull(ruleValue);
     final metadataField = ruleField?.metadataField;
@@ -120,6 +139,11 @@ class SteamCollection {
     return SteamCollectionMetadataRule(field: metadataField, value: value);
   }
 
+  /// Factory fuer neue Sammlungen.
+  ///
+  /// Leere Texte werden direkt in `null` normalisiert und manuelle Sammlungen
+  /// verlieren automatische Regelwerte, damit ungueltige Kombinationen gar
+  /// nicht erst im Modell entstehen.
   factory SteamCollection.create({
     required String name,
     String? description,
@@ -148,6 +172,10 @@ class SteamCollection {
     );
   }
 
+  /// Kopiert eine Sammlung mit optional geaenderten Werten.
+  ///
+  /// Das `_unset`-Sentinel trennt "Wert nicht anfassen" von "Wert bewusst auf
+  /// null setzen", was bei optionalen Textfeldern wichtig ist.
   SteamCollection copyWith({
     int? id,
     String? name,
@@ -186,6 +214,7 @@ class SteamCollection {
     );
   }
 
+  /// Serialisiert die Sammlung fuer SQLite.
   Map<String, Object?> toMap() {
     return {
       'id': id,
@@ -200,6 +229,7 @@ class SteamCollection {
     };
   }
 
+  /// Baut eine Sammlung aus einer SQLite-Zeile.
   factory SteamCollection.fromMap(Map<String, Object?> map) {
     final collectionType = SteamCollectionType.fromStorage(
       map['collection_type'],

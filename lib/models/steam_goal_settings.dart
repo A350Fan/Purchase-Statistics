@@ -1,3 +1,7 @@
+/// Persistente Zielwerte fuer den Ziele-Tab.
+///
+/// Alle Felder sind optional: `null` bedeutet, dass das jeweilige Ziel nicht
+/// gesetzt ist und in der UI als deaktiviert behandelt wird.
 class SteamGoalSettings {
   final double? annualSpendingLimit;
   final int? backlogLimit;
@@ -13,6 +17,7 @@ class SteamGoalSettings {
     this.completionRateTarget,
   });
 
+  /// Schnellpruefung, ob ueberhaupt ein Ziel aktiv ist.
   bool get hasAnyGoal {
     return annualSpendingLimit != null ||
         backlogLimit != null ||
@@ -21,6 +26,7 @@ class SteamGoalSettings {
         completionRateTarget != null;
   }
 
+  /// Serialisiert die Ziele in die Einzelzeile der Tabelle `steam_goals`.
   Map<String, Object?> toMap() {
     return {
       'id': 1,
@@ -32,6 +38,7 @@ class SteamGoalSettings {
     };
   }
 
+  /// Baut Ziele aus einer Datenbankzeile.
   factory SteamGoalSettings.fromMap(Map<String, Object?> map) {
     return SteamGoalSettings(
       annualSpendingLimit: _nullableDouble(map['annual_spending_limit']),

@@ -8,6 +8,7 @@ import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+/// Tab mit einfachen Liniencharts fuer Ausgaben, Rabatte und kumulierte Werte.
 class ChartsTab extends StatefulWidget {
   final List<SteamPurchase> purchases;
 
@@ -18,6 +19,7 @@ class ChartsTab extends StatefulWidget {
 }
 
 class _ChartsTabState extends State<ChartsTab> {
+  // Jahr fuer das quartals-/jahresspezifische Diagramm.
   int? _selectedYear;
 
   @override
@@ -32,6 +34,7 @@ class _ChartsTabState extends State<ChartsTab> {
     }
 
     final years = stats.years;
+    // Haelt die Auswahl gueltig, wenn Kaeufe importiert oder geloescht wurden.
     _selectedYear = _resolveSelectedYear(years, stats.currentDate.year);
 
     final selectedYear = _selectedYear!;
@@ -177,6 +180,8 @@ class _ChartsTabState extends State<ChartsTab> {
   }
 
   int _resolveSelectedYear(List<int> years, int preferredYear) {
+    // Bevorzugt das bisherige Jahr, danach das aktuelle Jahr, sonst das neueste
+    // verfuegbare Jahr.
     final selectedYear = _selectedYear;
 
     if (selectedYear != null && years.contains(selectedYear)) {
@@ -203,6 +208,7 @@ class _ChartsTabState extends State<ChartsTab> {
   }
 }
 
+/// Beschreibt eine Datenreihe fuer ein Diagramm.
 class _ChartMetric {
   final String title;
   final List<_ChartPoint> points;
@@ -215,6 +221,7 @@ class _ChartMetric {
   });
 }
 
+/// Einzelner Punkt einer Datenreihe.
 class _ChartPoint {
   final String xLabel;
   final double? value;
@@ -227,6 +234,7 @@ class _ChartPoint {
   });
 }
 
+/// Karten-Wrapper fuer ein Diagramm.
 class _ChartPanel extends StatelessWidget {
   final _ChartMetric metric;
   final String noDataLabel;
@@ -285,6 +293,10 @@ class _ChartPanel extends StatelessWidget {
   }
 }
 
+/// CustomPainter fuer die Liniencharts.
+///
+/// Die App nutzt hier keinen externen Charting-Stack, weil die benoetigten
+/// Diagramme klein und kontrolliert sind.
 class _LineChartPainter extends CustomPainter {
   final List<_ChartPoint> points;
   final bool percentScale;
@@ -293,6 +305,7 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Rander lassen Platz fuer Achsenbeschriftungen und Wertlabels.
     if (points.isEmpty || size.width <= 0 || size.height <= 0) {
       return;
     }
@@ -314,6 +327,8 @@ class _LineChartPainter extends CustomPainter {
   }
 
   void _drawGrid(Canvas canvas, Rect chartRect) {
+    // Horizontale Linien helfen beim Abschaetzen der Werte, ohne eine komplexe
+    // Achsenkomponente zu bauen.
     final gridPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.16)
       ..strokeWidth = 1;
@@ -347,6 +362,7 @@ class _LineChartPainter extends CustomPainter {
   }
 
   void _drawTrendLine(Canvas canvas, Rect chartRect, double yMax) {
+    // Optionale Trendlinie verbindet die kumulierten/vergleichbaren Werte.
     final knownPoints = <({int index, double value})>[];
 
     for (var index = 0; index < points.length; index++) {
@@ -392,6 +408,7 @@ class _LineChartPainter extends CustomPainter {
   }
 
   void _drawValueLine(Canvas canvas, Rect chartRect, double yMax) {
+    // Hauptlinie mit Punkten fuer jeden Datenwert.
     final path = Path();
     final pointOffsets = <({int index, Offset offset})>[];
     var hasStartedPath = false;
@@ -451,6 +468,8 @@ class _LineChartPainter extends CustomPainter {
     String? label, {
     required bool shouldDraw,
   }) {
+    // Labels werden sparsam gezeichnet, damit sie bei vielen Punkten nicht
+    // uebereinander liegen.
     if (!shouldDraw || label == null) {
       return;
     }

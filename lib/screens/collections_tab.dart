@@ -13,6 +13,7 @@ enum _PurchaseSelectionSortOption { name, newest, oldest }
 
 enum _PurchaseTypeFilter { games, dlcs, all }
 
+// Uebersetzt Metadatenfelder in die aktuell gewaehlte UI-Sprache.
 String _metadataFieldLabel(SteamMetadataField field, AppStrings strings) {
   return switch (field) {
     SteamMetadataField.genre => strings.metadataGenre,
@@ -22,6 +23,8 @@ String _metadataFieldLabel(SteamMetadataField field, AppStrings strings) {
   };
 }
 
+// Uebersetzt Sammlungsregeln in sichtbare Labels. Automatische
+// Metadatenregeln nutzen dieselben Labels wie ihre Metadatenfelder.
 String _collectionRuleFieldLabel(
   SteamCollectionRuleField field,
   AppStrings strings,
@@ -38,6 +41,7 @@ String _collectionRuleFieldLabel(
   };
 }
 
+// Einheitliches Labeling fuer manuelle und releasebasierte Sortierung.
 String _collectionSortModeLabel(
   SteamCollectionSortMode sortMode,
   AppStrings strings,
@@ -50,6 +54,10 @@ String _collectionSortModeLabel(
   };
 }
 
+/// Uebersicht aller Sammlungen.
+///
+/// Die Detaildaten einer Sammlung werden erst beim Oeffnen der Detailseite
+/// geladen, damit die Uebersicht leicht bleibt.
 class CollectionsTab extends StatefulWidget {
   final SteamCollectionRepository repository;
   final List<SteamPurchase> purchases;
@@ -65,6 +73,7 @@ class CollectionsTab extends StatefulWidget {
 }
 
 class CollectionsTabState extends State<CollectionsTab> {
+  // Geladene Sammlungen plus Zaehler fuer die Kartenansicht.
   List<SteamCollection> _collections = [];
   Map<int, int> _collectionItemCounts = {};
   bool _isLoading = true;
@@ -96,6 +105,8 @@ class CollectionsTabState extends State<CollectionsTab> {
   Future<void> _openCollectionFormDialog({
     SteamCollection? initialCollection,
   }) async {
+    // Derselbe Dialog wird fuer Anlegen und Bearbeiten verwendet. Das Ergebnis
+    // ist ein fertiges `SteamCollection`-Modell.
     final strings = AppStrings.of(context);
     final collection = await showDialog<SteamCollection>(
       context: context,
@@ -124,6 +135,8 @@ class CollectionsTabState extends State<CollectionsTab> {
   }
 
   Future<void> _loadCollections({bool showLoading = true}) async {
+    // Sammlungen und Item-Zahlen werden getrennt geladen, weil automatische
+    // Sammlungen andere Zaehllogik brauchen als manuelle.
     if (showLoading && mounted && !_isLoading) {
       setState(() {
         _isLoading = true;
@@ -333,6 +346,11 @@ class CollectionsTabState extends State<CollectionsTab> {
   }
 }
 
+/// Detailseite einer einzelnen Sammlung.
+///
+/// Manuelle Sammlungen zeigen gespeicherte Items und erlauben Umordnen.
+/// Automatische Sammlungen zeigen berechnete Treffer und deaktivieren manuelle
+/// Item-Aktionen.
 class CollectionDetailScreen extends StatefulWidget {
   final SteamCollection collection;
   final SteamCollectionRepository repository;
@@ -350,6 +368,8 @@ class CollectionDetailScreen extends StatefulWidget {
 }
 
 class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
+  // Der State haelt eine lokale Kopie der Sammlung, damit Aenderungen aus dem
+  // Bearbeiten-Dialog sofort auf der Detailseite sichtbar sind.
   late SteamCollection _collection;
   List<CollectionItem> _items = [];
   List<SteamPurchase> _automaticPurchases = [];
@@ -364,6 +384,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _loadItems({bool showLoading = true}) async {
+    // Je nach Sammlungstyp werden entweder gespeicherte Items oder automatisch
+    // passende Kaeufe geladen.
     if (showLoading && mounted && !_isLoading) {
       setState(() {
         _isLoading = true;
@@ -450,6 +472,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _openAddPurchaseDialog() async {
+    // Nur manuelle Sammlungen koennen direkt um Kaeufe erweitert werden.
     final collectionId = _collection.id;
 
     if (collectionId == null) {
@@ -524,6 +547,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _moveItem(int index, int direction) async {
+    // Manuelles Umordnen ist nur fuer Sammlungen mit manueller Sortierung
+    // erlaubt; releasebasierte Sortierung wird durch SQL bestimmt.
     if (_collection.sortMode != SteamCollectionSortMode.manual) {
       return;
     }
@@ -731,6 +756,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     AppStrings strings,
     AppCurrency currency,
   ) {
+    // Automatische Treffer haben kein CollectionItem und damit keine
+    // Entfernen-/Sortieren-Aktionen.
     final subtitle = _purchaseSubtitle(purchase, strings, currency);
 
     return Card(
@@ -868,6 +895,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 }
 
+/// Dialog, mit dem ein vorhandener Kauf zu einer manuellen Sammlung hinzugefuegt
+/// wird.
 class _AddPurchaseToCollectionDialog extends StatefulWidget {
   final List<SteamPurchase> purchases;
   final Set<int> excludedPurchaseIds;
@@ -895,6 +924,8 @@ class _AddPurchaseToCollectionDialogState
   }
 
   List<SteamPurchase> _availablePurchases({bool applyTypeFilter = true}) {
+    // Bereits enthaltene oder noch nicht gespeicherte Kaeufe werden nicht
+    // angeboten.
     final purchases = widget.purchases.where((purchase) {
       final id = purchase.id;
 
@@ -932,6 +963,8 @@ class _AddPurchaseToCollectionDialogState
   }
 
   List<SteamPurchase> _filteredPurchases(List<SteamPurchase> purchases) {
+    // Suche und Sortierung passieren nur im Dialog, das Repository bekommt am
+    // Ende lediglich die ausgewaehlte Kauf-ID.
     final query = _normalize(_searchController.text);
 
     if (query.isEmpty) {
@@ -1121,6 +1154,7 @@ class _AddPurchaseToCollectionDialogState
   }
 }
 
+/// Dialog fuer das Erstellen und Bearbeiten einer Sammlung.
 class _CollectionFormDialog extends StatefulWidget {
   final SteamCollectionRepository repository;
   final SteamCollection? initialCollection;
@@ -1181,6 +1215,8 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   }
 
   Future<void> _loadRuleValues({bool resetSelection = false}) async {
+    // Fuer Metadatenregeln werden vorhandene Werte aus der Datenbank geladen,
+    // damit der Nutzer nicht frei raten muss, welche Tags/Genres existieren.
     final metadataField = _ruleField.metadataField;
 
     if (!mounted || metadataField == null) {
@@ -1251,6 +1287,8 @@ class _CollectionFormDialogState extends State<_CollectionFormDialog> {
   }
 
   void _submit() {
+    // Der Dialog normalisiert die Eingaben in ein fertiges Modell; das Speichern
+    // uebernimmt die aufrufende Seite.
     if (!_formKey.currentState!.validate()) {
       return;
     }

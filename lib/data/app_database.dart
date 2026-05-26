@@ -3,10 +3,16 @@ import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+/// Zentrale SQLite-Datenbank der App.
+///
+/// Diese Klasse kapselt Oeffnen, Plattformpfade, Schema-Erstellung und alle
+/// Migrationen. Repositories holen sich ueber `AppDatabase.instance` dieselbe
+/// Datenbankinstanz.
 class AppDatabase {
   static Database? _database;
   static bool _isDesktopFactoryConfigured = false;
 
+  /// Lazy Singleton: die Datenbank wird erst beim ersten Zugriff geoeffnet.
   static Future<Database> get instance async {
     if (_database != null) {
       return _database!;
@@ -17,6 +23,8 @@ class AppDatabase {
   }
 
   static Future<Database> _openDatabase() async {
+    // Auf Desktop-Plattformen nutzt sqflite die FFI-Implementierung; mobile
+    // Plattformen verwenden die normale sqflite-Factory.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       _configureDesktopFactory();
     }
@@ -25,6 +33,8 @@ class AppDatabase {
 
     return openDatabase(
       path,
+      // Jede Schema-Aenderung muss die Version erhoehen und unten in
+      // `_upgradeDatabase` eine idempotente Migration ergaenzen.
       version: 17,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
@@ -64,6 +74,7 @@ class AppDatabase {
   static Directory _desktopDatabaseDirectory() {
     final environment = Platform.environment;
 
+    // Windows: bevorzugt Roaming AppData, mit USERPROFILE als Fallback.
     if (Platform.isWindows) {
       final appData = environment['APPDATA']?.trim();
 
@@ -80,6 +91,7 @@ class AppDatabase {
       }
     }
 
+    // macOS-Konvention fuer App-Support-Daten.
     if (Platform.isMacOS) {
       final home = environment['HOME']?.trim();
 
@@ -90,6 +102,8 @@ class AppDatabase {
       }
     }
 
+    // Linux/andere Desktop-Systeme folgen XDG, ansonsten wird ein lokaler
+    // Fallback im Home-Verzeichnis verwendet.
     final xdgDataHome = environment['XDG_DATA_HOME']?.trim();
 
     if (xdgDataHome != null && xdgDataHome.isNotEmpty) {
@@ -108,6 +122,7 @@ class AppDatabase {
   static Future<void> _migrateLegacyDesktopDatabase(String databasePath) async {
     final databaseFile = File(databasePath);
 
+    // Wenn die neue Datei existiert, wurde die Migration bereits erledigt.
     if (await databaseFile.exists()) {
       return;
     }
@@ -124,6 +139,8 @@ class AppDatabase {
       return;
     }
 
+    // SQLite kann neben der Hauptdatei WAL/SHM-Dateien haben. Sie werden
+    // mitkopiert, damit keine offenen Transaktionsdaten verloren gehen.
     await _copyFileIfExists(legacyDatabasePath, databasePath);
     await _copyFileIfExists('$legacyDatabasePath-wal', '$databasePath-wal');
     await _copyFileIfExists('$legacyDatabasePath-shm', '$databasePath-shm');
@@ -143,10 +160,15 @@ class AppDatabase {
   }
 
   static Future<void> _configureDatabase(Database db) async {
+    // Foreign Keys sind in SQLite nicht automatisch aktiv. Ohne dieses PRAGMA
+    // wuerden Cascades zwischen Collections und Items nicht greifen.
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   static Future<void> _createDatabase(Database db, int version) async {
+    // Grundtabelle fuer alle Kaeufe. Optionale Spalten bleiben nullable, damit
+    // ein Kauf auch ohne Steam-Link, Spielzeit oder Notiz gespeichert werden
+    // kann.
     await db.execute('''
       CREATE TABLE steam_purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,6 +197,11 @@ class AppDatabase {
     await _createSteamGameMetadataTables(db);
   }
 
+  /// Fuehrt inkrementelle Migrationen aus.
+  ///
+  /// Jede `if (oldVersion < X)`-Bedingung beschreibt den Schritt von Version
+  /// X-1 nach X. Dadurch kann eine sehr alte Datenbank direkt auf die aktuelle
+  /// Version gebracht werden, ohne Zwischenversionen der App zu starten.
   static Future<void> _upgradeDatabase(
     Database db,
     int oldVersion,
@@ -276,6 +303,7 @@ class AppDatabase {
   }
 
   static Future<void> _createSettingsTable(Database db) async {
+    // Die Settings-Tabelle hat absichtlich genau eine Zeile mit id=1.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS app_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -303,6 +331,8 @@ class AppDatabase {
   }
 
   static Future<void> _createSteamStoreSearchCacheTable(Database db) async {
+    // Cache fuer Steam-Store-Suchen, damit Autocomplete nicht bei jeder
+    // Tastatureingabe die API erneut treffen muss.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS steam_store_search_cache (
         query_key TEXT PRIMARY KEY,
@@ -313,6 +343,7 @@ class AppDatabase {
   }
 
   static Future<void> _createSteamGoalsTable(Database db) async {
+    // Auch Ziele werden als einzelne Settings-Zeile gespeichert.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS steam_goals (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -326,6 +357,8 @@ class AppDatabase {
   }
 
   static Future<void> _createCollectionsTables(Database db) async {
+    // `collections` beschreibt manuelle oder automatische Sammlungen; konkrete
+    // Zuordnungen stehen nur fuer manuelle Sammlungen in `collection_items`.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS collections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -381,6 +414,8 @@ class AppDatabase {
   }
 
   static Future<void> _createCollectionItemUniqueIndex(Database db) async {
+    // Vor dem Unique Index werden alte Duplikate bereinigt, damit die Migration
+    // auch auf bestehenden Datenbanken erfolgreich ist.
     await db.execute('''
       DELETE FROM collection_items
       WHERE id NOT IN (
@@ -397,6 +432,9 @@ class AppDatabase {
   }
 
   static Future<void> _createSteamGameMetadataTables(Database db) async {
+    // Metadaten sind in Kopf- und Wertetabelle getrennt: ein Spiel hat genau
+    // einen Kopfdatensatz, aber beliebig viele Genre/Tag/Developer/Publisher-
+    // Werte.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS steam_game_metadata (
         steam_app_id INTEGER PRIMARY KEY,

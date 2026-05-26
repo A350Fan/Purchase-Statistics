@@ -4,6 +4,7 @@ import 'resource_lifecycle.dart';
 import 'steam_game_metadata_client.dart';
 import 'steam_game_metadata_repository.dart';
 
+/// Zaehlergebnis einer Metadaten-Aktualisierung ueber mehrere Kaeufe.
 class SteamGameMetadataRefreshResult {
   final int attempted;
   final int refreshed;
@@ -18,6 +19,10 @@ class SteamGameMetadataRefreshResult {
   });
 }
 
+/// Koordiniert Steam-Metadaten zwischen HTTP-Client und lokalem Repository.
+///
+/// Widgets sprechen mit diesem Service statt direkt mit Client/Repository,
+/// damit Retry-Regeln und "unavailable"-Caching zentral bleiben.
 class SteamGameMetadataService implements DisposableResource {
   final SteamGameMetadataClient client;
   final SteamGameMetadataRepository repository;
@@ -50,6 +55,8 @@ class SteamGameMetadataService implements DisposableResource {
     required String language,
     required String countryCode,
   }) async {
+    // Kuerzlich fehlgeschlagene App-IDs werden uebersprungen, um Steam und die
+    // UI nicht mit wiederholten aussichtslosen Requests zu belasten.
     if (await repository.hasRecentUnavailableMetadata(
       steamAppId,
       retryAfter: unavailableMetadataRetryDelay,
@@ -64,6 +71,8 @@ class SteamGameMetadataService implements DisposableResource {
     );
 
     if (metadata == null) {
+      // Ein valider HTTP-Request ohne Nutzdaten bedeutet: fuer diese App-ID gibt
+      // es aktuell keine verwertbaren Metadaten.
       await repository.markMetadataUnavailable(steamAppId);
       return null;
     }
@@ -104,6 +113,9 @@ class SteamGameMetadataService implements DisposableResource {
             .toSet()
             .toList()
           ..sort();
+    // Die sortierte, deduplizierte Liste sorgt fuer stabile, testbare
+    // Reihenfolge und vermeidet doppelte Requests fuer mehrere Kaeufe desselben
+    // Spiels.
     var attempted = 0;
     var refreshed = 0;
     var skipped = 0;

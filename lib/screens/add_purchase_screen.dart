@@ -15,6 +15,10 @@ import '../models/steam_store_search_suggestion.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+/// Ergebnis des Kauf-Editors.
+///
+/// Neben dem Kauf kann der Editor beim Bearbeiten auch die ausgewaehlten
+/// manuellen Sammlungen zurueckgeben.
 class PurchaseEditorResult {
   final SteamPurchase purchase;
   final Set<int>? collectionIds;
@@ -27,6 +31,8 @@ class PurchaseEditorResult {
 
 enum _NameSuggestionSource { local, steam }
 
+/// Vereinheitlicht lokale und von Steam geladene Namensvorschlaege fuer das
+/// Autocomplete-Overlay.
 class _NameSuggestionOption {
   final String name;
   final _NameSuggestionSource source;
@@ -44,6 +50,11 @@ class _NameSuggestionOption {
 
 enum _NameSuggestionField { game, dlc }
 
+/// Formular zum Anlegen und Bearbeiten eines Kaufs.
+///
+/// Der Screen sammelt Kaufdaten, bietet lokale/Steam-Autocomplete-Vorschlaege,
+/// zeigt optional Steam-Metadaten an und kann beim Bearbeiten Sammlungen
+/// zuordnen.
 class AddPurchaseScreen extends StatefulWidget {
   final SteamPurchase? initialPurchase;
   final List<SteamPurchase> existingPurchases;
@@ -69,6 +80,8 @@ class AddPurchaseScreen extends StatefulWidget {
 class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  // Controller/Fokusobjekte bilden die Formularfelder und die
+  // Autocomplete-Overlay-Positionen ab.
   final _gameNameController = TextEditingController();
   final _editionController = TextEditingController();
   final _dlcNameController = TextEditingController();
@@ -91,6 +104,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   late final List<String> _gameNameSuggestions;
   late final List<String> _dlcNameSuggestions;
 
+  // Steam-Suchen sind debounced und generation-basiert, damit spaete Antworten
+  // alter Suchbegriffe nicht die aktuellen Vorschlaege ueberschreiben.
   Timer? _gameNameSteamSearchTimer;
   Timer? _dlcNameSteamSearchTimer;
   Timer? _gameNameFocusLossTimer;
@@ -111,6 +126,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   List<SteamCollection> _collections = [];
   Set<int> _selectedCollectionIds = {};
   bool _isLoadingCollections = false;
+  // Metadatenvorschau fuer die aktuell gesetzte Steam-App-ID.
   SteamGameMetadata? _metadataPreview;
   bool _isMetadataPreviewLoading = false;
   int _metadataPreviewGeneration = 0;
@@ -235,6 +251,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _startListeningForNameChanges() {
+    // Listener starten erst nach der Initialbefuellung, damit gesetzte
+    // Anfangswerte keine Autocomplete- oder Metadaten-Requests ausloesen.
     _gameNameController.addListener(_handleGameNameChanged);
     _dlcNameController.addListener(_handleDlcNameChanged);
     _steamAppIdController.addListener(_handleSteamAppIdChanged);
@@ -472,6 +490,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _scheduleSteamNameSearch(_NameSuggestionField field) {
+    // Debounce: waehrend der Nutzer tippt, wird die Steam-Suche immer wieder
+    // verschoben und erst nach kurzer Pause ausgefuehrt.
     final controller = switch (field) {
       _NameSuggestionField.game => _gameNameController,
       _NameSuggestionField.dlc => _dlcNameController,
@@ -579,6 +599,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     required String countryCode,
     required String? associatedGameName,
   }) async {
+    // Die Generation identifiziert den Suchlauf. Wenn danach ein neuer Suchlauf
+    // gestartet wurde, darf diese Antwort den State nicht mehr veraendern.
     final generation = switch (field) {
       _NameSuggestionField.game => ++_gameNameSteamSearchGeneration,
       _NameSuggestionField.dlc => ++_dlcNameSteamSearchGeneration,
@@ -789,6 +811,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _NameSuggestionField field,
     _NameSuggestionOption suggestion,
   ) {
+    // Waerend eine Auswahl in Controller geschrieben wird, sollen die Listener
+    // keine neue Suche starten.
     final controller = switch (field) {
       _NameSuggestionField.game => _gameNameController,
       _NameSuggestionField.dlc => _dlcNameController,
@@ -896,6 +920,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _loadMetadataPreview({bool refresh = false}) async {
+    // Die Vorschau wird nur geladen, wenn es eine App-ID und einen Service gibt.
+    // Generationen verhindern auch hier veraltete UI-Updates.
     final metadataService = _metadataService;
     final steamAppId = _parseOptionalInt(_steamAppIdController.text);
 
@@ -946,6 +972,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _openSteamAppLinkDialog() async {
+    // Manueller Suchdialog fuer Faelle, in denen Autocomplete keinen passenden
+    // Treffer gesetzt hat.
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
@@ -998,6 +1026,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _savePurchase() {
+    // Validierung und Umwandlung der Formularfelder in das unveraenderliche
+    // `SteamPurchase`-Modell.
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -1046,6 +1076,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _loadCollectionSelection() async {
+    // Beim Bearbeiten eines bereits gespeicherten Kaufs werden dessen manuelle
+    // Sammlungszuordnungen vorgeladen.
     final repository = widget.collectionRepository;
     final purchaseId = widget.initialPurchase?.id;
 
@@ -1082,6 +1114,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildMetadataPreview(AppStrings strings) {
+    // Kleine Lesekarte fuer die Steam-Metadaten der aktuell verknuepften App.
     final steamAppId = _parseOptionalInt(_steamAppIdController.text);
 
     if (_metadataService == null || steamAppId == null) {
@@ -1185,6 +1218,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildCollectionsTab(AppStrings strings) {
+    // Sammlungsauswahl erscheint nur beim Bearbeiten, weil neue Kaeufe noch
+    // keine Datenbank-ID fuer CollectionItems haben.
     if (_isLoadingCollections) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -1241,6 +1276,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     required String labelText,
     required String? Function(String?) validator,
   }) {
+    // LayoutBuilder liefert die aktuelle Feldbreite, die das Overlay fuer eine
+    // saubere Ausrichtung uebernimmt.
     return LayoutBuilder(
       builder: (context, constraints) {
         switch (field) {
@@ -1717,6 +1754,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 }
 
+/// Suchdialog fuer eine explizite Steam-App-Verknuepfung.
 class _SteamAppLinkDialog extends StatefulWidget {
   final String initialQuery;
   final SteamPurchaseType purchaseType;
@@ -1762,6 +1800,8 @@ class _SteamAppLinkDialogState extends State<_SteamAppLinkDialog> {
   }
 
   Future<void> _search() async {
+    // Anders als das Autocomplete wird diese Suche explizit durch Button oder
+    // Enter gestartet.
     final query = _queryController.text.trim();
 
     if (query.length < SteamStoreSearchRepository.minimumQueryLength) {

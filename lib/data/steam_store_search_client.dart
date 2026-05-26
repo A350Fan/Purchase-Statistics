@@ -8,6 +8,7 @@ import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 import 'steam_store_search_text.dart';
 
+/// Client-Schnittstelle fuer die Steam-Store-Suche.
 abstract class SteamStoreSearchClient {
   Future<List<SteamStoreSearchSuggestion>> search({
     required String query,
@@ -17,6 +18,10 @@ abstract class SteamStoreSearchClient {
   });
 }
 
+/// HTTP-Client fuer `store.steampowered.com/api/storesearch`.
+///
+/// Die Klasse enthaelt bewusst nur Netzwerk- und Parsing-nahe Logik. Caching
+/// und Fallback-Verhalten liegen im Repository.
 class HttpSteamStoreSearchClient
     implements SteamStoreSearchClient, DisposableResource {
   static const Duration _minimumRequestInterval = Duration(seconds: 2);
@@ -57,6 +62,8 @@ class HttpSteamStoreSearchClient
       return [];
     }
 
+    // Steam soll nicht mit vielen parallelen Autocomplete-Anfragen belastet
+    // werden. Die Queue erzwingt einen Mindestabstand zwischen Requests.
     await _waitForRequestSlot();
 
     final uri = Uri.https('store.steampowered.com', '/api/storesearch/', {
@@ -87,6 +94,8 @@ class HttpSteamStoreSearchClient
   }
 
   Future<void> _waitForRequestSlot() {
+    // `_requestQueue` serialisiert alle Requests. Selbst wenn ein Request
+    // fehlschlaegt, wird die Queue durch `catchError` wieder benutzbar.
     final slot = _requestQueue.then((_) async {
       final lastRequestStartedAt = _lastRequestStartedAt;
 
@@ -108,6 +117,11 @@ class HttpSteamStoreSearchClient
   }
 }
 
+/// Parser fuer die Storesearch-Antwort.
+///
+/// Die Steam-Antwort ist nicht unter unserer Kontrolle, deshalb prueft der
+/// Parser jeden Zwischentyp defensiv und gibt bei unbekanntem Format einfach
+/// eine leere Liste zurueck.
 class SteamStoreSearchResponseParser {
   const SteamStoreSearchResponseParser._();
 
@@ -129,6 +143,8 @@ class SteamStoreSearchResponseParser {
 
     final suggestionsByName = <String, SteamStoreSearchSuggestion>{};
 
+    // Steam kann doppelte Namen liefern. Die Map behält pro normalisiertem Namen
+    // nur den ersten Treffer.
     for (final item in items) {
       if (item is! Map<String, Object?>) {
         continue;

@@ -1,3 +1,7 @@
+/// Unterscheidet normale Spiele von DLCs.
+///
+/// Der Wert wird bewusst als String gespeichert, damit die Datenbank und CSVs
+/// auch ausserhalb von Dart gut lesbar bleiben.
 enum SteamPurchaseType {
   game,
   dlc;
@@ -10,6 +14,10 @@ enum SteamPurchaseType {
   }
 }
 
+/// Status, den ein gekauftes Spiel im persoenlichen Backlog haben kann.
+///
+/// Die Parser-Methode akzeptiert mehrere deutsche und englische Schreibweisen,
+/// damit CSV-Importe und spaetere Datenmigrationen tolerant bleiben.
 enum SteamGameStatus {
   open,
   active,
@@ -64,6 +72,11 @@ enum SteamGameStatus {
   }
 }
 
+/// Zentrales Datenmodell fuer einen Steam-Kauf.
+///
+/// Ein Objekt dieser Klasse repraesentiert genau eine Zeile in
+/// `steam_purchases`. Die Felder enthalten sowohl Kaufdaten als auch optionale
+/// Steam-Verknuepfungen, Spielzeit, Laengenschaetzungen und Notizen.
 class SteamPurchase {
   final int? id;
   final DateTime purchaseDate;
@@ -101,10 +114,14 @@ class SteamPurchase {
 
   int get year => purchaseDate.year;
 
+  /// Berechnet das Quartal aus dem Kaufmonat.
   int get quarter {
     return ((purchaseDate.month - 1) ~/ 3) + 1;
   }
 
+  /// Rabatt als Anteil zwischen 0 und 1, z.B. 0.25 fuer 25 Prozent.
+  ///
+  /// Ohne gueltigen Originalpreis kann kein Rabatt berechnet werden.
   double? get discount {
     if (originalPrice == null || originalPrice == 0) {
       return null;
@@ -113,6 +130,11 @@ class SteamPurchase {
     return 1 - (price / originalPrice!);
   }
 
+  /// Anzeigename fuer Listen, Tabellen und Dialoge.
+  ///
+  /// Bei DLCs wird der DLC-Name hinter den Spielnamen gesetzt; wiederholte
+  /// Spielpraefixe im DLC-Namen werden entfernt, damit die Anzeige nicht
+  /// doppelt wirkt.
   String get displayName {
     final editionSuffix = edition == null || edition!.trim().isEmpty
         ? ''
@@ -133,6 +155,8 @@ class SteamPurchase {
     return '$gameName: $cleanedDlcTitle$editionSuffix';
   }
 
+  /// Entfernt aus DLC-Titeln ein vorangestelltes Basisspiel, falls Steam den
+  /// DLC als "Spielname: DLC-Name" liefert.
   static String cleanDlcNameForGame({
     required String gameName,
     required String dlcName,
@@ -162,6 +186,10 @@ class SteamPurchase {
     return cleanedDlcName.isEmpty ? trimmedDlcName : cleanedDlcName;
   }
 
+  /// Erzeugt eine geaenderte Kopie, ohne das bestehende Objekt zu mutieren.
+  ///
+  /// Das ist in Flutter praktisch, weil UI-State leichter nachvollziehbar
+  /// bleibt, wenn Datenobjekte unveraenderlich behandelt werden.
   SteamPurchase copyWith({
     int? id,
     DateTime? purchaseDate,
@@ -198,6 +226,10 @@ class SteamPurchase {
     );
   }
 
+  /// Serialisiert das Modell in die Spaltennamen der SQLite-Tabelle.
+  ///
+  /// DLCs speichern keine spielbezogenen Status- oder Laengenschätzungen, weil
+  /// diese Werte nur fuer Basisspiele sinnvoll sind.
   Map<String, Object?> toMap() {
     return {
       'id': id,
@@ -226,6 +258,7 @@ class SteamPurchase {
     };
   }
 
+  /// Baut ein Modell aus einer SQLite-Zeile.
   factory SteamPurchase.fromMap(Map<String, Object?> map) {
     final purchaseType = _parsePurchaseType(map['purchase_type']);
 

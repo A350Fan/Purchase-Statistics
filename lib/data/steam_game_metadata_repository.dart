@@ -3,6 +3,11 @@ import 'package:sqflite/sqflite.dart';
 import '../models/steam_game_metadata.dart';
 import 'app_database.dart';
 
+/// SQLite-Repository fuer Steam-Metadaten.
+///
+/// Die Metadaten werden normalisiert gespeichert: Stammdaten in
+/// `steam_game_metadata`, mehrfach vorkommende Werte in
+/// `steam_game_metadata_values`.
 class SteamGameMetadataRepository {
   static const String metadataTable = 'steam_game_metadata';
   static const String metadataValuesTable = 'steam_game_metadata_values';
@@ -42,6 +47,8 @@ class SteamGameMetadataRepository {
       for (final field in SteamMetadataField.values) field: <String>[],
     };
 
+    // Die Wertetabelle wird wieder in die Listenstruktur des Modells
+    // zurueckgefaltet.
     for (final row in valueRows) {
       valuesByField[SteamMetadataField.fromStorage(row['field'])]!.add(
         row['value'] as String,
@@ -66,6 +73,8 @@ class SteamGameMetadataRepository {
     final db = await _databaseProvider();
 
     await db.transaction((transaction) async {
+      // Wenn jetzt echte Metadaten vorhanden sind, ist ein alter
+      // "unavailable"-Merker nicht mehr gueltig.
       await transaction.delete(
         unavailableMetadataTable,
         where: 'steam_app_id = ?',
@@ -84,6 +93,8 @@ class SteamGameMetadataRepository {
         whereArgs: [metadata.steamAppId],
       );
 
+      // Werte werden komplett ersetzt. Das ist einfacher und sicherer als eine
+      // diffbasierte Aktualisierung, weil Steam Listen jederzeit aendern kann.
       final batch = transaction.batch();
       _addValuesToBatch(
         batch,
@@ -138,6 +149,8 @@ class SteamGameMetadataRepository {
       return false;
     }
 
+    // Fehlschlaege werden fuer eine Weile gemerkt, damit ein Spiel ohne
+    // Metadaten nicht bei jedem App-Start erneut abgefragt wird.
     return _now().difference(lastCheckedAt) < retryAfter;
   }
 
@@ -158,6 +171,7 @@ class SteamGameMetadataRepository {
   }) {
     final uniqueValues = <String>{};
 
+    // Leere und doppelte Werte werden verworfen, bevor sie in den Batch kommen.
     for (final value in values) {
       final trimmedValue = value.trim();
 

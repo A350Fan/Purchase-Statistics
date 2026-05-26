@@ -8,6 +8,7 @@ import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+/// Tab fuer persoenliche Ausgaben- und Backlog-Ziele.
 class GoalsTab extends StatefulWidget {
   final List<SteamPurchase> purchases;
   final SteamGoalStore goalStore;
@@ -25,6 +26,8 @@ class GoalsTab extends StatefulWidget {
 }
 
 class _GoalsTabState extends State<GoalsTab> {
+  // Zielwerte werden separat aus dem GoalStore geladen; Kaeufe kommen vom
+  // HomeScreen ueber das Widget.
   SteamGoalSettings _goals = const SteamGoalSettings();
   bool _isLoading = true;
   int? _selectedYear;
@@ -51,6 +54,7 @@ class _GoalsTabState extends State<GoalsTab> {
   }
 
   Future<void> _loadGoals() async {
+    // Der Store ist injizierbar, damit Tests ohne echte SQLite-Datenbank laufen.
     final goals = await widget.goalStore.loadGoals();
 
     if (!mounted) {
@@ -64,6 +68,7 @@ class _GoalsTabState extends State<GoalsTab> {
   }
 
   Future<void> _openGoalsDialog() async {
+    // Der Dialog gibt entweder neue Ziele oder null bei Abbruch zurueck.
     final goals = await showDialog<SteamGoalSettings>(
       context: context,
       builder: (context) {
@@ -91,6 +96,8 @@ class _GoalsTabState extends State<GoalsTab> {
   }
 
   List<int> _availableYears() {
+    // Ziele koennen fuer vorhandene Kaufjahre und mindestens fuer das aktuelle
+    // Jahr betrachtet werden.
     final years = widget.purchases.map((purchase) => purchase.year).toSet()
       ..add(_currentDate.year);
     final sortedYears = years.toList()..sort((a, b) => b.compareTo(a));
@@ -145,6 +152,7 @@ class _GoalsTabState extends State<GoalsTab> {
   }
 
   Widget _buildHeader(AppStrings strings) {
+    // Kopfbereich mit kurzer Statuskarte und Button zum Bearbeiten der Ziele.
     final title = Text(
       strings.goalsTab,
       style: Theme.of(context).textTheme.headlineMedium,
@@ -211,6 +219,8 @@ class _GoalsTabState extends State<GoalsTab> {
     AppCurrency currency,
     SteamGoalsOverview overview,
   ) {
+    // Alle Zielkarten werden aus demselben `SteamGoalsOverview` gebaut, damit
+    // die UI keine Berechnungslogik dupliziert.
     return LayoutBuilder(
       builder: (context, constraints) {
         final columnCount = constraints.maxWidth >= 1100
@@ -349,6 +359,7 @@ class _GoalsTabState extends State<GoalsTab> {
   }
 }
 
+/// Einzelne Karte mit Istwert, optionaler Projektion und Zielstatus.
 class _GoalProgressCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -439,6 +450,7 @@ class _GoalProgressCard extends StatelessWidget {
   }
 }
 
+/// Farbiger Statuschip fuer ein Ziel.
 class _GoalStateChip extends StatelessWidget {
   final SteamGoalState state;
 
@@ -472,6 +484,7 @@ class _GoalStateChip extends StatelessWidget {
   }
 }
 
+/// Dialog zum Bearbeiten aller Zielwerte.
 class _GoalsDialog extends StatefulWidget {
   final SteamGoalSettings initialGoals;
   final AppCurrency currency;
@@ -517,6 +530,8 @@ class _GoalsDialogState extends State<_GoalsDialog> {
   }
 
   void _save() {
+    // Prozentwerte werden intern als Anteil gespeichert, in der UI aber als
+    // Prozent angezeigt.
     if (!_formKey.currentState!.validate()) {
       return;
     }

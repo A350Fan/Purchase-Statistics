@@ -6,6 +6,8 @@ import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import 'app_database.dart';
 
+/// Kleiner Metadaten-Auszug, der in Sammlungsdetails neben einem Kauf angezeigt
+/// wird.
 class CollectionPurchaseMetadata {
   final DateTime? releaseDate;
   final String? releaseDateText;
@@ -44,6 +46,11 @@ class CollectionPurchaseMetadata {
   }
 }
 
+/// Repository fuer manuelle und automatische Sammlungen.
+///
+/// Manuelle Sammlungen speichern konkrete `CollectionItem`s. Automatische
+/// Sammlungen speichern Regeln und werden ueber SQL-Abfragen dynamisch aus
+/// Kaeufen und Steam-Metadaten berechnet.
 class SteamCollectionRepository {
   static const String collectionsTable = 'collections';
   static const String collectionItemsTable = 'collection_items';
@@ -89,6 +96,8 @@ class SteamCollectionRepository {
     };
   }
 
+  /// Liefert vorhandene Werte fuer ein Metadatenfeld, damit der
+  /// Sammlungsdialog sinnvolle Regelwerte anbieten kann.
   Future<List<String>> getAvailableMetadataRuleValues(
     SteamMetadataField field,
   ) async {
@@ -126,6 +135,8 @@ class SteamCollectionRepository {
 
     final db = await _databaseProvider();
 
+    // Titelsuchen vergleichen gegen Kaufname, DLC-Name, Edition und den von
+    // Steam geladenen Namen.
     if (ruleField == SteamCollectionRuleField.titleContains) {
       final normalizedRuleValue = _normalizeRuleValue(ruleValue);
       final purchaseTypeArgs = _automaticPurchaseTypeArgs(collection);
@@ -184,6 +195,8 @@ class SteamCollectionRepository {
 
     final db = await _databaseProvider();
 
+    // Automatische Titelsammlungen brauchen keinen Join auf die Wertetabelle,
+    // weil sie nur Textspalten durchsuchen.
     if (ruleField == SteamCollectionRuleField.titleContains) {
       final normalizedRuleValue = _normalizeRuleValue(ruleValue);
       final purchaseTypeArgs = _automaticPurchaseTypeArgs(collection);
@@ -263,6 +276,8 @@ class SteamCollectionRepository {
   }) async {
     final db = await _databaseProvider();
 
+    // Bei nicht-manueller Sortierung werden die Items zusammen mit Kauf- und
+    // Metadaten geladen, weil Release-Daten nicht im Item selbst stehen.
     if (sortMode != SteamCollectionSortMode.manual) {
       final maps = await db.rawQuery(
         '''
@@ -298,6 +313,8 @@ class SteamCollectionRepository {
       return {};
     }
 
+    // Platzhalter werden dynamisch erzeugt, damit die Query weiterhin
+    // parameterisiert bleibt und keine IDs in SQL-Strings interpoliert werden.
     final db = await _databaseProvider();
     final placeholders = List.filled(ids.length, '?').join(', ');
     final rows = await db.rawQuery('''
@@ -346,6 +363,8 @@ class SteamCollectionRepository {
     final db = await _databaseProvider();
 
     await db.transaction((transaction) async {
+      // Nur manuelle Sammlungen duerfen direkt zugewiesen werden; automatische
+      // Sammlungen ergeben sich aus Regeln.
       final manualCollectionIds = await _getManualCollectionIds(transaction);
       final targetCollectionIds = collectionIds.intersection(
         manualCollectionIds,
@@ -370,6 +389,8 @@ class SteamCollectionRepository {
         existingCollectionIds,
       );
 
+      // Entfernen und Hinzufuegen passieren in derselben Transaktion, damit die
+      // UI nie einen halb aktualisierten Zuordnungsstand sieht.
       if (collectionIdsToRemove.isNotEmpty) {
         await transaction.delete(
           collectionItemsTable,
@@ -404,6 +425,8 @@ class SteamCollectionRepository {
   }) async {
     final db = await _databaseProvider();
 
+    // Manuelle Eingriffe in automatische Sammlungen wuerden die Regel-Logik
+    // unterlaufen und sind deshalb blockiert.
     if (!await _isManualCollection(db, collectionId)) {
       throw ArgumentError(
         'Cannot manually assign purchases to an automatic collection.',
@@ -441,6 +464,8 @@ class SteamCollectionRepository {
     await db.transaction((transaction) async {
       final batch = transaction.batch();
 
+      // Die Reihenfolge wird als fortlaufender Index gespeichert. Das macht die
+      // manuelle Sortierung stabil und einfach wiederherstellbar.
       for (var index = 0; index < itemIds.length; index++) {
         batch.update(
           collectionItemsTable,
@@ -470,6 +495,8 @@ class SteamCollectionRepository {
   }
 
   String _titleContainsWhereClause(String purchaseAlias, String metadataAlias) {
+    // SQL-Snippet fuer automatische Titelsammlungen. Die Aliasse machen das
+    // Snippet in COUNT- und SELECT-Abfragen wiederverwendbar.
     return '''
       (
         INSTR(LOWER($purchaseAlias.game_name), ?) > 0
@@ -488,6 +515,8 @@ class SteamCollectionRepository {
     SteamCollection collection,
     String purchaseAlias,
   ) {
+    // Automatische Sammlungen schliessen DLCs standardmaessig aus. Wenn
+    // `includeDlcs` gesetzt ist, entfaellt die WHERE-Erweiterung komplett.
     return collection.includeDlcs ? '' : 'AND $purchaseAlias.purchase_type = ?';
   }
 
@@ -536,6 +565,9 @@ class SteamCollectionRepository {
     required bool descending,
     String? fallback,
   }) {
+    // Eintraege ohne Release-Datum bleiben am Ende/Anfang der sortierten Gruppe
+    // kontrolliert einsortierbar und fallen dann auf Kaufdatum/manuelle Ordnung
+    // zurueck.
     final direction = descending ? 'DESC' : 'ASC';
     final fallbackOrder =
         fallback ?? '$purchaseAlias.purchase_date DESC, $purchaseAlias.id DESC';
@@ -551,6 +583,7 @@ class SteamCollectionRepository {
     DatabaseExecutor executor,
     int collectionId,
   ) async {
+    // Neue Items werden hinter das bisher letzte Item gesetzt.
     final rows = await executor.rawQuery(
       '''
       SELECT COALESCE(MAX(custom_order) + 1, 0) AS next_order

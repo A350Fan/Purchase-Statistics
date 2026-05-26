@@ -4,6 +4,7 @@ import 'resource_lifecycle.dart';
 import 'steam_store_search_repository.dart';
 import 'steam_store_search_text.dart';
 
+/// Vorschlag, welcher Steam-App-Eintrag zu einem Kauf passen koennte.
 class SteamAppLinkCandidate {
   static const double highConfidenceThreshold = 0.94;
 
@@ -20,6 +21,11 @@ class SteamAppLinkCandidate {
   bool get isHighConfidence => confidence >= highConfidenceThreshold;
 }
 
+/// Sucht zu lokalen Kaeufen passende Steam-App-IDs.
+///
+/// Der Service nutzt die Store-Suche, bewertet Namensaehnlichkeit und liefert
+/// sortierte Kandidaten, die die UI automatisch uebernehmen oder manuell
+/// bestaetigen lassen kann.
 class SteamAppLinkingService implements DisposableResource {
   final SteamStoreSearchSource searchSource;
   final bool _ownsSearchSource;
@@ -45,6 +51,8 @@ class SteamAppLinkingService implements DisposableResource {
     final candidates = <SteamAppLinkCandidate>[];
 
     for (final purchase in purchases) {
+      // Nur persistierte und noch nicht verknuepfte Kaeufe koennen automatisch
+      // gelinkt werden.
       if (purchase.id == null || purchase.steamAppId != null) {
         continue;
       }
@@ -102,6 +110,7 @@ class SteamAppLinkingService implements DisposableResource {
       }
     }
 
+    // Unterhalb dieser Schwelle waere die automatische Zuordnung zu riskant.
     if (bestSuggestion == null || bestScore < 0.72) {
       return null;
     }
@@ -127,6 +136,8 @@ class SteamAppLinkingService implements DisposableResource {
       }
     }
 
+    // Ein klar falscher Typ (z.B. DLC statt Spiel) reduziert die Zuversicht,
+    // schliesst den Treffer aber nicht komplett aus.
     if (suggestion.itemType != SteamStoreItemType.other &&
         suggestion.itemType !=
             SteamStoreItemType.fromPurchaseType(purchase.purchaseType)) {
@@ -207,6 +218,8 @@ class SteamAppLinkingService implements DisposableResource {
     final sharedTokens = expectedTokens.intersection(suggestionTokens).length;
     final coverage = sharedTokens / expectedTokens.length;
 
+    // Token-Coverage ist der letzte Fallback fuer Titel mit Untertiteln oder
+    // Edition-Zusaetzen.
     return coverage >= 0.75 ? 0.74 : 0;
   }
 

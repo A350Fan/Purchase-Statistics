@@ -6,6 +6,7 @@ import '../models/steam_game_metadata.dart';
 import 'http_response_reader.dart';
 import 'resource_lifecycle.dart';
 
+/// Client-Schnittstelle fuer Steam-App-Metadaten.
 abstract class SteamGameMetadataClient {
   Future<SteamGameMetadata?> fetchMetadata({
     required int steamAppId,
@@ -14,6 +15,7 @@ abstract class SteamGameMetadataClient {
   });
 }
 
+/// HTTP-Client fuer `store.steampowered.com/api/appdetails`.
 class HttpSteamGameMetadataClient
     implements SteamGameMetadataClient, DisposableResource {
   static const int _maxResponseBytes = 5 * 1024 * 1024;
@@ -73,6 +75,11 @@ class HttpSteamGameMetadataClient
   }
 }
 
+/// Parser fuer Steam-Appdetails.
+///
+/// Die API liefert je App-ID ein verschachteltes Objekt. Dieser Parser zieht nur
+/// die Felder heraus, die die App fuer Anzeige und automatische Sammlungen
+/// braucht.
 class SteamGameMetadataResponseParser {
   const SteamGameMetadataResponseParser._();
 
@@ -106,6 +113,8 @@ class SteamGameMetadataResponseParser {
 
     final releaseDateText = _parseReleaseDateText(data['release_date']);
 
+    // Kategorien und Tags werden beide als "Tags" verwendet, weil Steam je nach
+    // Endpoint/Spiel unterschiedliche Strukturen liefert.
     return SteamGameMetadata(
       steamAppId: _parseSteamAppId(data['steam_appid']) ?? requestedSteamAppId,
       name: name,
@@ -162,6 +171,8 @@ class SteamGameMetadataResponseParser {
 
     final isoDate = DateTime.tryParse(trimmedValue);
 
+    // ISO-Daten sind eindeutig und werden direkt in ein UTC-Datum ohne Uhrzeit
+    // ueberfuehrt.
     if (isoDate != null) {
       return DateTime.utc(isoDate.year, isoDate.month, isoDate.day);
     }
@@ -196,6 +207,8 @@ class SteamGameMetadataResponseParser {
     final year = int.tryParse(tokens[yearIndex]);
 
     if (tokens.length == 1) {
+      // Wenn Steam nur ein Jahr liefert, wird der 1. Januar als sortierbarer
+      // Platzhalter verwendet.
       return _dateFromParts(year: year, month: 1, day: 1);
     }
 
@@ -317,6 +330,8 @@ class SteamGameMetadataResponseParser {
   static List<String> _uniqueValues(Iterable<String?> values) {
     final valuesByKey = <String, String>{};
 
+    // Der normalisierte Key entfernt Dubletten, der gespeicherte Wert behaelt
+    // aber die Originalschreibweise fuer die Anzeige.
     for (final value in values) {
       final trimmedValue = value?.trim();
 

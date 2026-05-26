@@ -7,6 +7,10 @@ import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 import '../widgets/stat_card.dart';
 
+/// Tab fuer automatisch berechnete Backlog- und Kosten-Insights.
+///
+/// Der Screen ist stateless, weil alle angezeigten Werte direkt aus den
+/// uebergebenen Kaeufen berechnet werden.
 class SmartInsightsTab extends StatelessWidget {
   final List<SteamPurchase> purchases;
   final ValueChanged<SteamPurchase>? onPurchaseTap;
@@ -23,6 +27,8 @@ class SmartInsightsTab extends StatelessWidget {
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
 
+    // Die Berechnung ist rein lokal. Wenn keine Kaeufe vorhanden sind, gibt es
+    // keine sinnvollen Insight-Listen.
     if (purchases.isEmpty) {
       return Center(child: Text(strings.noInsightsData));
     }
@@ -126,6 +132,8 @@ class SmartInsightsTab extends StatelessWidget {
     AppCurrency currency,
     SteamInsights insights,
   ) {
+    // Die Summary-Karten zeigen aggregierte Backlog-Werte oberhalb der
+    // Detail-Listen.
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 700;
@@ -183,6 +191,8 @@ class SmartInsightsTab extends StatelessWidget {
     String? description,
     bool showPriority = false,
   }) {
+    // Jeder Abschnitt hat dieselbe Struktur: Titel, optionale Beschreibung,
+    // leeren Zustand oder eine begrenzte Liste von Karten.
     final theme = Theme.of(context);
     final visibleItems = items.take(6).toList();
 
@@ -244,6 +254,7 @@ class SmartInsightsTab extends StatelessWidget {
   }
 }
 
+/// Kartenzeile fuer einen konkreten Insight-Kauf.
 class _InsightPurchaseCard extends StatelessWidget {
   final SteamPurchaseInsight insight;
   final AppStrings strings;
@@ -326,6 +337,8 @@ class _InsightPurchaseCard extends StatelessWidget {
   }
 
   Widget _buildTitleBlock(BuildContext context) {
+    // Titel und Grund-Chips stehen zusammen, damit die Empfehlung direkt
+    // nachvollziehbar ist.
     final theme = Theme.of(context);
     final status = insight.purchase.gameStatus == null
         ? strings.noGameStatus
@@ -357,6 +370,8 @@ class _InsightPurchaseCard extends StatelessWidget {
   }
 
   Widget _buildMetricChips(BuildContext context) {
+    // Die Chips zeigen nur vorhandene Metriken, damit unvollstaendige Kaufdaten
+    // keine leeren Platzhalter erzeugen.
     final chips = [
       _InsightChip(
         icon: Icons.payments,
@@ -473,6 +488,7 @@ class _InsightPurchaseCard extends StatelessWidget {
   }
 }
 
+/// Kleiner Chip fuer einen Grund oder eine Metrik innerhalb einer Insight-Karte.
 class _InsightChip extends StatelessWidget {
   final IconData icon;
   final String label;

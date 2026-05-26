@@ -6,6 +6,7 @@ import '../models/steam_purchase.dart';
 import '../settings/app_settings.dart';
 import '../settings/app_settings_controller.dart';
 
+/// Tab mit Jahres- und Quartalsstatistiken.
 class StatisticsTab extends StatefulWidget {
   final List<SteamPurchase> purchases;
 
@@ -16,6 +17,7 @@ class StatisticsTab extends StatefulWidget {
 }
 
 class _StatisticsTabState extends State<StatisticsTab> {
+  // Ausgewaehltes Jahr fuer die Quartalsansicht.
   int? _selectedYear;
 
   @override
@@ -30,6 +32,8 @@ class _StatisticsTabState extends State<StatisticsTab> {
     }
 
     final years = stats.years;
+    // Der ausgewaehlte Jahrgang wird aus vorhandenen Daten abgeleitet und bleibt
+    // stabil, solange er weiterhin in der Liste existiert.
     _selectedYear = _resolveSelectedYear(years, stats.currentDate.year);
 
     final selectedYear = _selectedYear!;
@@ -100,6 +104,8 @@ class _StatisticsTabState extends State<StatisticsTab> {
   }
 
   int _resolveSelectedYear(List<int> years, int preferredYear) {
+    // Bevorzugt die bestehende Auswahl, dann das aktuelle Jahr, sonst das
+    // neueste Kaufjahr.
     final selectedYear = _selectedYear;
 
     if (selectedYear != null && years.contains(selectedYear)) {
@@ -114,6 +120,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
   }
 
   double _maxSpending(Iterable<double> values) {
+    // Maximalwert fuer die kleinen Balken innerhalb der Tabellen.
     var max = 0.0;
 
     for (final value in values) {
@@ -133,6 +140,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
     double maxSpending,
     AppCurrency currency,
   ) {
+    // Jahreskarte: Gesamtzusammenfassung plus Tabelle aller Jahre.
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -263,6 +271,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
     double maxSpending,
     AppCurrency currency,
   ) {
+    // Quartalskarte: ausgewaehltes Jahr mit Ist-/Projektionswerten.
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -484,6 +493,7 @@ class _StatisticsTabState extends State<StatisticsTab> {
     String value, {
     String? trailing,
   }) {
+    // Einheitlicher Tabellenstil fuer die kompakten Summary-Zeilen.
     final theme = Theme.of(context);
 
     return Padding(
