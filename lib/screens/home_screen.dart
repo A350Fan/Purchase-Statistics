@@ -55,6 +55,7 @@ enum _HomeAction {
   createSmartCollections,
   importCsv,
   exportCsv,
+  exportLengthEstimatesCsv,
   settings,
 }
 
@@ -1016,6 +1017,62 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       _showSnackBar(strings.exportedPurchases(sortedPurchases.length));
+    } catch (error) {
+      _showSnackBar(strings.csvExportFailed(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCsvOperationRunning = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportLengthEstimatesToCsv() async {
+    // Exportiert nur die teilbaren Laengenschaetzungen. Private Kaufdaten wie
+    // Preise, Spielzeit, Status und Notizen bleiben aus dieser CSV heraus.
+    if (_isCsvOperationRunning) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+
+    setState(() {
+      _isCsvOperationRunning = true;
+    });
+
+    try {
+      final sortedPurchases = _getSortedPurchases(_getStatistics());
+      final lengthEstimatePurchases = sortedPurchases
+          .where(SteamPurchaseCsv.hasLengthEstimateForExport)
+          .toList(growable: false);
+
+      if (lengthEstimatePurchases.isEmpty) {
+        _showSnackBar(strings.noLengthEstimatesToExport);
+        return;
+      }
+
+      final csv = SteamPurchaseCsv.encodeLengthEstimates(
+        lengthEstimatePurchases,
+      );
+      final fileName =
+          'steam_length_estimates_${_formatFileDate(DateTime.now())}.csv';
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: strings.exportLengthEstimatesCsv,
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: Uint8List.fromList(utf8.encode(csv)),
+        lockParentWindow: true,
+      );
+
+      if (path == null) {
+        return;
+      }
+
+      _showSnackBar(
+        strings.exportedLengthEstimates(lengthEstimatePurchases.length),
+      );
     } catch (error) {
       _showSnackBar(strings.csvExportFailed(error));
     } finally {
@@ -2025,6 +2082,9 @@ class _HomeScreenState extends State<HomeScreen>
       case _HomeAction.exportCsv:
         _exportPurchasesToCsv();
         break;
+      case _HomeAction.exportLengthEstimatesCsv:
+        _exportLengthEstimatesToCsv();
+        break;
       case _HomeAction.settings:
         _openSettingsScreen();
         break;
@@ -2111,6 +2171,12 @@ class _HomeScreenState extends State<HomeScreen>
                 enabled: !_isCsvOperationRunning,
               ),
               _buildHomeActionMenuItem(
+                action: _HomeAction.exportLengthEstimatesCsv,
+                icon: Icons.straighten,
+                label: strings.exportLengthEstimatesCsv,
+                enabled: !_isCsvOperationRunning,
+              ),
+              _buildHomeActionMenuItem(
                 action: _HomeAction.settings,
                 icon: Icons.settings,
                 label: strings.openSettings,
@@ -2137,6 +2203,11 @@ class _HomeScreenState extends State<HomeScreen>
         tooltip: strings.exportCsv,
         onPressed: _isCsvOperationRunning ? null : _exportPurchasesToCsv,
         icon: const Icon(Icons.download),
+      ),
+      IconButton(
+        tooltip: strings.exportLengthEstimatesCsv,
+        onPressed: _isCsvOperationRunning ? null : _exportLengthEstimatesToCsv,
+        icon: const Icon(Icons.straighten),
       ),
       IconButton(
         tooltip: strings.openSettings,

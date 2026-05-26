@@ -63,6 +63,55 @@ void main() {
       expect(purchases.single.completionistHours, 14);
     });
 
+    test('encodes shareable length estimates without purchase stats', () {
+      final csv = SteamPurchaseCsv.encodeLengthEstimates([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.completed,
+          steamAppId: 620,
+          price: 3.99,
+          playtimeHours: 4.2,
+          mainStoryHours: 8,
+          mainExtraHours: 10.5,
+          completionistHours: 14,
+          note: 'private note',
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 23),
+          gameName: 'No estimate',
+          price: 1.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 24),
+          purchaseType: SteamPurchaseType.dlc,
+          gameName: 'Portal 2',
+          dlcName: 'Soundtrack',
+          price: 0.99,
+          mainStoryHours: 1,
+        ),
+      ]);
+
+      final nonEmptyLines = csv
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty)
+          .toList();
+
+      expect(
+        csv,
+        startsWith(
+          'game_name,steam_app_id,main_story_hours,main_extra_hours,completionist_hours',
+        ),
+      );
+      expect(csv, contains('Portal 2,620,8.00,10.50,14.00'));
+      expect(nonEmptyLines, hasLength(2));
+      expect(csv, isNot(contains('purchase_date')));
+      expect(csv, isNot(contains('3.99')));
+      expect(csv, isNot(contains('completed')));
+      expect(csv, isNot(contains('private note')));
+      expect(csv, isNot(contains('Soundtrack')));
+    });
+
     test(
       'decodes semicolon separated csv with german headers and decimals',
       () {

@@ -120,12 +120,14 @@ The app transmits data only to Valve/Steam when you use one of the Steam feature
 
 The app does not send local purchase prices, notes, collections, goals, or CSV contents to the project maintainer.
 
+When you create the separate length-estimate CSV export, the app writes only game name, optional Steam App ID, main story hours, main + extras hours, and completionist hours. It does not include purchase dates, prices, status, playtime, notes, collections, or goals.
+
 ## Retention and Deletion
 
 - Purchase data, collections, goals, settings, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
 - You can remove Steam sync credentials by saving the Steam settings fields as empty values.
 - You can fully remove the local search cache by deleting the local app database or app data.
-- CSV exports are created only at the location you choose during export.
+- Full and length-estimate CSV exports are created only at the location you choose during export.
 
 ## Security
 

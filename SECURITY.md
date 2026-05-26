@@ -29,7 +29,8 @@ Do not include:
 - Steam passwords or authentication cookies
 - Private Steam account details
 - Local SQLite databases
-- CSV exports containing real purchase data
+- Full CSV exports containing real purchase data
+- Length-estimate CSV exports if the listed games or Steam App IDs should stay private
 - Screenshots that show secrets, personal purchase data, or private profile data
 
 ## Security Scope
@@ -49,7 +50,7 @@ Issues in Valve or Steam services, Steam APIs, Steam accounts, or third-party in
 
 The app stores data locally and does not use a project-operated backend. The local SQLite database is not additionally encrypted by the app. The Steam Web API key is stored in platform secure storage where available, for example Windows credential storage, Android encrypted storage, or the Linux Secret Service/libsecret stack. Older plaintext keys from previous local databases are migrated to secure storage and cleared from SQLite after the migration attempt. If secure storage cannot accept a legacy key, the plaintext value is still removed from SQLite and the user must enter the key again. Steam sync errors shown in the app are sanitized so raw request URLs are not displayed. The API key should still be treated as a secret.
 
-Users should avoid sharing databases, exported CSV files, logs, or screenshots unless sensitive data has been removed.
+Users should avoid sharing databases, full CSV exports, logs, or screenshots unless sensitive data has been removed. The length-estimate CSV export is designed for sharing estimates, but it can still reveal listed games and Steam App IDs.
 
 ## Release Signing
 

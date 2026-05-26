@@ -61,6 +61,9 @@ class AppStrings {
   String get collectionFab => isEnglish ? 'Collection' : 'Kollektion';
   String get importCsv => isEnglish ? 'Import CSV' : 'CSV importieren';
   String get exportCsv => isEnglish ? 'Export CSV' : 'CSV exportieren';
+  String get exportLengthEstimatesCsv => isEnglish
+      ? 'Export length estimates CSV'
+      : 'Längenschätzungen als CSV exportieren';
   String get openSettings => isEnglish ? 'Settings' : 'Einstellungen';
   String get moreActions => isEnglish ? 'More actions' : 'Weitere Aktionen';
   String get automation => isEnglish ? 'Automation' : 'Automatisierung';
@@ -408,6 +411,22 @@ class AppStrings {
     return count == 1
         ? '1 Kauf wurde exportiert.'
         : '$count Käufe wurden exportiert.';
+  }
+
+  String get noLengthEstimatesToExport => isEnglish
+      ? 'No length estimates available for export.'
+      : 'Keine Längenschätzungen zum Exportieren vorhanden.';
+
+  String exportedLengthEstimates(int count) {
+    if (isEnglish) {
+      return count == 1
+          ? '1 length estimate was exported.'
+          : '$count length estimates were exported.';
+    }
+
+    return count == 1
+        ? '1 Längenschätzung wurde exportiert.'
+        : '$count Längenschätzungen wurden exportiert.';
   }
 
   String deletedPurchase(String purchaseName) {

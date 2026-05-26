@@ -38,6 +38,14 @@ class SteamPurchaseCsv {
     'note',
   ];
 
+  static const lengthEstimateHeaders = [
+    'game_name',
+    'steam_app_id',
+    'main_story_hours',
+    'main_extra_hours',
+    'completionist_hours',
+  ];
+
   static String encode(List<SteamPurchase> purchases) {
     // Export schreibt immer die aktuellen Standard-Header, damit die Datei
     // spaeter wieder eindeutig importiert werden kann.
@@ -79,6 +87,40 @@ class SteamPurchaseCsv {
     }
 
     return buffer.toString();
+  }
+
+  static String encodeLengthEstimates(List<SteamPurchase> purchases) {
+    // Dieser Export ist bewusst klein gehalten, damit er nur teilbare
+    // Laengenschaetzungen und keine privaten Kaufstatistiken enthaelt.
+    final buffer = StringBuffer()..writeln(_encodeRow(lengthEstimateHeaders));
+
+    for (final purchase in purchases.where(_hasLengthEstimateForExport)) {
+      buffer.writeln(
+        _encodeRow([
+          purchase.gameName,
+          purchase.steamAppId?.toString() ?? '',
+          _formatOptionalDouble(purchase.mainStoryHours),
+          _formatOptionalDouble(purchase.mainExtraHours),
+          _formatOptionalDouble(purchase.completionistHours),
+        ]),
+      );
+    }
+
+    return buffer.toString();
+  }
+
+  static bool hasLengthEstimateForExport(SteamPurchase purchase) {
+    return _hasLengthEstimateForExport(purchase);
+  }
+
+  static bool _hasLengthEstimateForExport(SteamPurchase purchase) {
+    if (purchase.purchaseType != SteamPurchaseType.game) {
+      return false;
+    }
+
+    return purchase.mainStoryHours != null ||
+        purchase.mainExtraHours != null ||
+        purchase.completionistHours != null;
   }
 
   static List<SteamPurchase> decode(String source) {
