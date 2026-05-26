@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/data/steam_purchase_csv.dart';
+import 'package:purchase_statistics/models/steam_game_length_estimate.dart';
 import 'package:purchase_statistics/models/steam_purchase.dart';
 
 void main() {
@@ -65,31 +66,14 @@ void main() {
 
     test('encodes shareable length estimates without purchase stats', () {
       final csv = SteamPurchaseCsv.encodeLengthEstimates([
-        SteamPurchase(
-          purchaseDate: DateTime(2026, 5, 22),
+        const SteamGameLengthEstimate(
           gameName: 'Portal 2',
-          gameStatus: SteamGameStatus.completed,
           steamAppId: 620,
-          price: 3.99,
-          playtimeHours: 4.2,
           mainStoryHours: 8,
           mainExtraHours: 10.5,
           completionistHours: 14,
-          note: 'private note',
         ),
-        SteamPurchase(
-          purchaseDate: DateTime(2026, 5, 23),
-          gameName: 'No estimate',
-          price: 1.99,
-        ),
-        SteamPurchase(
-          purchaseDate: DateTime(2026, 5, 24),
-          purchaseType: SteamPurchaseType.dlc,
-          gameName: 'Portal 2',
-          dlcName: 'Soundtrack',
-          price: 0.99,
-          mainStoryHours: 1,
-        ),
+        const SteamGameLengthEstimate(gameName: 'No estimate'),
       ]);
 
       final nonEmptyLines = csv
@@ -110,6 +94,23 @@ void main() {
       expect(csv, isNot(contains('completed')));
       expect(csv, isNot(contains('private note')));
       expect(csv, isNot(contains('Soundtrack')));
+    });
+
+    test('decodes shareable length estimate csv as background data', () {
+      const csv = '''
+game_name,steam_app_id,main_story_hours,main_extra_hours,completionist_hours,price,note
+Portal 2,620,8,10.5,14,3.99,private note
+No estimate,123,,,,
+''';
+
+      final estimates = SteamPurchaseCsv.decodeLengthEstimates(csv);
+
+      expect(estimates, hasLength(1));
+      expect(estimates.single.gameName, 'Portal 2');
+      expect(estimates.single.steamAppId, 620);
+      expect(estimates.single.mainStoryHours, 8);
+      expect(estimates.single.mainExtraHours, 10.5);
+      expect(estimates.single.completionistHours, 14);
     });
 
     test(

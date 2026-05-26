@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'steam_store_search_text.dart';
+
 /// Zentrale SQLite-Datenbank der App.
 ///
 /// Diese Klasse kapselt Oeffnen, Plattformpfade, Schema-Erstellung und alle
@@ -35,7 +37,7 @@ class AppDatabase {
       path,
       // Jede Schema-Aenderung muss die Version erhoehen und unten in
       // `_upgradeDatabase` eine idempotente Migration ergaenzen.
-      version: 17,
+      version: 18,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -195,6 +197,7 @@ class AppDatabase {
     await _createSteamGoalsTable(db);
     await _createSteamPurchaseMetadataIndexes(db);
     await _createSteamGameMetadataTables(db);
+    await _createSteamGameLengthEstimateTable(db);
   }
 
   /// Fuehrt inkrementelle Migrationen aus.
@@ -299,6 +302,11 @@ class AppDatabase {
 
     if (oldVersion < 17) {
       await _createSteamGameMetadataUnavailableTable(db);
+    }
+
+    if (oldVersion < 18) {
+      await _createSteamGameLengthEstimateTable(db);
+      await _seedSteamGameLengthEstimatesFromPurchases(db);
     }
   }
 
@@ -476,6 +484,89 @@ class AppDatabase {
         last_checked_at TEXT NOT NULL
       )
     ''');
+  }
+
+  static Future<void> _createSteamGameLengthEstimateTable(Database db) async {
+    // Hintergrundtabelle fuer teilbare Spiel-Laengen. Sie ist bewusst nicht mit
+    // `steam_purchases` verknuepft, damit importierte Schaetzungen keine
+    // sichtbaren Kaeufe erzeugen.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS steam_game_length_estimates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_name TEXT NOT NULL,
+        normalized_game_name TEXT NOT NULL,
+        steam_app_id INTEGER,
+        main_story_hours REAL,
+        main_extra_hours REAL,
+        completionist_hours REAL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_length_estimates_normalized_name
+      ON steam_game_length_estimates(normalized_game_name)
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_length_estimates_steam_app_id
+      ON steam_game_length_estimates(steam_app_id)
+      WHERE steam_app_id IS NOT NULL
+    ''');
+  }
+
+  static Future<void> _seedSteamGameLengthEstimatesFromPurchases(
+    Database db,
+  ) async {
+    final purchaseRows = await db.query(
+      'steam_purchases',
+      columns: [
+        'game_name',
+        'steam_app_id',
+        'main_story_hours',
+        'main_extra_hours',
+        'completionist_hours',
+      ],
+      where:
+          "purchase_type = 'game' AND "
+          '(main_story_hours IS NOT NULL OR '
+          'main_extra_hours IS NOT NULL OR '
+          'completionist_hours IS NOT NULL)',
+    );
+
+    if (purchaseRows.isEmpty) {
+      return;
+    }
+
+    final batch = db.batch();
+    final seenNames = <String>{};
+    final now = DateTime.now().toIso8601String();
+
+    for (final row in purchaseRows) {
+      final gameName = row['game_name']?.toString().trim();
+
+      if (gameName == null || gameName.isEmpty) {
+        continue;
+      }
+
+      final normalizedGameName = normalizeSteamStoreSearchText(gameName);
+
+      if (!seenNames.add(normalizedGameName)) {
+        continue;
+      }
+
+      batch.insert('steam_game_length_estimates', {
+        'game_name': gameName,
+        'normalized_game_name': normalizedGameName,
+        'steam_app_id': row['steam_app_id'],
+        'main_story_hours': row['main_story_hours'],
+        'main_extra_hours': row['main_extra_hours'],
+        'completionist_hours': row['completionist_hours'],
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    await batch.commit(noResult: true);
   }
 
   static Future<void> _createSteamMetadataRuleLookupIndex(Database db) async {

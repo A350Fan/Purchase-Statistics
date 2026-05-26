@@ -138,7 +138,7 @@ Do not commit or post:
 - Steam passwords, authentication cookies, or private account data
 - Local SQLite databases
 - Full CSV exports containing real purchase data
-- Length-estimate CSV exports if the listed games or Steam App IDs should stay private
+- Length-estimate CSV imports/exports if the listed games or Steam App IDs should stay private
 - Screenshots that show secrets, private profile data, or personal purchase history
 
 Use fake or minimal sample data in issues, tests, and pull requests.

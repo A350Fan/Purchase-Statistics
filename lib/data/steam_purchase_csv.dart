@@ -1,3 +1,4 @@
+import '../models/steam_game_length_estimate.dart';
 import '../models/steam_purchase.dart';
 
 /// Fachlicher Fehler fuer CSV-Import/-Export.
@@ -89,38 +90,26 @@ class SteamPurchaseCsv {
     return buffer.toString();
   }
 
-  static String encodeLengthEstimates(List<SteamPurchase> purchases) {
+  static String encodeLengthEstimates(List<SteamGameLengthEstimate> estimates) {
     // Dieser Export ist bewusst klein gehalten, damit er nur teilbare
     // Laengenschaetzungen und keine privaten Kaufstatistiken enthaelt.
     final buffer = StringBuffer()..writeln(_encodeRow(lengthEstimateHeaders));
 
-    for (final purchase in purchases.where(_hasLengthEstimateForExport)) {
+    for (final estimate in estimates.where((estimate) {
+      return estimate.hasAnyEstimate;
+    })) {
       buffer.writeln(
         _encodeRow([
-          purchase.gameName,
-          purchase.steamAppId?.toString() ?? '',
-          _formatOptionalDouble(purchase.mainStoryHours),
-          _formatOptionalDouble(purchase.mainExtraHours),
-          _formatOptionalDouble(purchase.completionistHours),
+          estimate.gameName,
+          estimate.steamAppId?.toString() ?? '',
+          _formatOptionalDouble(estimate.mainStoryHours),
+          _formatOptionalDouble(estimate.mainExtraHours),
+          _formatOptionalDouble(estimate.completionistHours),
         ]),
       );
     }
 
     return buffer.toString();
-  }
-
-  static bool hasLengthEstimateForExport(SteamPurchase purchase) {
-    return _hasLengthEstimateForExport(purchase);
-  }
-
-  static bool _hasLengthEstimateForExport(SteamPurchase purchase) {
-    if (purchase.purchaseType != SteamPurchaseType.game) {
-      return false;
-    }
-
-    return purchase.mainStoryHours != null ||
-        purchase.mainExtraHours != null ||
-        purchase.completionistHours != null;
   }
 
   static List<SteamPurchase> decode(String source) {
@@ -151,6 +140,38 @@ class SteamPurchaseCsv {
     }
 
     return purchases;
+  }
+
+  static List<SteamGameLengthEstimate> decodeLengthEstimates(String source) {
+    // Die Laengenschaetzungs-CSV ist ein eigener Datentyp und erzeugt beim
+    // Import keine Kaeufe.
+    final delimiter = _detectDelimiter(source);
+    final rows = _parseRows(source, delimiter)
+        .where((row) => row.values.any((value) => value.trim().isNotEmpty))
+        .toList();
+
+    if (rows.isEmpty) {
+      return [];
+    }
+
+    if (rows.length > maxImportRows + 1) {
+      throw SteamPurchaseCsvException(
+        'CSV enthält mehr als $maxImportRows Datenzeilen.',
+      );
+    }
+
+    final headerIndexes = _buildLengthEstimateHeaderIndexes(rows.first.values);
+    final estimates = <SteamGameLengthEstimate>[];
+
+    for (final row in rows.skip(1)) {
+      final estimate = _decodeLengthEstimate(row, headerIndexes);
+
+      if (estimate.hasAnyEstimate) {
+        estimates.add(estimate);
+      }
+    }
+
+    return estimates;
   }
 
   static String _encodeRow(List<String> values) {
@@ -328,6 +349,26 @@ class SteamPurchaseCsv {
       if (!indexes.containsKey(requiredHeader)) {
         throw SteamPurchaseCsvException('CSV-Spalte "$requiredHeader" fehlt.');
       }
+    }
+
+    return indexes;
+  }
+
+  static Map<String, int> _buildLengthEstimateHeaderIndexes(
+    List<String> headerValues,
+  ) {
+    final indexes = <String, int>{};
+
+    for (var i = 0; i < headerValues.length; i++) {
+      final key = _canonicalHeader(headerValues[i]);
+
+      if (key != null) {
+        indexes[key] = i;
+      }
+    }
+
+    if (!indexes.containsKey('game_name')) {
+      throw const SteamPurchaseCsvException('CSV-Spalte "game_name" fehlt.');
     }
 
     return indexes;
@@ -555,6 +596,67 @@ class SteamPurchaseCsv {
           ? completionistHours
           : null,
       note: note.trim().isEmpty ? null : note.trim(),
+    );
+  }
+
+  static SteamGameLengthEstimate _decodeLengthEstimate(
+    _CsvRow row,
+    Map<String, int> headerIndexes,
+  ) {
+    // Fuer Hintergrunddaten werden nur Name/App-ID und die drei Laengenfelder
+    // gelesen. Alle Kauf- und Statistikspalten werden ignoriert.
+    final gameName = _requiredValue(row, headerIndexes, 'game_name');
+    final steamAppId = _parseOptionalInt(
+      _optionalValue(row, headerIndexes, 'steam_app_id'),
+      row.lineNumber,
+      'steam_app_id',
+    );
+    final mainStoryHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'main_story_hours'),
+      row.lineNumber,
+      'main_story_hours',
+    );
+    final mainExtraHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'main_extra_hours'),
+      row.lineNumber,
+      'main_extra_hours',
+    );
+    final completionistHours = _parseOptionalDouble(
+      _optionalValue(row, headerIndexes, 'completionist_hours'),
+      row.lineNumber,
+      'completionist_hours',
+    );
+
+    if (gameName.trim().isEmpty) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Spielname fehlt.',
+      );
+    }
+
+    if (mainStoryHours != null && mainStoryHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Hauptstory-Stunden dürfen nicht negativ sein.',
+      );
+    }
+
+    if (mainExtraHours != null && mainExtraHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Hauptstory+Extras-Stunden dürfen nicht negativ sein.',
+      );
+    }
+
+    if (completionistHours != null && completionistHours < 0) {
+      throw SteamPurchaseCsvException(
+        'Zeile ${row.lineNumber}: Komplettierungsstunden dürfen nicht negativ sein.',
+      );
+    }
+
+    return SteamGameLengthEstimate(
+      gameName: gameName.trim(),
+      steamAppId: steamAppId,
+      mainStoryHours: mainStoryHours,
+      mainExtraHours: mainExtraHours,
+      completionistHours: completionistHours,
     );
   }
 

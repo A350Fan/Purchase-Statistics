@@ -60,6 +60,9 @@ class AppStrings {
   String get purchaseFab => isEnglish ? 'Purchase' : 'Kauf';
   String get collectionFab => isEnglish ? 'Collection' : 'Kollektion';
   String get importCsv => isEnglish ? 'Import CSV' : 'CSV importieren';
+  String get importLengthEstimatesCsv => isEnglish
+      ? 'Import length estimates CSV'
+      : 'Längenschätzungen aus CSV importieren';
   String get exportCsv => isEnglish ? 'Export CSV' : 'CSV exportieren';
   String get exportLengthEstimatesCsv => isEnglish
       ? 'Export length estimates CSV'
@@ -389,6 +392,9 @@ class AppStrings {
   String get csvEmpty => isEnglish
       ? 'The CSV does not contain any purchases.'
       : 'Die CSV enthält keine Käufe.';
+  String get lengthEstimatesCsvEmpty => isEnglish
+      ? 'The CSV does not contain any length estimates.'
+      : 'Die CSV enthält keine Längenschätzungen.';
   String importedPurchases(int count) {
     if (isEnglish) {
       return count == 1
@@ -416,6 +422,18 @@ class AppStrings {
   String get noLengthEstimatesToExport => isEnglish
       ? 'No length estimates available for export.'
       : 'Keine Längenschätzungen zum Exportieren vorhanden.';
+
+  String importedLengthEstimates(int count) {
+    if (isEnglish) {
+      return count == 1
+          ? '1 length estimate was imported.'
+          : '$count length estimates were imported.';
+    }
+
+    return count == 1
+        ? '1 Längenschätzung wurde importiert.'
+        : '$count Längenschätzungen wurden importiert.';
+  }
 
   String exportedLengthEstimates(int count) {
     if (isEnglish) {

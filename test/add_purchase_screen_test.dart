@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:purchase_statistics/data/steam_game_length_estimate_repository.dart';
 import 'package:purchase_statistics/data/steam_store_search_repository.dart';
+import 'package:purchase_statistics/models/steam_game_length_estimate.dart';
 import 'package:purchase_statistics/models/steam_purchase.dart';
 import 'package:purchase_statistics/models/steam_store_search_suggestion.dart';
 import 'package:purchase_statistics/screens/add_purchase_screen.dart';
@@ -319,6 +321,90 @@ void main() {
     expect(result!.purchase.completionistHours, 20);
   });
 
+  testWidgets('prefills game length estimates from the background database', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+    final lengthEstimateRepository = _FakeLengthEstimateRepository(
+      const SteamGameLengthEstimate(
+        gameName: 'Portal 2',
+        steamAppId: 620,
+        mainStoryHours: 8,
+        mainExtraHours: 12,
+        completionistHours: 20,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => AddPurchaseScreen(
+                            lengthEstimateRepository: lengthEstimateRepository,
+                          ),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Portal 2');
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextFormField).at(3), '9.99');
+    await tester.tap(find.text('Spielzeit'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, 'Hauptstory optional'),
+          )
+          .controller
+          ?.text,
+      '8.0',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, 'Hauptstory + Extras optional'),
+          )
+          .controller
+          ?.text,
+      '12.0',
+    );
+
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.mainStoryHours, 8);
+    expect(result!.purchase.mainExtraHours, 12);
+    expect(result!.purchase.completionistHours, 20);
+  });
+
   testWidgets('strips the associated game name from selected Steam DLCs', (
     tester,
   ) async {
@@ -419,5 +505,19 @@ class _FakeSteamSearchSource implements SteamStoreSearchSource {
   }) async {
     queries.add(query);
     return suggestions;
+  }
+}
+
+class _FakeLengthEstimateRepository extends SteamGameLengthEstimateRepository {
+  final SteamGameLengthEstimate? estimate;
+
+  _FakeLengthEstimateRepository(this.estimate);
+
+  @override
+  Future<SteamGameLengthEstimate?> findEstimate({
+    int? steamAppId,
+    String? gameName,
+  }) async {
+    return estimate;
   }
 }

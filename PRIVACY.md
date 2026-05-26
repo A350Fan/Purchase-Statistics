@@ -10,7 +10,7 @@ The app is built as a local desktop/mobile app without a project-operated backen
 
 - The app does not provide or require an app account.
 - The app does not use analytics, tracking, advertising, or telemetry for the project maintainer.
-- Purchases, non-secret settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
+- Purchases, reusable game length estimates, non-secret settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
 - Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync.
 - The Steam Web API key is stored locally in the platform secure store where available and is used only for Steam Web API requests to Valve.
 
@@ -23,6 +23,7 @@ The app may store the following data locally:
 | Purchase data | Purchase date, game name, DLC name, edition, paid price, list price, status, notes | Purchase tracking, statistics, filters, and charts |
 | Steam links | Steam App ID per purchase | Linking local purchases to Steam games or DLCs |
 | Playtime data | `playtime_hours` per linked Steam App ID | Price-per-hour statistics and playtime analysis |
+| Game length estimate data | Game name, optional Steam App ID, main story hours, main + extras hours, completionist hours | Reusable background estimates for purchase editing and the shareable length-estimate CSV import/export |
 | Game metadata | Name, release date, genres, tags/categories, developers, publishers, unavailable metadata refresh markers | Collections, filters, previews, metadata display, and avoiding repeated requests for unavailable Steam metadata |
 | Steam sync settings | SteamID64, Steam profile name or profile URL, Steam Web API key, include played free games option | Steam playtime sync |
 | Steam Store search cache | Normalized search term, language, country, purchase type, result names, App IDs, result type, expiration time | Faster Steam search and fewer repeated requests |
@@ -120,11 +121,11 @@ The app transmits data only to Valve/Steam when you use one of the Steam feature
 
 The app does not send local purchase prices, notes, collections, goals, or CSV contents to the project maintainer.
 
-When you create the separate length-estimate CSV export, the app writes only game name, optional Steam App ID, main story hours, main + extras hours, and completionist hours. It does not include purchase dates, prices, status, playtime, notes, collections, or goals.
+When you import the separate length-estimate CSV, the app stores those estimates as background data only. They do not create purchases and do not appear in the purchase list unless you separately create a purchase. When you create the separate length-estimate CSV export, the app writes only game name, optional Steam App ID, main story hours, main + extras hours, and completionist hours. It does not include purchase dates, prices, status, playtime, notes, collections, or goals.
 
 ## Retention and Deletion
 
-- Purchase data, collections, goals, settings, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
+- Purchase data, game length estimate data, collections, goals, settings, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
 - You can remove Steam sync credentials by saving the Steam settings fields as empty values.
 - You can fully remove the local search cache by deleting the local app database or app data.
 - Full and length-estimate CSV exports are created only at the location you choose during export.

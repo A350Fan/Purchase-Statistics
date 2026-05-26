@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data/steam_collection_repository.dart';
+import 'data/steam_game_length_estimate_repository.dart';
 import 'data/steam_game_metadata_service.dart';
 import 'data/steam_goal_repository.dart';
 import 'data/steam_purchase_repository.dart';
@@ -24,6 +25,7 @@ class SteamStatsApp extends StatefulWidget {
   final AppSettingsController? settingsController;
   final SteamPurchaseRepository? purchaseRepository;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameLengthEstimateRepository? lengthEstimateRepository;
   final SteamGameMetadataService? metadataService;
   final SteamGoalStore? goalStore;
 
@@ -32,6 +34,7 @@ class SteamStatsApp extends StatefulWidget {
     this.settingsController,
     this.purchaseRepository,
     this.collectionRepository,
+    this.lengthEstimateRepository,
     this.metadataService,
     this.goalStore,
   });
@@ -144,6 +147,7 @@ class _SteamStatsAppState extends State<SteamStatsApp> {
               home: HomeScreen(
                 repository: widget.purchaseRepository,
                 collectionRepository: widget.collectionRepository,
+                lengthEstimateRepository: widget.lengthEstimateRepository,
                 metadataService: widget.metadataService,
                 goalStore: widget.goalStore,
               ),

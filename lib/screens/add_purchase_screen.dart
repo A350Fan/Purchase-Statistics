@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
+import '../data/steam_game_length_estimate_repository.dart';
 import '../data/steam_game_metadata_service.dart';
 import '../data/resource_lifecycle.dart';
 import '../data/steam_store_search_repository.dart';
 import '../data/steam_store_search_text.dart';
 import '../l10n/app_strings.dart';
 import '../models/steam_collection.dart';
+import '../models/steam_game_length_estimate.dart';
 import '../models/steam_game_metadata.dart';
 import '../models/steam_purchase.dart';
 import '../models/steam_store_search_suggestion.dart';
@@ -60,6 +62,7 @@ class AddPurchaseScreen extends StatefulWidget {
   final List<SteamPurchase> existingPurchases;
   final SteamStoreSearchSource? steamSearchSource;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameLengthEstimateRepository? lengthEstimateRepository;
   final SteamGameMetadataService? metadataService;
 
   const AddPurchaseScreen({
@@ -68,6 +71,7 @@ class AddPurchaseScreen extends StatefulWidget {
     this.existingPurchases = const [],
     this.steamSearchSource,
     this.collectionRepository,
+    this.lengthEstimateRepository,
     this.metadataService,
   });
 
@@ -110,10 +114,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   Timer? _dlcNameSteamSearchTimer;
   Timer? _gameNameFocusLossTimer;
   Timer? _dlcNameFocusLossTimer;
+  Timer? _lengthEstimateLookupTimer;
   List<SteamStoreSearchSuggestion> _steamGameNameSuggestions = [];
   List<SteamStoreSearchSuggestion> _steamDlcNameSuggestions = [];
   int _gameNameSteamSearchGeneration = 0;
   int _dlcNameSteamSearchGeneration = 0;
+  int _lengthEstimateLookupGeneration = 0;
   String? _lastGameNameSteamSearchKey;
   String? _lastDlcNameSteamSearchKey;
   bool _isApplyingAutocompleteSelection = false;
@@ -216,6 +222,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _startListeningForNameChanges();
     _loadCollectionSelection();
     _scheduleInitialMetadataPreviewLoad();
+    _scheduleLengthEstimateLookup();
   }
 
   @override
@@ -224,6 +231,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _dlcNameSteamSearchTimer?.cancel();
     _gameNameFocusLossTimer?.cancel();
     _dlcNameFocusLossTimer?.cancel();
+    _lengthEstimateLookupTimer?.cancel();
     _gameNameController.removeListener(_handleGameNameChanged);
     _dlcNameController.removeListener(_handleDlcNameChanged);
     _steamAppIdController.removeListener(_handleSteamAppIdChanged);
@@ -269,6 +277,100 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadMetadataPreview();
     });
+  }
+
+  void _scheduleLengthEstimateLookup() {
+    _lengthEstimateLookupTimer?.cancel();
+    final generation = ++_lengthEstimateLookupGeneration;
+    final repository = widget.lengthEstimateRepository;
+
+    if (repository == null || _purchaseType != SteamPurchaseType.game) {
+      return;
+    }
+
+    _lengthEstimateLookupTimer = Timer(const Duration(milliseconds: 250), () {
+      _loadLengthEstimateSuggestion(generation);
+    });
+  }
+
+  Future<void> _loadLengthEstimateSuggestion(int generation) async {
+    final repository = widget.lengthEstimateRepository;
+
+    if (repository == null || _purchaseType != SteamPurchaseType.game) {
+      return;
+    }
+
+    final steamAppId = _parseOptionalInt(_steamAppIdController.text);
+    final gameName = _gameNameController.text.trim();
+
+    if (steamAppId == null && gameName.isEmpty) {
+      return;
+    }
+
+    SteamGameLengthEstimate? estimate;
+
+    try {
+      estimate = await repository.findEstimate(
+        steamAppId: steamAppId,
+        gameName: gameName,
+      );
+    } catch (_) {
+      estimate = null;
+    }
+
+    if (!mounted ||
+        generation != _lengthEstimateLookupGeneration ||
+        _purchaseType != SteamPurchaseType.game) {
+      return;
+    }
+
+    if (estimate == null) {
+      return;
+    }
+
+    _applyLengthEstimateIfFieldsAreEmpty(estimate);
+  }
+
+  void _applyLengthEstimateIfFieldsAreEmpty(SteamGameLengthEstimate estimate) {
+    // Hintergrundwerte sollen Tipparbeit sparen, aber niemals manuell
+    // eingetragene Laengen ueberschreiben.
+    final shouldApply =
+        (estimate.mainStoryHours != null &&
+            _mainStoryHoursController.text.trim().isEmpty) ||
+        (estimate.mainExtraHours != null &&
+            _mainExtraHoursController.text.trim().isEmpty) ||
+        (estimate.completionistHours != null &&
+            _completionistHoursController.text.trim().isEmpty);
+
+    if (!shouldApply) {
+      return;
+    }
+
+    setState(() {
+      _setLengthEstimateFieldIfEmpty(
+        _mainStoryHoursController,
+        estimate.mainStoryHours,
+      );
+      _setLengthEstimateFieldIfEmpty(
+        _mainExtraHoursController,
+        estimate.mainExtraHours,
+      );
+      _setLengthEstimateFieldIfEmpty(
+        _completionistHoursController,
+        estimate.completionistHours,
+      );
+    });
+  }
+
+  void _setLengthEstimateFieldIfEmpty(
+    TextEditingController controller,
+    double? value,
+  ) {
+    if (value == null || controller.text.trim().isNotEmpty) {
+      return;
+    }
+
+    controller.text = value.toStringAsFixed(1);
   }
 
   Future<void> _pickPurchaseDate() async {
@@ -409,6 +511,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _selectedGameSteamAppId = null;
     _updateNameSuggestionsOverlay(_NameSuggestionField.game);
     _scheduleSteamNameSearch(_NameSuggestionField.game);
+    _scheduleLengthEstimateLookup();
 
     if (_purchaseType == SteamPurchaseType.dlc) {
       _updateNameSuggestionsOverlay(_NameSuggestionField.dlc);
@@ -428,6 +531,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _handleSteamAppIdChanged() {
+    if (!_isApplyingAutocompleteSelection) {
+      _scheduleLengthEstimateLookup();
+    }
+
     if (_metadataService == null || _isApplyingAutocompleteSelection) {
       return;
     }
@@ -841,6 +948,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _isApplyingAutocompleteSelection = false;
     _removeNameSuggestionsOverlay(field);
     _loadMetadataPreview(refresh: suggestion.steamAppId != null);
+    _scheduleLengthEstimateLookup();
   }
 
   String _nameForSelectedSuggestion(_NameSuggestionField field, String name) {
@@ -1013,6 +1121,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     });
     _isApplyingAutocompleteSelection = false;
     _loadMetadataPreview(refresh: true);
+    _scheduleLengthEstimateLookup();
   }
 
   String _initialSteamLinkQuery() {
@@ -1441,6 +1550,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                         _NameSuggestionField.dlc,
                                       );
                                     }
+
+                                    _scheduleLengthEstimateLookup();
                                   },
                                 ),
                                 const SizedBox(height: 16),

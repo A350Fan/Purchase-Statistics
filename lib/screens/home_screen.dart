@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../data/steam_collection_repository.dart';
 import '../data/steam_app_linking_service.dart';
+import '../data/steam_game_length_estimate_repository.dart';
 import '../data/steam_game_metadata_service.dart';
 import '../data/steam_goal_repository.dart';
 import '../data/steam_playtime_sync_service.dart';
@@ -54,6 +55,7 @@ enum _HomeAction {
   refreshAllMetadata,
   createSmartCollections,
   importCsv,
+  importLengthEstimatesCsv,
   exportCsv,
   exportLengthEstimatesCsv,
   settings,
@@ -69,6 +71,7 @@ enum _PurchaseCardAction { edit, delete }
 class HomeScreen extends StatefulWidget {
   final SteamPurchaseRepository? repository;
   final SteamCollectionRepository? collectionRepository;
+  final SteamGameLengthEstimateRepository? lengthEstimateRepository;
   final SteamGameMetadataService? metadataService;
   final SteamAppLinkingService? appLinkingService;
   final SteamPlaytimeSyncService? playtimeSyncService;
@@ -78,6 +81,7 @@ class HomeScreen extends StatefulWidget {
     super.key,
     this.repository,
     this.collectionRepository,
+    this.lengthEstimateRepository,
     this.metadataService,
     this.appLinkingService,
     this.playtimeSyncService,
@@ -101,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
+  late final SteamGameLengthEstimateRepository _lengthEstimateRepository;
   late final SteamGameMetadataService _metadataService;
   late final SteamAppLinkingService _appLinkingService;
   late final SteamPlaytimeSyncService _playtimeSyncService;
@@ -140,6 +145,8 @@ class _HomeScreenState extends State<HomeScreen>
     _repository = widget.repository ?? SteamPurchaseRepository();
     _collectionRepository =
         widget.collectionRepository ?? SteamCollectionRepository();
+    _lengthEstimateRepository =
+        widget.lengthEstimateRepository ?? SteamGameLengthEstimateRepository();
     _ownsMetadataService = widget.metadataService == null;
     _ownsAppLinkingService = widget.appLinkingService == null;
     _ownsPlaytimeSyncService = widget.playtimeSyncService == null;
@@ -517,6 +524,7 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (context) => AddPurchaseScreen(
           existingPurchases: _purchases,
           collectionRepository: _collectionRepository,
+          lengthEstimateRepository: _lengthEstimateRepository,
           metadataService: _metadataService,
         ),
       ),
@@ -527,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final savedPurchase = await _repository.addPurchase(result.purchase);
+    await _lengthEstimateRepository.upsertPurchaseEstimate(savedPurchase);
 
     if (savedPurchase.id != null && result.collectionIds != null) {
       await _collectionRepository.replaceCollectionsForPurchase(
@@ -562,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen>
           initialPurchase: purchase,
           existingPurchases: _purchases,
           collectionRepository: _collectionRepository,
+          lengthEstimateRepository: _lengthEstimateRepository,
           metadataService: _metadataService,
         ),
       ),
@@ -572,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     await _repository.updatePurchase(result.purchase);
+    await _lengthEstimateRepository.upsertPurchaseEstimate(result.purchase);
 
     if (purchase.id != null && result.collectionIds != null) {
       await _collectionRepository.replaceCollectionsForPurchase(
@@ -937,8 +948,59 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       final importedCount = await _repository.addPurchases(purchases);
+      await _lengthEstimateRepository.upsertPurchases(purchases);
       await _loadPurchases();
       _showSnackBar(strings.importedPurchases(importedCount));
+    } on SteamPurchaseCsvException catch (error) {
+      _showSnackBar(strings.csvImportFailed(error));
+    } catch (error) {
+      _showSnackBar(strings.csvImportFailed(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCsvOperationRunning = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _importLengthEstimatesFromCsv() async {
+    // Importiert nur Hintergrunddaten fuer Spiel-Laengen. Es werden keine
+    // Kaeufe angelegt und die Kaufuebersicht bleibt unveraendert.
+    if (_isCsvOperationRunning) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+
+    setState(() {
+      _isCsvOperationRunning = true;
+    });
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: strings.importLengthEstimatesCsv,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        lockParentWindow: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final csv = await _readPickedCsvFile(result.files.single);
+      final estimates = SteamPurchaseCsv.decodeLengthEstimates(csv);
+
+      if (estimates.isEmpty) {
+        _showSnackBar(strings.lengthEstimatesCsvEmpty);
+        return;
+      }
+
+      final importedCount = await _lengthEstimateRepository.upsertEstimates(
+        estimates,
+      );
+      _showSnackBar(strings.importedLengthEstimates(importedCount));
     } on SteamPurchaseCsvException catch (error) {
       _showSnackBar(strings.csvImportFailed(error));
     } catch (error) {
@@ -1042,19 +1104,15 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     try {
-      final sortedPurchases = _getSortedPurchases(_getStatistics());
-      final lengthEstimatePurchases = sortedPurchases
-          .where(SteamPurchaseCsv.hasLengthEstimateForExport)
-          .toList(growable: false);
+      await _lengthEstimateRepository.upsertPurchases(_purchases);
+      final lengthEstimates = await _lengthEstimateRepository.getAllEstimates();
 
-      if (lengthEstimatePurchases.isEmpty) {
+      if (lengthEstimates.isEmpty) {
         _showSnackBar(strings.noLengthEstimatesToExport);
         return;
       }
 
-      final csv = SteamPurchaseCsv.encodeLengthEstimates(
-        lengthEstimatePurchases,
-      );
+      final csv = SteamPurchaseCsv.encodeLengthEstimates(lengthEstimates);
       final fileName =
           'steam_length_estimates_${_formatFileDate(DateTime.now())}.csv';
       final path = await FilePicker.platform.saveFile(
@@ -1070,9 +1128,7 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      _showSnackBar(
-        strings.exportedLengthEstimates(lengthEstimatePurchases.length),
-      );
+      _showSnackBar(strings.exportedLengthEstimates(lengthEstimates.length));
     } catch (error) {
       _showSnackBar(strings.csvExportFailed(error));
     } finally {
@@ -2079,6 +2135,9 @@ class _HomeScreenState extends State<HomeScreen>
       case _HomeAction.importCsv:
         _importPurchasesFromCsv();
         break;
+      case _HomeAction.importLengthEstimatesCsv:
+        _importLengthEstimatesFromCsv();
+        break;
       case _HomeAction.exportCsv:
         _exportPurchasesToCsv();
         break;
@@ -2165,6 +2224,12 @@ class _HomeScreenState extends State<HomeScreen>
                 enabled: !_isCsvOperationRunning,
               ),
               _buildHomeActionMenuItem(
+                action: _HomeAction.importLengthEstimatesCsv,
+                icon: Icons.playlist_add,
+                label: strings.importLengthEstimatesCsv,
+                enabled: !_isCsvOperationRunning,
+              ),
+              _buildHomeActionMenuItem(
                 action: _HomeAction.exportCsv,
                 icon: Icons.download,
                 label: strings.exportCsv,
@@ -2198,6 +2263,13 @@ class _HomeScreenState extends State<HomeScreen>
         tooltip: strings.importCsv,
         onPressed: _isCsvOperationRunning ? null : _importPurchasesFromCsv,
         icon: const Icon(Icons.upload_file),
+      ),
+      IconButton(
+        tooltip: strings.importLengthEstimatesCsv,
+        onPressed: _isCsvOperationRunning
+            ? null
+            : _importLengthEstimatesFromCsv,
+        icon: const Icon(Icons.playlist_add),
       ),
       IconButton(
         tooltip: strings.exportCsv,

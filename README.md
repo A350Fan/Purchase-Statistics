@@ -52,7 +52,7 @@ Implemented so far:
 - Advanced purchase filters
 - CSV import
 - CSV export
-- Separate CSV export for shareable game length estimates
+- Separate CSV import/export for shareable game length estimates
 - Smart insights for backlog and pile-of-shame analysis, including status review for heavily played games without a status
 - Goal tracking for annual spending, backlog size, unplayed backlog value and completion rate
 - Dashboard overview cards
@@ -165,13 +165,15 @@ Supported game status values include `open`, `active`, `completed`, `endless`, `
 
 CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
 
-The app also offers a separate length-estimate CSV export for sharing only the optional game length fields:
+The app also offers a separate length-estimate CSV import/export for sharing only the optional game length fields:
 
 ```csv
 game_name,steam_app_id,main_story_hours,main_extra_hours,completionist_hours
 ```
 
-That export includes only game purchases with at least one saved length estimate. It omits purchase dates, purchase type, status, edition, DLC names, prices, playtime and notes, so it can be shared without the full purchase statistics. The length-estimate export is not a full purchase backup/import file.
+Length-estimate CSV imports are stored in a separate background table. They do not create purchases and do not appear in the purchase list by themselves. When you add or edit a matching game purchase, the editor can prefill empty length-estimate fields from that background data.
+
+The length-estimate export includes the background table and saved game-purchase estimates with at least one length value. It omits purchase dates, purchase type, status, edition, DLC names, prices, playtime and notes, so it can be shared without the full purchase statistics. The length-estimate CSV is not a full purchase backup/import file.
 
 ---
 
