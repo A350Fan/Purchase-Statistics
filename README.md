@@ -115,7 +115,7 @@ The app currently calculates:
 - Unplayed backlog count and value
 - Completion rate
 - Expensive unplayed games
-- Started but open games
+- Started or paused backlog games
 - High cost-per-hour games
 - Abandoned spending
 - Status review for games with high playtime and no game status
@@ -161,7 +161,7 @@ Supported delimiters:
 - Tab
 
 The importer also accepts some German/alternative column names, for example `datum`, `spiel`, `preis`, `spielzeit`, `status` and `notiz`.
-Supported game status values include `open`, `active`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
+Supported game status values include `open`, `active`, `paused`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `pausiert`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
 
 CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
 

@@ -161,7 +161,7 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
         SteamPurchase(
           purchaseDate: DateTime(2026, 5, 22),
           gameName: 'Half-Life',
-          gameStatus: SteamGameStatus.completed,
+          gameStatus: SteamGameStatus.paused,
           price: 1.99,
         ),
         SteamPurchase(
@@ -174,12 +174,12 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
       ]);
 
       expect(csv, startsWith('purchase_date,purchase_type,game_status'));
-      expect(csv, contains('2026-05-22,game,completed,Half-Life'));
+      expect(csv, contains('2026-05-22,game,paused,Half-Life'));
       expect(csv, contains('2026-05-23,dlc,,Half-Life'));
 
       final purchases = SteamPurchaseCsv.decode(csv);
 
-      expect(purchases[0].gameStatus, SteamGameStatus.completed);
+      expect(purchases[0].gameStatus, SteamGameStatus.paused);
       expect(purchases[1].gameStatus, isNull);
     });
 

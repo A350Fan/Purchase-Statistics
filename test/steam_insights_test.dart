@@ -111,6 +111,33 @@ void main() {
       expect(shortUnplayed.reasons, contains(SteamInsightReason.shortGame));
       expect(shortUnplayed.reasons, contains(SteamInsightReason.noPlaytime));
     });
+
+    test('treats paused games as resumable backlog', () {
+      final pausedPurchase = SteamPurchase(
+        purchaseDate: DateTime(2025, 12, 1),
+        gameName: 'Paused Game',
+        gameStatus: SteamGameStatus.paused,
+        price: 25,
+        playtimeHours: 6,
+      );
+      final insights = SteamInsights([
+        pausedPurchase,
+        SteamPurchase(
+          purchaseDate: DateTime(2025, 1, 1),
+          gameName: 'Finished Game',
+          gameStatus: SteamGameStatus.completed,
+          price: 15,
+          playtimeHours: 8,
+        ),
+      ], currentDate: DateTime(2026, 5, 24));
+
+      final pausedInsight = insights.backlogPriority.single;
+
+      expect(insights.backlogGames, contains(pausedPurchase));
+      expect(insights.startedBacklog.single.purchase, pausedPurchase);
+      expect(pausedInsight.reasons, contains(SteamInsightReason.paused));
+      expect(insights.completionRate, 0.5);
+    });
   });
 }
 

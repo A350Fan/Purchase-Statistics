@@ -244,7 +244,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, 'Portal 2');
     await tester.tap(find.text('Kein Status'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Durchgespielt').last);
+    await tester.tap(find.text('Pausiert').last);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(3), '9.99');
@@ -252,7 +252,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(result, isNotNull);
-    expect(result!.purchase.gameStatus, SteamGameStatus.completed);
+    expect(result!.purchase.gameStatus, SteamGameStatus.paused);
   });
 
   testWidgets('returns manual game length estimates', (tester) async {

@@ -302,7 +302,7 @@ class AppStrings {
   String get expensiveUnplayedGames =>
       isEnglish ? 'Expensive and unplayed' : 'Teuer & ungespielt';
   String get startedBacklogGames =>
-      isEnglish ? 'Started but open' : 'Angefangen, aber offen';
+      isEnglish ? 'Started or paused' : 'Angefangen oder pausiert';
   String get highCostPerHourGames =>
       isEnglish ? 'High cost per hour' : 'Hohe Kosten pro Stunde';
   String get abandonedSpend =>
@@ -321,11 +321,12 @@ class AppStrings {
   String get smartCollectionExpensiveUnplayedDescription => isEnglish
       ? 'Unplayed backlog games sorted by tied-up value.'
       : 'Ungespielte Backlog-Spiele mit hohem gebundenem Wert.';
-  String get smartCollectionStartedBacklog =>
-      isEnglish ? 'Smart: Started backlog' : 'Smart: Angefangener Backlog';
+  String get smartCollectionStartedBacklog => isEnglish
+      ? 'Smart: Started or paused'
+      : 'Smart: Angefangen oder pausiert';
   String get smartCollectionStartedBacklogDescription => isEnglish
-      ? 'Started games that are still open.'
-      : 'Angefangene Spiele, die noch offen sind.';
+      ? 'Started games that are still open or paused.'
+      : 'Angefangene Spiele, die noch offen oder pausiert sind.';
   String get smartCollectionHighCostPerHour =>
       isEnglish ? 'Smart: High cost per hour' : 'Smart: Hohe Kosten pro Stunde';
   String get smartCollectionHighCostPerHourDescription => isEnglish
@@ -345,6 +346,7 @@ class AppStrings {
       isEnglish ? 'Barely started' : 'Kaum gestartet';
   String get reasonOpen => isEnglish ? 'Open' : 'Offen';
   String get reasonActive => isEnglish ? 'Active' : 'Aktiv';
+  String get reasonPaused => isEnglish ? 'Paused' : 'Pausiert';
   String get reasonExpensive => isEnglish ? 'High value' : 'Hoher Wert';
   String get reasonOld => isEnglish ? 'Long in backlog' : 'Lange im Backlog';
   String get reasonHighCostPerHour =>
@@ -373,6 +375,7 @@ class AppStrings {
     return switch (status) {
       SteamGameStatus.open => isEnglish ? 'Open' : 'Offen',
       SteamGameStatus.active => isEnglish ? 'Active' : 'Aktiv',
+      SteamGameStatus.paused => isEnglish ? 'Paused' : 'Pausiert',
       SteamGameStatus.completed => isEnglish ? 'Completed' : 'Durchgespielt',
       SteamGameStatus.endless => isEnglish ? 'Endless' : 'Endlos',
       SteamGameStatus.abandoned => isEnglish ? 'Abandoned' : 'Abgebrochen',

@@ -21,6 +21,7 @@ enum SteamPurchaseType {
 enum SteamGameStatus {
   open,
   active,
+  paused,
   completed,
   endless,
   abandoned,
@@ -30,6 +31,7 @@ enum SteamGameStatus {
     return switch (this) {
       SteamGameStatus.open => 'open',
       SteamGameStatus.active => 'active',
+      SteamGameStatus.paused => 'paused',
       SteamGameStatus.completed => 'completed',
       SteamGameStatus.endless => 'endless',
       SteamGameStatus.abandoned => 'abandoned',
@@ -54,6 +56,12 @@ enum SteamGameStatus {
       'started' ||
       'angefangen' ||
       'in_progress' => SteamGameStatus.active,
+      'paused' ||
+      'pause' ||
+      'pausiert' ||
+      'on_hold' ||
+      'on_pause' ||
+      'suspended' => SteamGameStatus.paused,
       'completed' ||
       'complete' ||
       'finished' ||

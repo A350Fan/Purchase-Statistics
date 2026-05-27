@@ -61,6 +61,10 @@ void main() {
         SteamGameStatus.completed,
       );
       expect(SteamGameStatus.fromStorageValue('Aktiv'), SteamGameStatus.active);
+      expect(
+        SteamGameStatus.fromStorageValue('Pausiert'),
+        SteamGameStatus.paused,
+      );
       expect(SteamGameStatus.fromStorageValue('Alt'), SteamGameStatus.archived);
     });
   });

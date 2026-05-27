@@ -10,6 +10,7 @@ enum SteamInsightReason {
   barelyStarted,
   open,
   active,
+  paused,
   expensive,
   old,
   highCostPerHour,
@@ -173,8 +174,8 @@ class SteamInsights {
   }
 
   List<SteamPurchaseInsight> _buildBacklogPriority() {
-    // Priorisiert offene/aktive Backlog-Spiele, die noch nicht fertig wirken
-    // oder wenig Spielzeit haben.
+    // Priorisiert offene, aktive und pausierte Backlog-Spiele, die noch nicht
+    // fertig wirken oder wenig Spielzeit haben.
     final insights =
         backlogGames
             .where((purchase) {
@@ -218,16 +219,16 @@ class SteamInsights {
   }
 
   List<SteamPurchaseInsight> _buildStartedBacklog() {
-    // Begonnene Backlog-Spiele werden so sortiert, dass aktive und bereits
-    // investierte Titel sichtbar nach oben kommen.
+    // Begonnene Backlog-Spiele werden so sortiert, dass aktive, pausierte und
+    // bereits investierte Titel sichtbar nach oben kommen.
     final insights = startedBacklogGames.map(_insightForPurchase).toList()
       ..sort((a, b) {
-        final activeCompare = _activeRank(
+        final resumeCompare = _resumeRank(
           b.purchase,
-        ).compareTo(_activeRank(a.purchase));
+        ).compareTo(_resumeRank(a.purchase));
 
-        if (activeCompare != 0) {
-          return activeCompare;
+        if (resumeCompare != 0) {
+          return resumeCompare;
         }
 
         final playtimeCompare = (b.playtimeHours ?? 0).compareTo(
@@ -302,10 +303,10 @@ class SteamInsights {
     }).toList();
 
     purchases.sort((a, b) {
-      final activeCompare = _activeRank(b).compareTo(_activeRank(a));
+      final resumeCompare = _resumeRank(b).compareTo(_resumeRank(a));
 
-      if (activeCompare != 0) {
-        return activeCompare;
+      if (resumeCompare != 0) {
+        return resumeCompare;
       }
 
       return (playtimeForPurchase(b) ?? 0).compareTo(
@@ -373,6 +374,7 @@ class SteamInsights {
     final ageScore = _clamp01(ageDays / (365 * 4)) * 25;
     final statusScore = switch (purchase.gameStatus) {
       SteamGameStatus.active => 18.0,
+      SteamGameStatus.paused => 16.0,
       SteamGameStatus.open => 15.0,
       null => 12.0,
       _ => 0.0,
@@ -432,6 +434,9 @@ class SteamInsights {
         break;
       case SteamGameStatus.active:
         reasons.add(SteamInsightReason.active);
+        break;
+      case SteamGameStatus.paused:
+        reasons.add(SteamInsightReason.paused);
         break;
       case null:
         reasons.add(SteamInsightReason.missingStatus);
@@ -493,7 +498,9 @@ class SteamInsights {
       SteamGameStatus.endless ||
       SteamGameStatus.abandoned ||
       SteamGameStatus.archived => false,
-      SteamGameStatus.open || SteamGameStatus.active => true,
+      SteamGameStatus.open ||
+      SteamGameStatus.active ||
+      SteamGameStatus.paused => true,
       null => !_shouldReviewStatus(purchase),
     };
   }
@@ -504,8 +511,14 @@ class SteamInsights {
     return playtimeHours != null && playtimeHours > 0;
   }
 
-  int _activeRank(SteamPurchase purchase) {
-    return purchase.gameStatus == SteamGameStatus.active ? 1 : 0;
+  int _resumeRank(SteamPurchase purchase) {
+    // Aktive Spiele stehen vor pausierten; pausierte bleiben aber sichtbare
+    // Wiedereinstiegs-Kandidaten vor neutral offenen Titeln.
+    return switch (purchase.gameStatus) {
+      SteamGameStatus.active => 2,
+      SteamGameStatus.paused => 1,
+      _ => 0,
+    };
   }
 
   int _comparePurchaseAge(SteamPurchase a, SteamPurchase b) {
