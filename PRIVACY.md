@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: May 26, 2026
+Last updated: June 6, 2026
 
 This Privacy Policy applies to **Purchase Statistics**. The app is an independent project and is not affiliated with, sponsored by, or endorsed by Valve or Steam.
 
@@ -10,7 +10,7 @@ The app is built as a local desktop/mobile app without a project-operated backen
 
 - The app does not provide or require an app account.
 - The app does not use analytics, tracking, advertising, or telemetry for the project maintainer.
-- Purchases, reusable game length estimates, non-secret settings, Steam links, goals, collections, metadata, and caches are stored locally in a SQLite database.
+- Purchases, reusable game length estimates, non-secret settings, Steam links, goals, collections, recommendation snoozes, metadata, and caches are stored locally in a SQLite database.
 - Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync.
 - The Steam Web API key is stored locally in the platform secure store where available and is used only for Steam Web API requests to Valve.
 
@@ -25,6 +25,7 @@ The app may store the following data locally:
 | Playtime data | `playtime_hours` per linked Steam App ID | Price-per-hour statistics and playtime analysis |
 | Game length estimate data | Game name, optional Steam App ID, main story hours, main + extras hours, completionist hours | Reusable background estimates for purchase editing and the shareable length-estimate CSV import/export |
 | Game metadata | Name, release date, genres, tags/categories, developers, publishers, unavailable metadata refresh markers | Collections, filters, previews, metadata display, and avoiding repeated requests for unavailable Steam metadata |
+| Recommendation state | Optional `backlog_priority_snoozed_until` timestamp per game | Temporarily hiding a game from the local **Play next** backlog recommendation list |
 | Steam sync settings | SteamID64, Steam profile name or profile URL, Steam Web API key, include played free games option | Steam playtime sync |
 | Steam Store search cache | Normalized search term, language, country, purchase type, result names, App IDs, result type, expiration time | Faster Steam search and fewer repeated requests |
 | App settings | Theme, language, currency | App display and localization |
@@ -125,7 +126,7 @@ When you import the separate length-estimate CSV, the app stores those estimates
 
 ## Retention and Deletion
 
-- Purchase data, game length estimate data, collections, goals, settings, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
+- Purchase data, game length estimate data, collections, goals, settings, recommendation snoozes, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
 - You can remove Steam sync credentials by saving the Steam settings fields as empty values.
 - You can fully remove the local search cache by deleting the local app database or app data.
 - Full and length-estimate CSV exports are created only at the location you choose during export.

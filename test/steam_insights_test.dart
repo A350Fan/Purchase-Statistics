@@ -138,6 +138,52 @@ void main() {
       expect(pausedInsight.reasons, contains(SteamInsightReason.paused));
       expect(insights.completionRate, 0.5);
     });
+
+    test('hides snoozed games from backlog priority until the snooze date', () {
+      final hiddenPurchase = SteamPurchase(
+        purchaseDate: DateTime(2024, 1, 1),
+        gameName: 'Hidden Backlog',
+        gameStatus: SteamGameStatus.open,
+        backlogPrioritySnoozedUntil: DateTime(2026, 6, 7),
+        price: 100,
+      );
+      final visiblePurchase = SteamPurchase(
+        purchaseDate: DateTime(2025, 1, 1),
+        gameName: 'Visible Backlog',
+        gameStatus: SteamGameStatus.open,
+        price: 10,
+      );
+      final expiredPurchase = SteamPurchase(
+        purchaseDate: DateTime(2023, 1, 1),
+        gameName: 'Expired Snooze',
+        gameStatus: SteamGameStatus.open,
+        backlogPrioritySnoozedUntil: DateTime(2026, 5, 24),
+        price: 20,
+      );
+      final currentInsights = SteamInsights([
+        hiddenPurchase,
+        visiblePurchase,
+        expiredPurchase,
+      ], currentDate: DateTime(2026, 5, 24));
+      final dueInsights = SteamInsights([
+        hiddenPurchase,
+        visiblePurchase,
+        expiredPurchase,
+      ], currentDate: DateTime(2026, 6, 7));
+
+      expect(
+        currentInsights.backlogPriority.map((item) => item.purchase.gameName),
+        containsAll(['Visible Backlog', 'Expired Snooze']),
+      );
+      expect(
+        currentInsights.backlogPriority.map((item) => item.purchase.gameName),
+        isNot(contains('Hidden Backlog')),
+      );
+      expect(
+        dueInsights.backlogPriority.map((item) => item.purchase.gameName),
+        contains('Hidden Backlog'),
+      );
+    });
   });
 }
 

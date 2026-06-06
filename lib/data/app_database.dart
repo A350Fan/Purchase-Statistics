@@ -37,7 +37,7 @@ class AppDatabase {
       path,
       // Jede Schema-Aenderung muss die Version erhoehen und unten in
       // `_upgradeDatabase` eine idempotente Migration ergaenzen.
-      version: 18,
+      version: 19,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -187,6 +187,7 @@ class AppDatabase {
         main_story_hours REAL,
         main_extra_hours REAL,
         completionist_hours REAL,
+        backlog_priority_snoozed_until TEXT,
         note TEXT
       )
     ''');
@@ -307,6 +308,12 @@ class AppDatabase {
     if (oldVersion < 18) {
       await _createSteamGameLengthEstimateTable(db);
       await _seedSteamGameLengthEstimatesFromPurchases(db);
+    }
+
+    if (oldVersion < 19) {
+      await db.execute(
+        'ALTER TABLE steam_purchases ADD COLUMN backlog_priority_snoozed_until TEXT',
+      );
     }
   }
 

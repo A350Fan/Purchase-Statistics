@@ -54,6 +54,7 @@ Implemented so far:
 - CSV export
 - Separate CSV import/export for shareable game length estimates
 - Smart insights for backlog and pile-of-shame analysis, including status review for heavily played games without a status
+- Temporary 14-day snooze for individual **Play next** backlog recommendations
 - Goal tracking for annual spending, backlog size, unplayed backlog value and completion rate
 - Dashboard overview cards
 - Yearly statistics table
@@ -85,6 +86,7 @@ A Steam purchase can currently store:
 | `main_story_hours` | Optional estimated main story length in hours |
 | `main_extra_hours` | Optional estimated main story + extras length in hours |
 | `completionist_hours` | Optional estimated completionist length in hours |
+| `backlog_priority_snoozed_until` | Optional local date until which a game is hidden from the **Play next** recommendation list |
 | `note` | Optional note |
 
 ---
@@ -115,6 +117,7 @@ The app currently calculates:
 - Unplayed backlog count and value
 - Completion rate
 - Expensive unplayed games
+- Play next backlog recommendations, with optional local 14-day snoozes per game
 - Started or paused backlog games
 - High cost-per-hour games
 - Abandoned spending
@@ -164,6 +167,8 @@ The importer also accepts some German/alternative column names, for example `dat
 Supported game status values include `open`, `active`, `paused`, `completed`, `endless`, `abandoned` and `archived`; German values such as `offen`, `aktiv`, `pausiert`, `durchgespielt`, `endlos`, `abgebrochen` and `archiviert` are accepted too.
 
 CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
+
+The local `backlog_priority_snoozed_until` recommendation state is not included in purchase CSV import/export files, so CSV files remain focused on purchase data.
 
 The app also offers a separate length-estimate CSV import/export for sharing only the optional game length fields:
 
@@ -320,6 +325,7 @@ The database schema is versioned and currently includes migrations for:
 - Adding edition and DLC name fields
 - Adding game status
 - Adding game length estimates
+- Adding local Play next recommendation snoozes
 - Adding goal tracking
 - Adding Steam Store search caching
 - Adding Steam game metadata

@@ -179,6 +179,10 @@ class SteamInsights {
     final insights =
         backlogGames
             .where((purchase) {
+              if (_isBacklogPrioritySnoozed(purchase)) {
+                return false;
+              }
+
               final estimatedProgress = estimatedProgressForPurchase(purchase);
 
               if (estimatedProgress != null) {
@@ -503,6 +507,18 @@ class SteamInsights {
       SteamGameStatus.paused => true,
       null => !_shouldReviewStatus(purchase),
     };
+  }
+
+  bool _isBacklogPrioritySnoozed(SteamPurchase purchase) {
+    final snoozedUntil = purchase.backlogPrioritySnoozedUntil;
+
+    if (snoozedUntil == null) {
+      return false;
+    }
+
+    // Der Snooze betrifft nur die Empfehlungsliste. Am gespeicherten Datum
+    // selbst darf das Spiel wieder als Vorschlag auftauchen.
+    return currentDate.isBefore(_dateOnly(snoozedUntil));
   }
 
   bool _hasPlaytime(SteamPurchase purchase) {

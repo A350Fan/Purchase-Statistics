@@ -100,6 +100,7 @@ class SteamPurchase {
   final double? mainStoryHours;
   final double? mainExtraHours;
   final double? completionistHours;
+  final DateTime? backlogPrioritySnoozedUntil;
   final String? note;
 
   const SteamPurchase({
@@ -117,6 +118,7 @@ class SteamPurchase {
     this.mainStoryHours,
     this.mainExtraHours,
     this.completionistHours,
+    this.backlogPrioritySnoozedUntil,
     this.note,
   });
 
@@ -213,8 +215,17 @@ class SteamPurchase {
     double? mainStoryHours,
     double? mainExtraHours,
     double? completionistHours,
+    Object? backlogPrioritySnoozedUntil = _copyWithUnset,
     String? note,
   }) {
+    // Der Sentinel erlaubt es, den Snooze explizit auf null zu setzen. Die
+    // vorhandenen optionalen copyWith-Felder behalten aus Kompatibilitaet ihr
+    // bisheriges "null bedeutet unveraendert"-Verhalten.
+    final nextBacklogPrioritySnoozedUntil =
+        identical(backlogPrioritySnoozedUntil, _copyWithUnset)
+        ? this.backlogPrioritySnoozedUntil
+        : backlogPrioritySnoozedUntil as DateTime?;
+
     return SteamPurchase(
       id: id ?? this.id,
       purchaseDate: purchaseDate ?? this.purchaseDate,
@@ -230,6 +241,7 @@ class SteamPurchase {
       mainStoryHours: mainStoryHours ?? this.mainStoryHours,
       mainExtraHours: mainExtraHours ?? this.mainExtraHours,
       completionistHours: completionistHours ?? this.completionistHours,
+      backlogPrioritySnoozedUntil: nextBacklogPrioritySnoozedUntil,
       note: note ?? this.note,
     );
   }
@@ -261,6 +273,9 @@ class SteamPurchase {
           : null,
       'completionist_hours': purchaseType == SteamPurchaseType.game
           ? completionistHours
+          : null,
+      'backlog_priority_snoozed_until': purchaseType == SteamPurchaseType.game
+          ? backlogPrioritySnoozedUntil?.toIso8601String()
           : null,
       'note': note,
     };
@@ -297,6 +312,9 @@ class SteamPurchase {
       completionistHours: map['completionist_hours'] == null
           ? null
           : (map['completionist_hours'] as num).toDouble(),
+      backlogPrioritySnoozedUntil: purchaseType == SteamPurchaseType.game
+          ? _nullableDateTime(map['backlog_priority_snoozed_until'])
+          : null,
       note: map['note'] as String?,
     );
   }
@@ -322,4 +340,20 @@ class SteamPurchase {
 
     return stringValue;
   }
+
+  static DateTime? _nullableDateTime(Object? value) {
+    final stringValue = _nullableString(value);
+
+    if (stringValue == null) {
+      return null;
+    }
+
+    return DateTime.tryParse(stringValue);
+  }
 }
+
+/// Internes Marker-Objekt fuer copyWith-Parameter, bei denen null ein echter
+/// Zielwert sein kann.
+enum _SteamPurchaseCopyWithSentinel { unset }
+
+const _copyWithUnset = _SteamPurchaseCopyWithSentinel.unset;

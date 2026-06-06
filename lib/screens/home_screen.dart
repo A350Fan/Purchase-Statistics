@@ -102,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen>
   static const double _purchaseTablePlaytimeColumnWidth = 112;
   static const double _purchaseTableCostColumnWidth = 128;
   static const double _purchaseTableActionsColumnWidth = 96;
+  static const int _backlogPrioritySnoozeDays = 14;
 
   late final SteamPurchaseRepository _repository;
   late final SteamCollectionRepository _collectionRepository;
@@ -594,6 +595,91 @@ class _HomeScreenState extends State<HomeScreen>
 
     await _refreshMetadataForPurchase(result.purchase);
     await _loadPurchases();
+  }
+
+  Future<void> _snoozeBacklogPriority(SteamPurchase purchase) async {
+    if (purchase.id == null) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+    final previousSnoozedUntil = purchase.backlogPrioritySnoozedUntil;
+    final snoozedUntil = _today().add(
+      const Duration(days: _backlogPrioritySnoozeDays),
+    );
+
+    try {
+      await _repository.updatePurchase(
+        purchase.copyWith(backlogPrioritySnoozedUntil: snoozedUntil),
+      );
+      await _loadPurchases();
+      _showBacklogPrioritySnoozedSnackBar(
+        purchase: purchase,
+        snoozedUntil: snoozedUntil,
+        previousSnoozedUntil: previousSnoozedUntil,
+      );
+    } catch (error) {
+      _showSnackBar(strings.backlogPrioritySnoozeFailed(error));
+    }
+  }
+
+  void _showBacklogPrioritySnoozedSnackBar({
+    required SteamPurchase purchase,
+    required DateTime snoozedUntil,
+    required DateTime? previousSnoozedUntil,
+  }) {
+    if (!mounted || purchase.id == null) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            strings.backlogPrioritySnoozed(
+              purchase.displayName,
+              _formatDate(snoozedUntil),
+            ),
+          ),
+          action: SnackBarAction(
+            label: strings.undo,
+            onPressed: () async {
+              await _restoreBacklogPrioritySnooze(
+                purchase: purchase,
+                previousSnoozedUntil: previousSnoozedUntil,
+              );
+            },
+          ),
+        ),
+      );
+  }
+
+  Future<void> _restoreBacklogPrioritySnooze({
+    required SteamPurchase purchase,
+    required DateTime? previousSnoozedUntil,
+  }) async {
+    if (purchase.id == null) {
+      return;
+    }
+
+    final strings = AppStrings.of(context);
+
+    try {
+      // Undo stellt den vorherigen Wert wieder her. Normalerweise ist das null,
+      // bei abgelaufenen alten Snoozes bleibt der Zustand dadurch erhalten.
+      await _repository.updatePurchase(
+        purchase.copyWith(backlogPrioritySnoozedUntil: previousSnoozedUntil),
+      );
+      await _loadPurchases();
+      _showSnackBar(
+        strings.backlogPrioritySnoozeRestored(purchase.displayName),
+      );
+    } catch (error) {
+      _showSnackBar(strings.backlogPrioritySnoozeFailed(error));
+    }
   }
 
   Future<void> _refreshMetadataForPurchase(SteamPurchase purchase) async {
@@ -2798,6 +2884,7 @@ class _HomeScreenState extends State<HomeScreen>
                 SmartInsightsTab(
                   purchases: _purchases,
                   onPurchaseTap: _openEditPurchaseScreen,
+                  onBacklogPrioritySnooze: _snoozeBacklogPriority,
                 ),
 
                 // TAB 5: Ziele für Ausgaben, Backlog und Abschlussquote.

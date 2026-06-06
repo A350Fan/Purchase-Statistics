@@ -33,11 +33,31 @@ class _InMemorySettingsStore implements AppSettingsStore {
 class _InMemoryPurchaseRepository extends SteamPurchaseRepository {
   final List<SteamPurchase> purchases;
 
-  _InMemoryPurchaseRepository([this.purchases = const []]);
+  _InMemoryPurchaseRepository([List<SteamPurchase> purchases = const []])
+    : purchases = [...purchases];
 
   @override
   Future<List<SteamPurchase>> getAllPurchases() async {
-    return purchases;
+    return List.unmodifiable(purchases);
+  }
+
+  @override
+  Future<void> updatePurchase(SteamPurchase purchase) async {
+    final id = purchase.id;
+
+    if (id == null) {
+      throw ArgumentError('Cannot update purchase without id.');
+    }
+
+    final index = purchases.indexWhere((candidate) => candidate.id == id);
+
+    if (index < 0) {
+      throw StateError('Purchase not found: $id');
+    }
+
+    // Tests spiegeln das echte Repository: ein Update ersetzt die gespeicherte
+    // Zeile, danach liest der HomeScreen die Liste neu.
+    purchases[index] = purchase;
   }
 }
 
@@ -187,6 +207,72 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('snoozes play next recommendations for two weeks', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1100, 1000);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    final repository = _InMemoryPurchaseRepository([
+      SteamPurchase(
+        id: 1,
+        purchaseDate: DateTime(2020, 1, 1),
+        gameName: 'Portal 2',
+        gameStatus: SteamGameStatus.open,
+        price: 59.99,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      SteamStatsApp(
+        settingsController: AppSettingsController(
+          store: _InMemorySettingsStore(),
+        ),
+        purchaseRepository: repository,
+        collectionRepository: _InMemoryCollectionRepository(),
+        goalStore: _InMemoryGoalStore(),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.tap(find.text('Insights').first);
+    await _pumpInteractionFrame(tester);
+
+    expect(find.textContaining('Priorität:'), findsOneWidget);
+
+    await tester.tap(
+      find.byTooltip('Für 2 Wochen aus Als Nächstes ausblenden').first,
+    );
+    await _pumpInteractionFrame(tester);
+
+    expect(
+      repository.purchases
+          .singleWhere((purchase) => purchase.id == 1)
+          .backlogPrioritySnoozedUntil,
+      isNotNull,
+    );
+    expect(find.textContaining('Priorität:'), findsNothing);
+    expect(
+      find.textContaining('aus Als Nächstes ausgeblendet'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Rückgängig'));
+    await _pumpInteractionFrame(tester);
+
+    expect(
+      repository.purchases
+          .singleWhere((purchase) => purchase.id == 1)
+          .backlogPrioritySnoozedUntil,
+      isNull,
+    );
+    expect(find.textContaining('Priorität:'), findsOneWidget);
   });
 
   testWidgets('filters purchases from the overview search field', (

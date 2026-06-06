@@ -299,6 +299,28 @@ class AppStrings {
   String get backlogPriorityDescription => isEnglish
       ? 'Open games with no or little playtime, weighted by value and age.'
       : 'Offene Spiele mit keiner oder wenig Spielzeit, gewichtet nach Wert und Alter.';
+  String get snoozeBacklogPriorityTooltip => isEnglish
+      ? 'Hide from Play next for 2 weeks'
+      : 'Für 2 Wochen aus Als Nächstes ausblenden';
+
+  String backlogPrioritySnoozed(String purchaseName, String date) {
+    return isEnglish
+        ? '"$purchaseName" is hidden from Play next until $date.'
+        : '"$purchaseName" ist bis $date aus Als Nächstes ausgeblendet.';
+  }
+
+  String backlogPrioritySnoozeRestored(String purchaseName) {
+    return isEnglish
+        ? '"$purchaseName" is back in Play next.'
+        : '"$purchaseName" ist wieder in Als Nächstes sichtbar.';
+  }
+
+  String backlogPrioritySnoozeFailed(Object error) {
+    return isEnglish
+        ? 'Play next visibility could not be changed: $error'
+        : 'Die Sichtbarkeit in Als Nächstes konnte nicht geändert werden: $error';
+  }
+
   String get expensiveUnplayedGames =>
       isEnglish ? 'Expensive and unplayed' : 'Teuer & ungespielt';
   String get startedBacklogGames =>

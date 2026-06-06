@@ -33,6 +33,7 @@ void main() {
               main_story_hours REAL,
               main_extra_hours REAL,
               completionist_hours REAL,
+              backlog_priority_snoozed_until TEXT,
               note TEXT
             )
           ''');
@@ -95,6 +96,32 @@ void main() {
             .playtimeHours,
         isNull,
       );
+    });
+
+    test('persists backlog priority snooze changes', () async {
+      final purchase = await repository.addPurchase(
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.open,
+          price: 9.99,
+        ),
+      );
+      final snoozedUntil = DateTime(2026, 6, 7);
+
+      await repository.updatePurchase(
+        purchase.copyWith(backlogPrioritySnoozedUntil: snoozedUntil),
+      );
+      final snoozedPurchase = (await repository.getAllPurchases()).single;
+
+      expect(snoozedPurchase.backlogPrioritySnoozedUntil, snoozedUntil);
+
+      await repository.updatePurchase(
+        snoozedPurchase.copyWith(backlogPrioritySnoozedUntil: null),
+      );
+      final restoredPurchase = (await repository.getAllPurchases()).single;
+
+      expect(restoredPurchase.backlogPrioritySnoozedUntil, isNull);
     });
   });
 }

@@ -14,11 +14,13 @@ import '../widgets/stat_card.dart';
 class SmartInsightsTab extends StatelessWidget {
   final List<SteamPurchase> purchases;
   final ValueChanged<SteamPurchase>? onPurchaseTap;
+  final ValueChanged<SteamPurchase>? onBacklogPrioritySnooze;
 
   const SmartInsightsTab({
     super.key,
     required this.purchases,
     this.onPurchaseTap,
+    this.onBacklogPrioritySnooze,
   });
 
   @override
@@ -54,6 +56,7 @@ class SmartInsightsTab extends StatelessWidget {
           description: strings.backlogPriorityDescription,
           items: insights.backlogPriority,
           showPriority: true,
+          onSnooze: onBacklogPrioritySnooze,
         ),
         const SizedBox(height: 24),
         _buildInsightSection(
@@ -190,6 +193,7 @@ class SmartInsightsTab extends StatelessWidget {
     required List<SteamPurchaseInsight> items,
     String? description,
     bool showPriority = false,
+    ValueChanged<SteamPurchase>? onSnooze,
   }) {
     // Jeder Abschnitt hat dieselbe Struktur: Titel, optionale Beschreibung,
     // leeren Zustand oder eine begrenzte Liste von Karten.
@@ -233,6 +237,7 @@ class SmartInsightsTab extends StatelessWidget {
               strings: strings,
               currency: currency,
               showPriority: showPriority,
+              onSnooze: onSnooze == null ? null : () => onSnooze(item.purchase),
               onTap: onPurchaseTap == null
                   ? null
                   : () => onPurchaseTap!(item.purchase),
@@ -261,6 +266,7 @@ class _InsightPurchaseCard extends StatelessWidget {
   final AppCurrency currency;
   final bool showPriority;
   final VoidCallback? onTap;
+  final VoidCallback? onSnooze;
 
   const _InsightPurchaseCard({
     required this.insight,
@@ -268,12 +274,11 @@ class _InsightPurchaseCard extends StatelessWidget {
     required this.currency,
     required this.showPriority,
     this.onTap,
+    this.onSnooze,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -285,16 +290,8 @@ class _InsightPurchaseCard extends StatelessWidget {
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 560;
               final titleBlock = _buildTitleBlock(context);
-              final mainMetric = Text(
-                showPriority
-                    ? '${strings.priority}: ${_priorityLabel()}'
-                    : _formatCurrency(insight.totalPrice),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              );
+              final mainMetric = _buildMainMetric(context);
+              final snoozeButton = _buildSnoozeButton(context);
 
               if (isCompact) {
                 return Column(
@@ -302,7 +299,15 @@ class _InsightPurchaseCard extends StatelessWidget {
                   children: [
                     titleBlock,
                     const SizedBox(height: 8),
-                    mainMetric,
+                    Row(
+                      children: [
+                        Expanded(child: mainMetric),
+                        if (snoozeButton != null) ...[
+                          const SizedBox(width: 8),
+                          snoozeButton,
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     _buildMetricChips(context),
                   ],
@@ -323,6 +328,10 @@ class _InsightPurchaseCard extends StatelessWidget {
                           child: mainMetric,
                         ),
                       ),
+                      if (snoozeButton != null) ...[
+                        const SizedBox(width: 8),
+                        snoozeButton,
+                      ],
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -333,6 +342,33 @@ class _InsightPurchaseCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMainMetric(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Text(
+      showPriority
+          ? '${strings.priority}: ${_priorityLabel()}'
+          : _formatCurrency(insight.totalPrice),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    );
+  }
+
+  Widget? _buildSnoozeButton(BuildContext context) {
+    if (!showPriority || onSnooze == null) {
+      return null;
+    }
+
+    // Der Button ist nur in "Als Naechstes" sichtbar und versteckt den Kauf
+    // temporaer aus genau dieser Empfehlungsliste.
+    return IconButton.filledTonal(
+      onPressed: onSnooze,
+      icon: const Icon(Icons.snooze),
+      tooltip: strings.snoozeBacklogPriorityTooltip,
     );
   }
 
