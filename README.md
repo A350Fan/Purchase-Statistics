@@ -168,6 +168,8 @@ Supported game status values include `open`, `active`, `paused`, `completed`, `e
 
 CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
 
+During purchase CSV imports, entries that already exist locally are skipped instead of being inserted again. The duplicate check uses purchase date, purchase type, normalized game name, edition, DLC name and paid price. Steam App ID, playtime, status, length estimates and notes are ignored for this comparison so that synced or manually enriched existing purchases do not become duplicates.
+
 The local `backlog_priority_snoozed_until` recommendation state is not included in purchase CSV import/export files, so CSV files remain focused on purchase data.
 
 The app also offers a separate length-estimate CSV import/export for sharing only the optional game length fields:

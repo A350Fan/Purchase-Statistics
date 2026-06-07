@@ -420,7 +420,29 @@ class AppStrings {
   String get lengthEstimatesCsvEmpty => isEnglish
       ? 'The CSV does not contain any length estimates.'
       : 'Die CSV enthält keine Längenschätzungen.';
-  String importedPurchases(int count) {
+  String importedPurchases(int count, {int skippedDuplicates = 0}) {
+    if (skippedDuplicates > 0) {
+      if (isEnglish) {
+        final importedText = count == 1
+            ? '1 purchase was imported'
+            : '$count purchases were imported';
+        final skippedText = skippedDuplicates == 1
+            ? '1 duplicate was skipped.'
+            : '$skippedDuplicates duplicates were skipped.';
+
+        return '$importedText, $skippedText';
+      }
+
+      final importedText = count == 1
+          ? '1 Kauf wurde importiert'
+          : '$count Käufe wurden importiert';
+      final skippedText = skippedDuplicates == 1
+          ? '1 Duplikat wurde übersprungen.'
+          : '$skippedDuplicates Duplikate wurden übersprungen.';
+
+      return '$importedText, $skippedText';
+    }
+
     if (isEnglish) {
       return count == 1
           ? '1 purchase was imported.'

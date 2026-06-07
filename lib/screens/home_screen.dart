@@ -1002,7 +1002,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _importPurchasesFromCsv() async {
     // Datei auswaehlen, Groesse pruefen, CSV parsen und anschliessend als Batch
-    // speichern.
+    // speichern. Bereits vorhandene Kaufzeilen werden beim Speichern erkannt.
     if (_isCsvOperationRunning) {
       return;
     }
@@ -1033,10 +1033,17 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      final importedCount = await _repository.addPurchases(purchases);
-      await _lengthEstimateRepository.upsertPurchases(purchases);
+      final importResult = await _repository.importPurchases(purchases);
+      await _lengthEstimateRepository.upsertPurchases(
+        importResult.importedPurchases,
+      );
       await _loadPurchases();
-      _showSnackBar(strings.importedPurchases(importedCount));
+      _showSnackBar(
+        strings.importedPurchases(
+          importResult.importedCount,
+          skippedDuplicates: importResult.skippedDuplicateCount,
+        ),
+      );
     } on SteamPurchaseCsvException catch (error) {
       _showSnackBar(strings.csvImportFailed(error));
     } catch (error) {

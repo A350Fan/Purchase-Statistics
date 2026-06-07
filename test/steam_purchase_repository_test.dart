@@ -98,6 +98,66 @@ void main() {
       );
     });
 
+    test('skips duplicate imports that only differ in synced fields', () async {
+      await repository.addPurchase(
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.completed,
+          steamAppId: 620,
+          price: 9.99,
+          playtimeHours: 12,
+          mainStoryHours: 8,
+          note: 'local note',
+        ),
+      );
+
+      final result = await repository.importPurchases([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: '  portal   2  ',
+          gameStatus: SteamGameStatus.open,
+          price: 9.99,
+          playtimeHours: 100,
+          mainStoryHours: 20,
+          note: 'csv note',
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          gameName: 'Hades',
+          price: 19.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          gameName: 'HADES',
+          price: 19.99,
+          playtimeHours: 2,
+        ),
+      ]);
+      final purchases = await repository.getAllPurchases();
+
+      expect(result.importedCount, 1);
+      expect(result.skippedDuplicateCount, 2);
+      expect(result.totalCount, 3);
+      expect(result.importedPurchases.single.gameName, 'Hades');
+      expect(purchases, hasLength(2));
+      expect(
+        purchases.singleWhere((purchase) => purchase.gameName == 'Portal 2'),
+        isA<SteamPurchase>()
+            .having((purchase) => purchase.playtimeHours, 'playtime', 12)
+            .having(
+              (purchase) => purchase.gameStatus,
+              'status',
+              SteamGameStatus.completed,
+            )
+            .having((purchase) => purchase.note, 'note', 'local note'),
+      );
+      expect(
+        purchases.singleWhere((purchase) => purchase.gameName == 'Hades').price,
+        19.99,
+      );
+    });
+
     test('persists backlog priority snooze changes', () async {
       final purchase = await repository.addPurchase(
         SteamPurchase(
