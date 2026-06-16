@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Purchase Statistics.
 
-Purchase Statistics is an early-stage Flutter app for tracking and analyzing Steam game purchases. Contributions are welcome when they stay aligned with the project's goal: a local-first, privacy-conscious app for purchase history, spending statistics, collections, goals, Steam metadata, and optional Steam playtime sync.
+Purchase Statistics is an early-stage Flutter app for tracking and analyzing game purchases. Contributions are welcome when they stay aligned with the project's goal: a local-first, privacy-conscious app for purchase history, spending statistics, collections, goals, Steam metadata, and optional Steam playtime sync.
 
 ## Project Scope
 

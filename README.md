@@ -1,8 +1,8 @@
 # Purchase Statistics
 
-Purchase Statistics is a Flutter app for tracking and analyzing Steam game purchases.
+Purchase Statistics is a Flutter app for tracking and analyzing game purchases, with optional Steam integrations.
 
-The project started as a replacement for a personal spreadsheet-based Steam statistics workflow. It focuses on purchase history, spending statistics, discounts, DLCs and playtime-based analysis.
+The project started as a replacement for a personal spreadsheet-based game purchase statistics workflow. It focuses on purchase history, spending statistics, discounts, DLCs and playtime-based analysis.
 
 This project is **independent** and **not affiliated with Valve, Steam or any other third-party platform**.
 
@@ -31,7 +31,7 @@ Implemented so far:
 - Responsive layout for desktop and smaller screens
 - Persistent SQLite storage
 - Desktop SQLite support via `sqflite_common_ffi`
-- Add, edit and delete Steam purchases
+- Add, edit and delete purchases
 - Delete confirmation dialog
 - Game and DLC purchase types
 - Optional game status for non-DLC games
@@ -69,7 +69,7 @@ Implemented so far:
 
 ## Data Model
 
-A Steam purchase can currently store:
+A purchase can currently store:
 
 | Field | Description |
 | --- | --- |
@@ -420,7 +420,7 @@ The hooks scan staged files before commits and reachable Git history before push
 
 ## Disclaimer
 
-Purchase Statistics is a personal open-source helper project for tracking Steam purchases.
+Purchase Statistics is a personal open-source helper project for tracking game purchases.
 
 It can optionally connect to the Steam Web API to update playtime for a configured public Steam profile.
 

@@ -216,8 +216,8 @@ class AppStrings {
   String get withDiscount => isEnglish ? 'With discount' : 'Mit Rabatt';
   String get withoutDiscount => isEnglish ? 'Without discount' : 'Ohne Rabatt';
   String get noPurchases => isEnglish
-      ? 'No purchases yet. Add your first Steam purchase.'
-      : 'Noch keine Käufe vorhanden. Füge deinen ersten Steam-Kauf hinzu.';
+      ? 'No purchases yet. Add your first game purchase.'
+      : 'Noch keine Käufe vorhanden. Füge deinen ersten Spielekauf hinzu.';
   String get noStatisticsData => isEnglish
       ? 'No statistics data yet.'
       : 'Noch keine Statistikdaten vorhanden.';
