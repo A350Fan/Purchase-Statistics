@@ -11,11 +11,11 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  sqflite: ^2.4.2+1
-  sqflite_common_ffi: ^2.4.0+3
+  sqflite: ^2.4.3
+  sqflite_common_ffi: ^2.4.2
   path: ^1.9.1
   file_picker: 10.3.8
-  flutter_secure_storage: 10.3.0
+  flutter_secure_storage: ^10.3.1
 
 dev_dependencies:
   flutter_test:

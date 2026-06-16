@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Last reviewed: May 26, 2026
+Last reviewed: June 16, 2026
 
 Purchase Statistics is licensed under the GNU General Public License version 3 or later. Third-party dependencies used by the app remain under their own licenses.
 
@@ -18,7 +18,7 @@ This table summarizes the app's direct runtime dependencies and the platform pac
 | `ffi` | 2.2.0 | BSD-style Dart license |
 | `file_picker` | 10.3.8 | MIT |
 | `flutter_plugin_android_lifecycle` | 2.0.34 | BSD-style Flutter license |
-| `flutter_secure_storage` | 10.3.0 | BSD-3-Clause |
+| `flutter_secure_storage` | 10.3.1 | BSD-3-Clause |
 | `flutter_secure_storage_darwin` | 0.3.2 | BSD-3-Clause |
 | `flutter_secure_storage_linux` | 3.0.1 | BSD-3-Clause |
 | `flutter_secure_storage_platform_interface` | 2.0.1 | BSD-3-Clause |
@@ -36,14 +36,14 @@ This table summarizes the app's direct runtime dependencies and the platform pac
 | `path_provider_platform_interface` | 2.1.2 | BSD-style Flutter license |
 | `path_provider_windows` | 2.3.0 | BSD-style Flutter license |
 | `plugin_platform_interface` | 2.1.8 | BSD-style Flutter license |
-| `sqflite` | 2.4.2+1 | BSD-2-Clause |
-| `sqflite_android` | 2.4.2+3 | BSD-2-Clause |
-| `sqflite_common` | 2.5.8 | BSD-2-Clause |
-| `sqflite_common_ffi` | 2.4.0+3 | BSD-2-Clause |
-| `sqflite_darwin` | 2.4.2 | BSD-2-Clause |
-| `sqflite_platform_interface` | 2.4.0 | BSD-2-Clause |
+| `sqflite` | 2.4.3 | BSD-2-Clause |
+| `sqflite_android` | 2.4.3 | BSD-2-Clause |
+| `sqflite_common` | 2.5.11 | BSD-2-Clause |
+| `sqflite_common_ffi` | 2.4.2 | BSD-2-Clause |
+| `sqflite_darwin` | 2.4.3 | BSD-2-Clause |
+| `sqflite_platform_interface` | 2.4.1 | BSD-2-Clause |
 | `sqlite3` | 3.3.1 | MIT |
-| `synchronized` | 3.4.0+1 | MIT |
+| `synchronized` | 3.4.1 | MIT |
 | `web` | 1.1.1 | BSD-style Dart license |
 | `win32` | 5.15.0 | BSD-style Dart license |
 | `xdg_directories` | 1.1.0 | BSD-style Flutter license |
