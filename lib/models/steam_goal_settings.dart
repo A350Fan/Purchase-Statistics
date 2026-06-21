@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Persistente Zielwerte fuer den Ziele-Tab.
 ///
 /// Alle Felder sind optional: `null` bedeutet, dass das jeweilige Ziel nicht

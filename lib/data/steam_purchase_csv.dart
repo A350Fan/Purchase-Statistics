@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import '../models/steam_game_length_estimate.dart';
 import '../models/steam_purchase.dart';
 

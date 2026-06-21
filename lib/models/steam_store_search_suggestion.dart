@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'steam_purchase.dart';
 
 /// Typ eines Suchtreffers aus dem Steam Store.

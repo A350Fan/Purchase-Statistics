@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Wiederverwendbare Laengenschaetzung fuer ein Spiel.
 ///
 /// Diese Daten sind absichtlich von echten Kaeufen getrennt. Ein Eintrag in

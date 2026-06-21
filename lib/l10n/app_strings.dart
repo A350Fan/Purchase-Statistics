@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter/widgets.dart';
 
 import '../models/steam_purchase.dart';

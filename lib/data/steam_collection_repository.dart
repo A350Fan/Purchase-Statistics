@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:sqflite/sqflite.dart';
 
 import '../models/collection_item.dart';

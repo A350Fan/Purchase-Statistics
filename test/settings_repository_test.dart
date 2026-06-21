@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/settings/app_settings.dart';
 import 'package:purchase_statistics/settings/settings_repository.dart';

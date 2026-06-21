@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Unterscheidet normale Spiele von DLCs.
 ///
 /// Der Wert wird bewusst als String gespeichert, damit die Datenbank und CSVs

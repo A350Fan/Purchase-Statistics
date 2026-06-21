@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Verknuepfung zwischen einer manuellen Sammlung und einem Kauf.
 ///
 /// Automatische Sammlungen verwenden keine gespeicherten Items; sie berechnen

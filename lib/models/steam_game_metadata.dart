@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Metadatenfelder, die aus Steam gelesen und fuer automatische Sammlungen
 /// verwendet werden.
 enum SteamMetadataField {

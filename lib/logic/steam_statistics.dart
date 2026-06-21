@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import '../models/steam_purchase.dart';
 
 /// Statistischer Jahreswert fuer Tabellen und Diagramme.

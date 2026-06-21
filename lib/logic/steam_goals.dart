@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import '../models/steam_goal_settings.dart';
 import '../models/steam_purchase.dart';
 import 'steam_insights.dart';

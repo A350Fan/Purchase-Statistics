@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// Kleine gemeinsame Schnittstelle fuer Services, die Ressourcen freigeben
 /// muessen, aber nicht zwingend Flutters `ChangeNotifier` oder `Stream` sind.
 abstract interface class DisposableResource {

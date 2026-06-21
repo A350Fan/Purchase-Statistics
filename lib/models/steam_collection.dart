@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'steam_game_metadata.dart';
 
 /// Sortiermodus fuer Inhalte innerhalb einer Sammlung.

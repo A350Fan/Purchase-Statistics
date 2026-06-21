@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter/material.dart';
 
 /// Kleine Kennzahlenkarte fuer Dashboard- und Statistikwerte.

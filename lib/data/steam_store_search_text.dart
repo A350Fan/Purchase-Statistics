@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 final _ignoredSteamSearchSymbolPattern = RegExp(
   r'[\u00a9\u00ae\u2117\u2120\u2122]',
 );

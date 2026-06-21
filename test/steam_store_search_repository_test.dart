@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/data/steam_store_search_client.dart';
 import 'package:purchase_statistics/data/steam_store_search_repository.dart';

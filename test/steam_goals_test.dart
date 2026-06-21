@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchase_statistics/logic/steam_goals.dart';
 import 'package:purchase_statistics/models/steam_goal_settings.dart';
