@@ -26,6 +26,7 @@ class SteamPurchaseCsv {
   static const headers = [
     'purchase_date',
     'purchase_type',
+    'launcher',
     'game_status',
     'game_name',
     'edition',
@@ -58,6 +59,7 @@ class SteamPurchaseCsv {
         _encodeRow([
           _formatDate(purchase.purchaseDate),
           purchase.purchaseType.storageValue,
+          purchase.launcher.label,
           purchase.purchaseType == SteamPurchaseType.game
               ? purchase.gameStatus?.storageValue ?? ''
               : '',
@@ -396,6 +398,11 @@ class SteamPurchaseCsv {
       case 'art':
       case 'kaufart':
         return 'purchase_type';
+      case 'launcher':
+      case 'platform':
+      case 'plattform':
+      case 'spielplattform':
+        return 'launcher';
       case 'game_status':
       case 'status':
       case 'spielstatus':
@@ -476,6 +483,9 @@ class SteamPurchaseCsv {
       _optionalValue(row, headerIndexes, 'purchase_type'),
       row.lineNumber,
       dlcName,
+    );
+    final launcher = PurchaseLauncher.fromStorageValue(
+      _optionalValue(row, headerIndexes, 'launcher'),
     );
     final gameStatus = purchaseType == SteamPurchaseType.game
         ? _parseGameStatus(
@@ -579,6 +589,7 @@ class SteamPurchaseCsv {
     return SteamPurchase(
       purchaseDate: purchaseDate,
       purchaseType: purchaseType,
+      launcher: launcher,
       gameName: gameName.trim(),
       edition: edition.isEmpty ? null : edition,
       dlcName: purchaseType == SteamPurchaseType.dlc ? dlcName : null,

@@ -90,6 +90,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _gameNameController = TextEditingController();
   final _editionController = TextEditingController();
   final _dlcNameController = TextEditingController();
+  final _customLauncherController = TextEditingController();
   final _steamAppIdController = TextEditingController();
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
@@ -140,11 +141,68 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   DateTime _purchaseDate = DateTime.now();
   SteamPurchaseType _purchaseType = SteamPurchaseType.game;
+  PurchaseLauncher _launcher = PurchaseLauncher.steam;
   SteamGameStatus? _gameStatus;
 
   bool get _canEditCollections {
     return widget.initialPurchase?.id != null &&
         widget.collectionRepository != null;
+  }
+
+  PurchaseLauncher _selectedLauncherForSave() {
+    // "Other" ist nur eine UI-Auswahl; gespeichert wird der konkrete Text.
+    if (_launcher != PurchaseLauncher.other) {
+      return _launcher;
+    }
+
+    final customLauncher = _customLauncherController.text.trim();
+
+    return customLauncher.isEmpty
+        ? PurchaseLauncher.other
+        : PurchaseLauncher.custom(customLauncher);
+  }
+
+  bool get _isSteamLauncher {
+    return _launcher.isSteam;
+  }
+
+  void _setLauncher(PurchaseLauncher launcher) {
+    setState(() {
+      _launcher = launcher;
+
+      if (!launcher.isSteam) {
+        _clearSteamIntegrationState();
+      } else {
+        _steamAppIdController.text = _purchaseType == SteamPurchaseType.dlc
+            ? _selectedDlcSteamAppId?.toString() ?? ''
+            : _selectedGameSteamAppId?.toString() ?? '';
+      }
+    });
+
+    if (launcher.isSteam) {
+      _scheduleSteamNameSearch(_NameSuggestionField.game);
+
+      if (_purchaseType == SteamPurchaseType.dlc) {
+        _scheduleSteamNameSearch(_NameSuggestionField.dlc);
+      }
+
+      _scheduleLengthEstimateLookup();
+    }
+  }
+
+  void _clearSteamIntegrationState() {
+    // Nicht-Steam-Launcher duerfen keine veralteten Steam-Links behalten.
+    _gameNameSteamSearchTimer?.cancel();
+    _dlcNameSteamSearchTimer?.cancel();
+    _steamAppIdController.clear();
+    _selectedGameSteamAppId = null;
+    _selectedDlcSteamAppId = null;
+    _lastGameNameSteamSearchKey = null;
+    _lastDlcNameSteamSearchKey = null;
+    _steamGameNameSuggestions = [];
+    _steamDlcNameSuggestions = [];
+    _metadataPreview = null;
+    _isMetadataPreviewLoading = false;
   }
 
   @override
@@ -171,6 +229,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     _purchaseDate = initialPurchase.purchaseDate;
     _purchaseType = initialPurchase.purchaseType;
+    if (initialPurchase.launcher.isPreset) {
+      _launcher = initialPurchase.launcher;
+    } else {
+      _launcher = PurchaseLauncher.other;
+      _customLauncherController.text = initialPurchase.launcher.label;
+    }
     _gameStatus = initialPurchase.gameStatus;
     _gameNameController.text = initialPurchase.gameName;
     _editionController.text = initialPurchase.edition ?? '';
@@ -186,7 +250,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     } else {
       _selectedGameSteamAppId = initialPurchase.steamAppId;
     }
-    if (initialPurchase.steamAppId != null) {
+    if (initialPurchase.launcher.isSteam &&
+        initialPurchase.steamAppId != null) {
       _steamAppIdController.text = initialPurchase.steamAppId!.toString();
     }
     _priceController.text = initialPurchase.price.toStringAsFixed(2);
@@ -245,6 +310,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _gameNameController.dispose();
     _editionController.dispose();
     _dlcNameController.dispose();
+    _customLauncherController.dispose();
     _steamAppIdController.dispose();
     _priceController.dispose();
     _originalPriceController.dispose();
@@ -270,7 +336,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _scheduleInitialMetadataPreviewLoad() {
-    if (_metadataService == null ||
+    if (!_isSteamLauncher ||
+        _metadataService == null ||
         _parseOptionalInt(_steamAppIdController.text) == null) {
       return;
     }
@@ -532,6 +599,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   void _handleSteamAppIdChanged() {
+    if (!_isSteamLauncher) {
+      return;
+    }
+
     if (!_isApplyingAutocompleteSelection) {
       _scheduleLengthEstimateLookup();
     }
@@ -616,6 +687,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final normalizedQuery = _normalizeName(query);
 
     timer?.cancel();
+
+    if (!_isSteamLauncher) {
+      _clearSteamSuggestions(field);
+      return;
+    }
 
     if (normalizedQuery.length <
             SteamStoreSearchRepository.minimumQueryLength ||
@@ -937,12 +1013,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     switch (field) {
       case _NameSuggestionField.game:
         _selectedGameSteamAppId = suggestion.steamAppId;
-        if (_purchaseType == SteamPurchaseType.game) {
+        if (_isSteamLauncher && _purchaseType == SteamPurchaseType.game) {
           _setSteamAppIdFromSuggestion(suggestion.steamAppId);
         }
       case _NameSuggestionField.dlc:
         _selectedDlcSteamAppId = suggestion.steamAppId;
-        if (_purchaseType == SteamPurchaseType.dlc) {
+        if (_isSteamLauncher && _purchaseType == SteamPurchaseType.dlc) {
           _setSteamAppIdFromSuggestion(suggestion.steamAppId);
         }
     }
@@ -967,6 +1043,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     int generation,
     String searchKey,
   ) {
+    if (!_isSteamLauncher) {
+      return false;
+    }
+
     return switch (field) {
       _NameSuggestionField.game =>
         generation == _gameNameSteamSearchGeneration &&
@@ -1034,7 +1114,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final metadataService = _metadataService;
     final steamAppId = _parseOptionalInt(_steamAppIdController.text);
 
-    if (metadataService == null || steamAppId == null) {
+    if (!_isSteamLauncher || metadataService == null || steamAppId == null) {
       _clearMetadataPreview();
       return;
     }
@@ -1083,6 +1163,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   Future<void> _openSteamAppLinkDialog() async {
     // Manueller Suchdialog fuer Faelle, in denen Autocomplete keinen passenden
     // Treffer gesetzt hat.
+    if (!_isSteamLauncher) {
+      return;
+    }
+
     final strings = AppStrings.of(context);
     final currency =
         AppSettingsScope.maybeOf(context)?.settings.currency ?? AppCurrency.eur;
@@ -1143,6 +1227,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     final initialPurchase = widget.initialPurchase;
+    final launcher = _selectedLauncherForSave();
 
     final purchase = SteamPurchase(
       id: initialPurchase?.id,
@@ -1159,7 +1244,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
             )
           : null,
       gameStatus: _purchaseType == SteamPurchaseType.game ? _gameStatus : null,
-      steamAppId: _parseOptionalInt(_steamAppIdController.text),
+      launcher: launcher,
+      steamAppId: launcher.isSteam
+          ? _parseOptionalInt(_steamAppIdController.text)
+          : null,
       price: _parseRequiredDouble(_priceController.text),
       originalPrice: _parseOptionalDouble(_originalPriceController.text),
       playtimeHours: _parseOptionalDouble(_playtimeHoursController.text),
@@ -1227,7 +1315,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     // Kleine Lesekarte fuer die Steam-Metadaten der aktuell verknuepften App.
     final steamAppId = _parseOptionalInt(_steamAppIdController.text);
 
-    if (_metadataService == null || steamAppId == null) {
+    if (!_isSteamLauncher || _metadataService == null || steamAppId == null) {
       return const SizedBox.shrink();
     }
 
@@ -1454,6 +1542,46 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
   }
 
+  Widget _buildLauncherDropdown(AppStrings strings) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<PurchaseLauncher>(
+          initialValue: _launcher,
+          decoration: InputDecoration(
+            labelText: strings.launcher,
+            border: const OutlineInputBorder(),
+          ),
+          items: [
+            for (final launcher in PurchaseLauncher.presets)
+              DropdownMenuItem<PurchaseLauncher>(
+                value: launcher,
+                child: Text(strings.launcherLabel(launcher)),
+              ),
+          ],
+          onChanged: (launcher) {
+            if (launcher == null) {
+              return;
+            }
+
+            _setLauncher(launcher);
+          },
+        ),
+        if (_launcher == PurchaseLauncher.other) ...[
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _customLauncherController,
+            decoration: InputDecoration(
+              labelText: strings.customLauncherOptional,
+              border: const OutlineInputBorder(),
+            ),
+            textInputAction: TextInputAction.next,
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -1524,14 +1652,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     setState(() {
                                       _purchaseType = nextPurchaseType;
                                       _steamAppIdController.text =
-                                          nextPurchaseType ==
-                                              SteamPurchaseType.dlc
-                                          ? _selectedDlcSteamAppId
-                                                    ?.toString() ??
-                                                ''
-                                          : _selectedGameSteamAppId
-                                                    ?.toString() ??
-                                                '';
+                                          _isSteamLauncher
+                                          ? (nextPurchaseType ==
+                                                    SteamPurchaseType.dlc
+                                                ? _selectedDlcSteamAppId
+                                                          ?.toString() ??
+                                                      ''
+                                                : _selectedGameSteamAppId
+                                                          ?.toString() ??
+                                                      '')
+                                          : '';
                                     });
 
                                     _updateNameSuggestionsOverlay(
@@ -1555,6 +1685,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     _scheduleLengthEstimateLookup();
                                   },
                                 ),
+                                const SizedBox(height: 16),
+                                _buildLauncherDropdown(strings),
                                 const SizedBox(height: 16),
                                 _buildNameAutocompleteField(
                                   field: _NameSuggestionField.game,
@@ -1600,70 +1732,73 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                 ],
-                                TextFormField(
-                                  controller: _steamAppIdController,
-                                  decoration: InputDecoration(
-                                    labelText: strings.steamAppIdOptional,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
+                                if (_isSteamLauncher) ...[
+                                  TextFormField(
+                                    controller: _steamAppIdController,
+                                    decoration: InputDecoration(
+                                      labelText: strings.steamAppIdOptional,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.next,
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return null;
+                                      }
+
+                                      final parsedValue = int.tryParse(
+                                        value.trim(),
+                                      );
+
+                                      if (parsedValue == null ||
+                                          parsedValue <= 0) {
+                                        return strings.enterValidSteamAppId;
+                                      }
+
                                       return null;
-                                    }
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: _openSteamAppLinkDialog,
+                                        icon: const Icon(Icons.search),
+                                        label: Text(strings.linkSteamApp),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            _steamAppIdController.clear();
+                                            _metadataPreview = null;
+                                            _isMetadataPreviewLoading = false;
 
-                                    final parsedValue = int.tryParse(
-                                      value.trim(),
-                                    );
-
-                                    if (parsedValue == null ||
-                                        parsedValue <= 0) {
-                                      return strings.enterValidSteamAppId;
-                                    }
-
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: _openSteamAppLinkDialog,
-                                      icon: const Icon(Icons.search),
-                                      label: Text(strings.linkSteamApp),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        setState(() {
-                                          _steamAppIdController.clear();
-                                          _metadataPreview = null;
-                                          _isMetadataPreviewLoading = false;
-
-                                          if (_purchaseType ==
-                                              SteamPurchaseType.dlc) {
-                                            _selectedDlcSteamAppId = null;
-                                          } else {
-                                            _selectedGameSteamAppId = null;
-                                          }
-                                        });
-                                      },
-                                      icon: const Icon(Icons.link_off),
-                                      label: Text(strings.clearSteamAppLink),
-                                    ),
+                                            if (_purchaseType ==
+                                                SteamPurchaseType.dlc) {
+                                              _selectedDlcSteamAppId = null;
+                                            } else {
+                                              _selectedGameSteamAppId = null;
+                                            }
+                                          });
+                                        },
+                                        icon: const Icon(Icons.link_off),
+                                        label: Text(strings.clearSteamAppLink),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_metadataService != null &&
+                                      _parseOptionalInt(
+                                            _steamAppIdController.text,
+                                          ) !=
+                                          null) ...[
+                                    const SizedBox(height: 12),
+                                    _buildMetadataPreview(strings),
                                   ],
-                                ),
-                                if (_metadataService != null &&
-                                    _parseOptionalInt(
-                                          _steamAppIdController.text,
-                                        ) !=
-                                        null) ...[
-                                  const SizedBox(height: 12),
-                                  _buildMetadataPreview(strings),
+                                  const SizedBox(height: 16),
                                 ],
-                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _editionController,
                                   decoration: InputDecoration(

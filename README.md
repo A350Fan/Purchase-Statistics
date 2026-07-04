@@ -37,9 +37,10 @@ Implemented so far:
 - Optional game status for non-DLC games
 - Optional edition field
 - Optional DLC name field
+- Optional launcher/platform field, defaulting to Steam
 - Optional original price/list price
 - Optional playtime tracking
-- Manual Steam Web API playtime sync for linked Steam App IDs
+- Manual Steam Web API playtime sync for Steam launcher purchases with linked Steam App IDs
 - Platform secure storage for the Steam Web API key
 - Steam Store search suggestions for purchase editing
 - Steam App ID linking and automatic linking support
@@ -49,7 +50,7 @@ Implemented so far:
 - Optional game length estimates for main story, main + extras and completionist playthroughs
 - Optional notes
 - Sorting options for the purchase list
-- Advanced purchase filters
+- Advanced purchase filters, including launcher/platform filters
 - CSV import
 - CSV export
 - Separate CSV import/export for shareable game length estimates
@@ -75,6 +76,7 @@ A purchase can currently store:
 | --- | --- |
 | `purchase_date` | Date of the purchase |
 | `purchase_type` | `game` or `dlc` |
+| `launcher` | Launcher/platform for the game installation, defaulting to `Steam` |
 | `game_status` | Optional status for game purchases |
 | `game_name` | Name of the game |
 | `edition` | Optional edition/version |
@@ -88,6 +90,8 @@ A purchase can currently store:
 | `completionist_hours` | Optional estimated completionist length in hours |
 | `backlog_priority_snoozed_until` | Optional local date until which a game is hidden from the **Play next** recommendation list |
 | `note` | Optional note |
+
+The launcher/platform field describes where the game is played, not necessarily the store where it was bought. Supported presets are Steam, Epic Games, GOG, PlayStation, Xbox, Microsoft Store, and Other/custom. MSFS Marketplace is intentionally not a launcher preset; add-ons bought there for a Steam MSFS installation can be tracked as Steam DLCs/add-ons.
 
 ---
 
@@ -134,7 +138,7 @@ For price-per-hour statistics, linked DLC spending is included for the matching 
 The app supports CSV files with the following columns:
 
 ```csv
-purchase_date,purchase_type,game_status,game_name,edition,dlc_name,steam_app_id,price,original_price,playtime_hours,main_story_hours,main_extra_hours,completionist_hours,note
+purchase_date,purchase_type,launcher,game_status,game_name,edition,dlc_name,steam_app_id,price,original_price,playtime_hours,main_story_hours,main_extra_hours,completionist_hours,note
 ```
 
 Required columns:
@@ -146,6 +150,7 @@ Required columns:
 Optional columns:
 
 - `purchase_type`
+- `launcher`
 - `game_status`
 - `edition`
 - `dlc_name`
@@ -168,7 +173,9 @@ Supported game status values include `open`, `active`, `paused`, `completed`, `e
 
 CSV imports are limited to 5 MB and 10,000 data rows to avoid accidentally loading very large files into memory. CSV exports prefix text fields that look like spreadsheet formulas with an apostrophe so that opening an export in spreadsheet software does not execute formulas.
 
-During purchase CSV imports, entries that already exist locally are skipped instead of being inserted again. The duplicate check uses purchase date, purchase type, normalized game name, edition, DLC name and paid price. Steam App ID, playtime, status, length estimates and notes are ignored for this comparison so that synced or manually enriched existing purchases do not become duplicates.
+If a purchase CSV does not contain a `launcher` column, imported rows default to Steam for backwards compatibility. The column accepts the built-in launcher labels and custom values.
+
+During purchase CSV imports, entries that already exist locally are skipped instead of being inserted again. The duplicate check uses purchase date, purchase type, launcher, normalized game name, edition, DLC name and paid price. Steam App ID, playtime, status, length estimates and notes are ignored for this comparison so that synced or manually enriched existing purchases do not become duplicates.
 
 The local `backlog_priority_snoozed_until` recommendation state is not included in purchase CSV import/export files, so CSV files remain focused on purchase data.
 
@@ -180,20 +187,20 @@ game_name,steam_app_id,main_story_hours,main_extra_hours,completionist_hours
 
 Length-estimate CSV imports are stored in a separate background table. They do not create purchases and do not appear in the purchase list by themselves. When you add or edit a matching game purchase, the editor can prefill empty length-estimate fields from that background data.
 
-The length-estimate export includes the background table and saved game-purchase estimates with at least one length value. It omits purchase dates, purchase type, status, edition, DLC names, prices, playtime and notes, so it can be shared without the full purchase statistics. The length-estimate CSV is not a full purchase backup/import file.
+The length-estimate export includes the background table and saved game-purchase estimates with at least one length value. It omits purchase dates, purchase type, launcher, status, edition, DLC names, prices, playtime and notes, so it can be shared without the full purchase statistics. The length-estimate CSV is not a full purchase backup/import file.
 
 ---
 
 ## Steam Playtime Sync
 
-The app can update `playtime_hours` from the Steam Web API for purchases that already have a `steam_app_id`.
+The app can update `playtime_hours` from the Steam Web API for Steam launcher purchases that already have a `steam_app_id`. Non-Steam launcher purchases are ignored by Steam sync and automatic Steam app linking.
 
 Requirements:
 
 - A Steam Web API key
 - A SteamID64 or custom Steam profile name
 - Public game details on the Steam profile
-- Linked Steam App IDs on the purchases that should be updated
+- Steam launcher purchases with linked Steam App IDs
 
 How to get a Steam Web API key:
 
@@ -333,6 +340,7 @@ The database schema is versioned and currently includes migrations for:
 - Adding Steam game metadata
 - Adding unavailable Steam metadata refresh markers
 - Adding collections
+- Adding launcher/platform tracking for purchases
 
 The Steam Web API key is not newly written to the SQLite database. Older plaintext values in the `app_settings.steam_web_api_key` column are migrated to platform secure storage and cleared from SQLite after the migration attempt. If secure storage cannot accept the legacy key, the plaintext value is still removed from SQLite and the user must enter the key again.
 

@@ -378,6 +378,46 @@ void main() {
     expect(find.text('Portal 2: Soundtrack'), findsOneWidget);
   });
 
+  testWidgets('filters purchases by launcher and shows filtered spending', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1400);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(
+      _buildTestApp(null, [
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Portal 2',
+          price: 9.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 2),
+          launcher: PurchaseLauncher.epicGames,
+          gameName: 'Alan Wake 2',
+          price: 19.99,
+        ),
+      ]),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Filter'));
+    await _pumpInteractionFrame(tester);
+
+    await tester.tap(find.text('Epic Games').last);
+    await tester.tap(find.text('Anwenden'));
+    await _pumpInteractionFrame(tester);
+
+    expect(find.text('Alan Wake 2'), findsOneWidget);
+    expect(find.text('Portal 2'), findsNothing);
+    expect(find.text('Filter (1)'), findsOneWidget);
+    expect(find.textContaining('Gefilterte Ausgaben'), findsOneWidget);
+  });
+
   testWidgets('purchase filter dialog fits in a narrow viewport', (
     WidgetTester tester,
   ) async {

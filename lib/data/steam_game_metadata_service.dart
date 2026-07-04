@@ -90,7 +90,7 @@ class SteamGameMetadataService implements DisposableResource {
   }) async {
     final steamAppId = purchase.steamAppId;
 
-    if (steamAppId == null) {
+    if (!purchase.launcher.isSteam || steamAppId == null) {
       return null;
     }
 
@@ -109,6 +109,7 @@ class SteamGameMetadataService implements DisposableResource {
   }) async {
     final steamAppIds =
         purchases
+            .where((purchase) => purchase.launcher.isSteam)
             .map((purchase) => purchase.steamAppId)
             .whereType<int>()
             .toSet()

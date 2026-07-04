@@ -1,4 +1,163 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+/// Launcher oder Spielplattform, der ein Kauf fachlich zugeordnet wird.
+///
+/// Presets werden mit stabilen Schluesseln gespeichert. Eigene Launcher bleiben
+/// als Custom-Wert erhalten, damit CSV-Importe und Filter keine neuen
+/// App-Versionen fuer jede Plattform brauchen.
+class PurchaseLauncher implements Comparable<PurchaseLauncher> {
+  static const steam = PurchaseLauncher._(
+    storageValue: 'steam',
+    label: 'Steam',
+    isPreset: true,
+  );
+  static const epicGames = PurchaseLauncher._(
+    storageValue: 'epic_games',
+    label: 'Epic Games',
+    isPreset: true,
+  );
+  static const gog = PurchaseLauncher._(
+    storageValue: 'gog',
+    label: 'GOG',
+    isPreset: true,
+  );
+  static const playStation = PurchaseLauncher._(
+    storageValue: 'playstation',
+    label: 'PlayStation',
+    isPreset: true,
+  );
+  static const xbox = PurchaseLauncher._(
+    storageValue: 'xbox',
+    label: 'Xbox',
+    isPreset: true,
+  );
+  static const microsoftStore = PurchaseLauncher._(
+    storageValue: 'microsoft_store',
+    label: 'Microsoft Store',
+    isPreset: true,
+  );
+  static const other = PurchaseLauncher._(
+    storageValue: 'other',
+    label: 'Other',
+    isPreset: true,
+  );
+
+  static const presets = [
+    steam,
+    epicGames,
+    gog,
+    playStation,
+    xbox,
+    microsoftStore,
+    other,
+  ];
+
+  static const _customPrefix = 'custom:';
+
+  final String storageValue;
+  final String label;
+  final bool isPreset;
+
+  const PurchaseLauncher._({
+    required this.storageValue,
+    required this.label,
+    required this.isPreset,
+  });
+
+  factory PurchaseLauncher.custom(String label) {
+    final trimmedLabel = label.trim();
+
+    if (trimmedLabel.isEmpty) {
+      return other;
+    }
+
+    final preset = _presetFromNormalizedValue(_normalize(trimmedLabel));
+
+    if (preset != null) {
+      return preset;
+    }
+
+    return PurchaseLauncher._(
+      storageValue: '$_customPrefix$trimmedLabel',
+      label: trimmedLabel,
+      isPreset: false,
+    );
+  }
+
+  static PurchaseLauncher fromStorageValue(Object? value) {
+    final rawValue = value?.toString().trim();
+
+    if (rawValue == null || rawValue.isEmpty) {
+      return steam;
+    }
+
+    final lowerValue = rawValue.toLowerCase();
+
+    if (lowerValue.startsWith(_customPrefix)) {
+      return PurchaseLauncher.custom(rawValue.substring(_customPrefix.length));
+    }
+
+    final preset = _presetFromNormalizedValue(_normalize(rawValue));
+
+    return preset ?? PurchaseLauncher.custom(rawValue);
+  }
+
+  bool get isSteam => this == steam;
+
+  String get _comparisonKey {
+    return storageValue.trim().toLowerCase();
+  }
+
+  @override
+  int compareTo(PurchaseLauncher other) {
+    final presetIndex = presets.indexOf(this);
+    final otherPresetIndex = presets.indexOf(other);
+
+    if (presetIndex >= 0 && otherPresetIndex >= 0) {
+      return presetIndex.compareTo(otherPresetIndex);
+    }
+
+    if (presetIndex >= 0) {
+      return -1;
+    }
+
+    if (otherPresetIndex >= 0) {
+      return 1;
+    }
+
+    return label.toLowerCase().compareTo(other.label.toLowerCase());
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PurchaseLauncher && _comparisonKey == other._comparisonKey;
+  }
+
+  @override
+  int get hashCode => _comparisonKey.hashCode;
+
+  @override
+  String toString() {
+    return label;
+  }
+
+  static PurchaseLauncher? _presetFromNormalizedValue(String value) {
+    return switch (value) {
+      'steam' => steam,
+      'epic' || 'epic_games' || 'epic_game_store' || 'egs' => epicGames,
+      'gog' || 'gog_galaxy' => gog,
+      'playstation' || 'play_station' || 'psn' || 'ps4' || 'ps5' => playStation,
+      'xbox' || 'xbox_app' || 'xbox_store' => xbox,
+      'microsoft_store' || 'ms_store' || 'windows_store' => microsoftStore,
+      'other' || 'sonstiges' || 'andere' || 'custom' => other,
+      _ => null,
+    };
+  }
+
+  static String _normalize(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  }
+}
+
 /// Unterscheidet normale Spiele von DLCs.
 ///
 /// Der Wert wird bewusst als String gespeichert, damit die Datenbank und CSVs
@@ -94,6 +253,7 @@ class SteamPurchase {
   final String? edition;
   final String? dlcName;
   final SteamGameStatus? gameStatus;
+  final PurchaseLauncher launcher;
   final int? steamAppId;
   final double price;
   final double? originalPrice;
@@ -112,6 +272,7 @@ class SteamPurchase {
     this.edition,
     this.dlcName,
     this.gameStatus,
+    this.launcher = PurchaseLauncher.steam,
     this.steamAppId,
     required this.price,
     this.originalPrice,
@@ -209,6 +370,7 @@ class SteamPurchase {
     String? edition,
     String? dlcName,
     SteamGameStatus? gameStatus,
+    PurchaseLauncher? launcher,
     int? steamAppId,
     double? price,
     double? originalPrice,
@@ -235,6 +397,7 @@ class SteamPurchase {
       edition: edition ?? this.edition,
       dlcName: dlcName ?? this.dlcName,
       gameStatus: gameStatus ?? this.gameStatus,
+      launcher: launcher ?? this.launcher,
       steamAppId: steamAppId ?? this.steamAppId,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
@@ -259,10 +422,11 @@ class SteamPurchase {
       'game_name': gameName,
       'edition': edition,
       'dlc_name': dlcName,
+      'launcher': launcher.storageValue,
       'game_status': purchaseType == SteamPurchaseType.game
           ? gameStatus?.storageValue
           : null,
-      'steam_app_id': steamAppId,
+      'steam_app_id': launcher.isSteam ? steamAppId : null,
       'price': price,
       'original_price': originalPrice,
       'playtime_hours': playtimeHours,
@@ -285,6 +449,7 @@ class SteamPurchase {
   /// Baut ein Modell aus einer SQLite-Zeile.
   factory SteamPurchase.fromMap(Map<String, Object?> map) {
     final purchaseType = _parsePurchaseType(map['purchase_type']);
+    final launcher = PurchaseLauncher.fromStorageValue(map['launcher']);
 
     return SteamPurchase(
       id: map['id'] as int?,
@@ -296,7 +461,8 @@ class SteamPurchase {
       gameStatus: purchaseType == SteamPurchaseType.game
           ? SteamGameStatus.fromStorageValue(map['game_status'])
           : null,
-      steamAppId: map['steam_app_id'] as int?,
+      launcher: launcher,
+      steamAppId: launcher.isSteam ? map['steam_app_id'] as int? : null,
       price: (map['price'] as num).toDouble(),
       originalPrice: map['original_price'] == null
           ? null

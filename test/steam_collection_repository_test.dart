@@ -570,6 +570,7 @@ Future<void> _createTestSchema(Database db) async {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       purchase_date TEXT NOT NULL,
       purchase_type TEXT NOT NULL DEFAULT 'game',
+      launcher TEXT NOT NULL DEFAULT 'steam',
       game_name TEXT NOT NULL,
       edition TEXT,
       dlc_name TEXT,
@@ -652,6 +653,7 @@ Future<int> _insertPurchase(
   return db.insert('steam_purchases', {
     'purchase_date': DateTime.utc(2026, 5, 1).toIso8601String(),
     'purchase_type': purchaseType.storageValue,
+    'launcher': PurchaseLauncher.steam.storageValue,
     'game_name': gameName,
     'dlc_name': dlcName,
     'steam_app_id': steamAppId,

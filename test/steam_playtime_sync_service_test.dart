@@ -107,6 +107,14 @@ void main() {
           gameName: 'Unlinked',
           price: 1.99,
         ),
+        SteamPurchase(
+          id: 4,
+          purchaseDate: DateTime(2026, 5, 4),
+          launcher: PurchaseLauncher.epicGames,
+          gameName: 'Non-Steam Portal',
+          steamAppId: 400,
+          price: 1.99,
+        ),
       ]);
       final service = SteamPlaytimeSyncService(
         client: client,

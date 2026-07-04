@@ -84,6 +84,7 @@ void main() {
         'note': null,
       });
 
+      expect(purchase.launcher, PurchaseLauncher.steam);
       expect(purchase.backlogPrioritySnoozedUntil, snoozedUntil);
       expect(
         purchase
@@ -91,6 +92,33 @@ void main() {
             .backlogPrioritySnoozedUntil,
         isNull,
       );
+    });
+
+    test('stores launcher presets and custom values', () {
+      final customLauncher = PurchaseLauncher.custom('Battle.net');
+      final presetLauncher = PurchaseLauncher.fromStorageValue('Epic Games');
+      final msfsMarketplace = PurchaseLauncher.fromStorageValue(
+        'MSFS Marketplace',
+      );
+
+      expect(presetLauncher, PurchaseLauncher.epicGames);
+      expect(customLauncher.isPreset, isFalse);
+      expect(customLauncher.label, 'Battle.net');
+      expect(msfsMarketplace.isPreset, isFalse);
+      expect(msfsMarketplace.label, 'MSFS Marketplace');
+    });
+
+    test('clears Steam app ids for non-Steam launchers when serialized', () {
+      final purchase = SteamPurchase(
+        purchaseDate: DateTime(2026, 5, 24),
+        gameName: 'Epic Game',
+        launcher: PurchaseLauncher.epicGames,
+        steamAppId: 620,
+        price: 9.99,
+      );
+
+      expect(purchase.toMap()['launcher'], 'epic_games');
+      expect(purchase.toMap()['steam_app_id'], isNull);
     });
 
     test('parses German game status aliases', () {

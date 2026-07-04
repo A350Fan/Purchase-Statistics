@@ -34,6 +34,7 @@ void main() {
       expect(purchases.single.edition, 'Deluxe Edition');
       expect(purchases.single.dlcName, 'Soundtrack, "Plus"');
       expect(purchases.single.gameStatus, isNull);
+      expect(purchases.single.launcher, PurchaseLauncher.steam);
       expect(purchases.single.steamAppId, 620);
       expect(purchases.single.price, 3.99);
       expect(purchases.single.originalPrice, 19.99);
@@ -127,6 +128,7 @@ Kaufdatum;Spielname;Status;Preis;Originalpreis;Spielzeit;Hauptstory;Hauptstory E
         expect(purchases, hasLength(1));
         expect(purchases.single.purchaseDate, DateTime(2026, 5, 22));
         expect(purchases.single.purchaseType, SteamPurchaseType.game);
+        expect(purchases.single.launcher, PurchaseLauncher.steam);
         expect(purchases.single.gameName, 'Half-Life');
         expect(purchases.single.gameStatus, SteamGameStatus.active);
         expect(purchases.single.edition, isNull);
@@ -151,6 +153,7 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
 
       expect(purchases, hasLength(1));
       expect(purchases.single.purchaseType, SteamPurchaseType.dlc);
+      expect(purchases.single.launcher, PurchaseLauncher.steam);
       expect(purchases.single.gameName, 'Civilization VI');
       expect(purchases.single.edition, 'Anthology');
       expect(purchases.single.dlcName, 'Gathering Storm');
@@ -174,14 +177,39 @@ Kaufdatum;Kaufart;Spielname;Edition;DLC;Preis
         ),
       ]);
 
-      expect(csv, startsWith('purchase_date,purchase_type,game_status'));
-      expect(csv, contains('2026-05-22,game,paused,Half-Life'));
-      expect(csv, contains('2026-05-23,dlc,,Half-Life'));
+      expect(csv, startsWith('purchase_date,purchase_type,launcher'));
+      expect(csv, contains('2026-05-22,game,Steam,paused,Half-Life'));
+      expect(csv, contains('2026-05-23,dlc,Steam,,Half-Life'));
 
       final purchases = SteamPurchaseCsv.decode(csv);
 
       expect(purchases[0].gameStatus, SteamGameStatus.paused);
       expect(purchases[1].gameStatus, isNull);
+    });
+
+    test('encodes and decodes preset and custom launchers', () {
+      final csv = SteamPurchaseCsv.encode([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 22),
+          launcher: PurchaseLauncher.epicGames,
+          gameName: 'Alan Wake 2',
+          price: 19.99,
+        ),
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 23),
+          launcher: PurchaseLauncher.custom('Battle.net'),
+          gameName: 'Diablo',
+          price: 9.99,
+        ),
+      ]);
+
+      expect(csv, contains('Epic Games'));
+      expect(csv, contains('Battle.net'));
+
+      final purchases = SteamPurchaseCsv.decode(csv);
+
+      expect(purchases[0].launcher, PurchaseLauncher.epicGames);
+      expect(purchases[1].launcher, PurchaseLauncher.custom('Battle.net'));
     });
 
     test('escapes spreadsheet formulas in exported text fields', () {

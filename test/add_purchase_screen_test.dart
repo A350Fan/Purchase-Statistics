@@ -114,7 +114,138 @@ void main() {
 
     expect(steamSearchSource.queries, ['flight']);
     expect(find.text('Microsoft Flight Simulator 2024'), findsOneWidget);
-    expect(find.text('Steam'), findsOneWidget);
+    expect(find.text('Steam'), findsWidgets);
+  });
+
+  testWidgets('returns selected non-Steam launcher and hides Steam controls', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+    final steamSearchSource = _FakeSteamSearchSource([
+      const SteamStoreSearchSuggestion(appId: 1, name: 'Should not load'),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => AddPurchaseScreen(
+                            steamSearchSource: steamSearchSource,
+                          ),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Steam-App-ID optional'), findsOneWidget);
+
+    await tester.tap(find.text('Steam').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Epic Games').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Steam-App-ID optional'), findsNothing);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Spielname'),
+      'Alan Wake 2',
+    );
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pump();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Kaufpreis'),
+      '19.99',
+    );
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(steamSearchSource.queries, isEmpty);
+    expect(result, isNotNull);
+    expect(result!.purchase.launcher, PurchaseLauncher.epicGames);
+    expect(result!.purchase.steamAppId, isNull);
+  });
+
+  testWidgets('returns a custom launcher from the Other selection', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    PurchaseEditorResult? result;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context)
+                      .push<PurchaseEditorResult>(
+                        MaterialPageRoute(
+                          builder: (context) => const AddPurchaseScreen(),
+                        ),
+                      );
+                },
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Steam').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Andere').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Eigener Launcher optional'),
+      'Battle.net',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Spielname'),
+      'Diablo',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Kaufpreis'),
+      '9.99',
+    );
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.purchase.launcher, PurchaseLauncher.custom('Battle.net'));
   });
 
   testWidgets('matches Steam suggestions when legal marks are omitted', (

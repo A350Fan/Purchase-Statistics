@@ -7,6 +7,7 @@ void main() {
   test('PurchaseFilters matches all selected filter criteria', () {
     final filters = PurchaseFilters(
       purchaseType: PurchaseTypeFilterOption.games,
+      launchers: {PurchaseLauncher.steam},
       statuses: {SteamGameStatus.open},
       year: 2026,
       minPrice: 5,
@@ -90,6 +91,20 @@ void main() {
           price: 9.99,
           originalPrice: 19.99,
           playtimeHours: 2,
+        ),
+      ),
+      isFalse,
+    );
+
+    expect(
+      filters.matches(
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          launcher: PurchaseLauncher.epicGames,
+          gameName: 'Portal 2',
+          gameStatus: SteamGameStatus.open,
+          price: 9.99,
+          originalPrice: 19.99,
         ),
       ),
       isFalse,

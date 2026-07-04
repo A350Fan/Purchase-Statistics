@@ -71,36 +71,46 @@ void main() {
       },
     );
 
-    test('skips purchases that are already linked or not persisted', () async {
-      final source = _FakeSteamStoreSearchSource({
-        'Portal 2': const [
-          SteamStoreSearchSuggestion(appId: 620, name: 'Portal 2'),
-        ],
-      });
-      final service = SteamAppLinkingService(searchSource: source);
+    test(
+      'skips purchases that are already linked, not persisted, or non-Steam',
+      () async {
+        final source = _FakeSteamStoreSearchSource({
+          'Portal 2': const [
+            SteamStoreSearchSuggestion(appId: 620, name: 'Portal 2'),
+          ],
+        });
+        final service = SteamAppLinkingService(searchSource: source);
 
-      final candidates = await service.findCandidates(
-        purchases: [
-          SteamPurchase(
-            purchaseDate: DateTime(2026, 5, 24),
-            gameName: 'Portal 2',
-            price: 9.99,
-          ),
-          SteamPurchase(
-            id: 2,
-            purchaseDate: DateTime(2026, 5, 24),
-            gameName: 'Portal 2',
-            steamAppId: 620,
-            price: 9.99,
-          ),
-        ],
-        language: 'german',
-        countryCode: 'DE',
-      );
+        final candidates = await service.findCandidates(
+          purchases: [
+            SteamPurchase(
+              purchaseDate: DateTime(2026, 5, 24),
+              gameName: 'Portal 2',
+              price: 9.99,
+            ),
+            SteamPurchase(
+              id: 2,
+              purchaseDate: DateTime(2026, 5, 24),
+              gameName: 'Portal 2',
+              steamAppId: 620,
+              price: 9.99,
+            ),
+            SteamPurchase(
+              id: 3,
+              purchaseDate: DateTime(2026, 5, 24),
+              launcher: PurchaseLauncher.epicGames,
+              gameName: 'Portal 2',
+              price: 9.99,
+            ),
+          ],
+          language: 'german',
+          countryCode: 'DE',
+        );
 
-      expect(candidates, isEmpty);
-      expect(source.queries, isEmpty);
-    });
+        expect(candidates, isEmpty);
+        expect(source.queries, isEmpty);
+      },
+    );
   });
 }
 

@@ -374,6 +374,9 @@ class _HomeScreenState extends State<HomeScreen>
                   _normalizeSearchText(
                     purchase.dlcName ?? '',
                   ).contains(query) ||
+                  _normalizeSearchText(
+                    strings.launcherLabel(purchase.launcher),
+                  ).contains(query) ||
                   _normalizeSearchText(gameStatusText).contains(query);
             }),
           );
@@ -414,6 +417,14 @@ class _HomeScreenState extends State<HomeScreen>
     return _cachedPurchaseYears!;
   }
 
+  List<PurchaseLauncher> _getPurchaseLaunchers() {
+    final launchers = _purchases.map((purchase) => purchase.launcher).toSet()
+      ..add(PurchaseLauncher.steam);
+    final sortedLaunchers = launchers.toList()..sort();
+
+    return List.unmodifiable(sortedLaunchers);
+  }
+
   Future<void> _openPurchaseFiltersDialog(AppCurrency currency) async {
     final filters = await showDialog<PurchaseFilters>(
       context: context,
@@ -421,6 +432,7 @@ class _HomeScreenState extends State<HomeScreen>
         return PurchaseFiltersDialog(
           initialFilters: _purchaseFilters,
           availableYears: _getPurchaseYears(),
+          availableLaunchers: _getPurchaseLaunchers(),
           currency: currency,
         );
       },
@@ -455,6 +467,17 @@ class _HomeScreenState extends State<HomeScreen>
       case PurchaseTypeFilterOption.dlcs:
         labels.add(strings.dlc);
         break;
+    }
+
+    if (_purchaseFilters.launchers.length == 1) {
+      labels.add(
+        '${strings.launcher}: '
+        '${strings.launcherLabel(_purchaseFilters.launchers.single)}',
+      );
+    } else if (_purchaseFilters.launchers.length > 1) {
+      labels.add(
+        strings.launcherFilterCount(_purchaseFilters.launchers.length),
+      );
     }
 
     if (_purchaseFilters.statuses.length == 1) {
@@ -684,7 +707,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _refreshMetadataForPurchase(SteamPurchase purchase) async {
-    if (purchase.steamAppId == null) {
+    if (!purchase.launcher.isSteam || purchase.steamAppId == null) {
       return;
     }
 
@@ -1512,6 +1535,7 @@ class _HomeScreenState extends State<HomeScreen>
         : null;
     final subtitleParts = [
       _getPurchaseTypeLabel(purchase.purchaseType, strings),
+      strings.launcherLabel(purchase.launcher),
       _formatDate(purchase.purchaseDate),
       if (gameStatus != null) strings.gameStatusLabel(gameStatus),
     ];
@@ -1847,6 +1871,7 @@ class _HomeScreenState extends State<HomeScreen>
         : null;
     final subtitleParts = [
       _getPurchaseTypeLabel(purchase.purchaseType, strings),
+      strings.launcherLabel(purchase.launcher),
       _formatDate(purchase.purchaseDate),
       if (gameStatus != null) strings.gameStatusLabel(gameStatus),
     ];
@@ -1938,6 +1963,7 @@ class _HomeScreenState extends State<HomeScreen>
     AppStrings strings,
     AppCurrency currency, {
     bool showTableColumns = false,
+    double? filteredSpending,
   }) {
     // Kopfzeile der Kaufuebersicht mit Suche, Sortierung, Filter und
     // aktivierten Filterchips.
@@ -2061,6 +2087,20 @@ class _HomeScreenState extends State<HomeScreen>
         if (_purchaseFilters.hasFilters) ...[
           const SizedBox(height: 8),
           _buildActiveFilterChips(strings, currency),
+        ],
+        if (filteredSpending != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(
+              avatar: const Icon(Icons.payments, size: 18),
+              label: Text(
+                '${strings.filteredSpending}: '
+                '${_formatCurrency(filteredSpending, currency)}',
+              ),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
         ],
         if (showTableColumns) ...[
           const SizedBox(height: 12),
@@ -2200,6 +2240,10 @@ class _HomeScreenState extends State<HomeScreen>
       final chipCount = _activeFilterLabels(strings, currency).length + 1;
       final chipRows = ((chipCount + 3) / 4).ceil();
       extent += 8 + chipRows * 36;
+    }
+
+    if (_purchaseFilters.launchers.isNotEmpty) {
+      extent += 44;
     }
 
     if (showTableColumns) {
@@ -2733,6 +2777,10 @@ class _HomeScreenState extends State<HomeScreen>
     final stats = _getStatistics();
     final sortedPurchases = _getSortedPurchases(stats);
     final filteredPurchases = _getFilteredPurchases(sortedPurchases, strings);
+    final filteredSpending = filteredPurchases.fold<double>(
+      0,
+      (sum, purchase) => sum + purchase.price,
+    );
     final isCompactShell = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
@@ -2786,6 +2834,9 @@ class _HomeScreenState extends State<HomeScreen>
                         strings,
                         currency,
                         showTableColumns: useTableLayout,
+                        filteredSpending: _purchaseFilters.launchers.isNotEmpty
+                            ? filteredSpending
+                            : null,
                       );
                       final purchaseHeaderSliver = useTableLayout
                           ? SliverPersistentHeader(

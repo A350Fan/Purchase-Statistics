@@ -53,8 +53,11 @@ class SteamAppLinkingService implements DisposableResource {
 
     for (final purchase in purchases) {
       // Nur persistierte und noch nicht verknuepfte Kaeufe koennen automatisch
-      // gelinkt werden.
-      if (purchase.id == null || purchase.steamAppId != null) {
+      // gelinkt werden. Nicht-Steam-Launcher werden bewusst nicht gegen den
+      // Steam Store gesucht.
+      if (purchase.id == null ||
+          purchase.steamAppId != null ||
+          !purchase.launcher.isSteam) {
         continue;
       }
 

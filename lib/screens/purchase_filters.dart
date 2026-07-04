@@ -17,6 +17,7 @@ enum PurchaseDiscountFilterOption { all, withDiscount, withoutDiscount }
 /// `matches`, damit HomeScreen und Dialog dieselbe Bedeutung verwenden.
 class PurchaseFilters {
   final PurchaseTypeFilterOption purchaseType;
+  final Set<PurchaseLauncher> launchers;
   final Set<SteamGameStatus> statuses;
   final int? year;
   final double? minPrice;
@@ -26,6 +27,7 @@ class PurchaseFilters {
 
   const PurchaseFilters({
     this.purchaseType = PurchaseTypeFilterOption.all,
+    this.launchers = const {},
     this.statuses = const {},
     this.year,
     this.minPrice,
@@ -41,6 +43,10 @@ class PurchaseFilters {
     var count = 0;
 
     if (purchaseType != PurchaseTypeFilterOption.all) {
+      count++;
+    }
+
+    if (launchers.isNotEmpty) {
       count++;
     }
 
@@ -82,6 +88,10 @@ class PurchaseFilters {
           return false;
         }
         break;
+    }
+
+    if (launchers.isNotEmpty && !launchers.contains(purchase.launcher)) {
+      return false;
     }
 
     if (statuses.isNotEmpty) {
@@ -146,12 +156,14 @@ class PurchaseFilters {
 class PurchaseFiltersDialog extends StatefulWidget {
   final PurchaseFilters initialFilters;
   final List<int> availableYears;
+  final List<PurchaseLauncher> availableLaunchers;
   final AppCurrency currency;
 
   const PurchaseFiltersDialog({
     super.key,
     required this.initialFilters,
     required this.availableYears,
+    required this.availableLaunchers,
     required this.currency,
   });
 
@@ -165,6 +177,7 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
   final _maxPriceController = TextEditingController();
 
   late PurchaseTypeFilterOption _purchaseType;
+  late Set<PurchaseLauncher> _launchers;
   late Set<SteamGameStatus> _statuses;
   late int? _year;
   late PurchasePlaytimeFilterOption _playtime;
@@ -176,6 +189,7 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
 
     final filters = widget.initialFilters;
     _purchaseType = filters.purchaseType;
+    _launchers = {...filters.launchers};
     _statuses = {...filters.statuses};
     _year = filters.year;
     _playtime = filters.playtime;
@@ -201,6 +215,7 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
     Navigator.of(context).pop(
       PurchaseFilters(
         purchaseType: _purchaseType,
+        launchers: _launchers,
         statuses: _purchaseType == PurchaseTypeFilterOption.dlcs
             ? const {}
             : _statuses,
@@ -299,6 +314,32 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
       PurchaseTypeFilterOption.games => Icons.sports_esports,
       PurchaseTypeFilterOption.dlcs => Icons.extension,
     };
+  }
+
+  Widget _buildLauncherFilterChips(AppStrings strings) {
+    final launchers = widget.availableLaunchers.isEmpty
+        ? PurchaseLauncher.presets
+        : widget.availableLaunchers;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: launchers.map((launcher) {
+        return FilterChip(
+          label: Text(strings.launcherLabel(launcher)),
+          selected: _launchers.contains(launcher),
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _launchers.add(launcher);
+              } else {
+                _launchers.remove(launcher);
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
   }
 
   String _playtimeLabel(
@@ -400,6 +441,10 @@ class _PurchaseFiltersDialogState extends State<PurchaseFiltersDialog> {
                     });
                   },
                 ),
+                const SizedBox(height: 16),
+                _buildSectionLabel(strings.launcherFilter),
+                const SizedBox(height: 8),
+                _buildLauncherFilterChips(strings),
                 const SizedBox(height: 16),
                 _buildSectionLabel(strings.status),
                 const SizedBox(height: 8),

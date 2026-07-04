@@ -239,11 +239,11 @@ class SteamPlaytimeSyncService implements DisposableResource {
       ),
     );
     final purchases = await repository.getAllPurchases();
-    // Nur Kaeufe mit Steam-App-ID koennen gegen die Steam-Bibliothek gematcht
-    // werden.
+    // Nur Steam-Kaeufe mit Steam-App-ID koennen gegen die Steam-Bibliothek
+    // gematcht werden.
     final linkedPurchases = purchases
         .where((purchase) {
-          return purchase.steamAppId != null;
+          return purchase.launcher.isSteam && purchase.steamAppId != null;
         })
         .toList(growable: false);
     final playtimeHoursByAppId = {

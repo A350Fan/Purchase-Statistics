@@ -23,6 +23,7 @@ void main() {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               purchase_date TEXT NOT NULL,
               purchase_type TEXT NOT NULL DEFAULT 'game',
+              launcher TEXT NOT NULL DEFAULT 'steam',
               game_name TEXT NOT NULL,
               edition TEXT,
               dlc_name TEXT,
@@ -99,6 +100,44 @@ void main() {
       );
     });
 
+    test(
+      'does not update playtime or app ids for non-Steam launchers',
+      () async {
+        final nonSteamId = await db.insert('steam_purchases', {
+          'purchase_date': DateTime(2026, 5, 1).toIso8601String(),
+          'purchase_type': SteamPurchaseType.game.storageValue,
+          'launcher': PurchaseLauncher.epicGames.storageValue,
+          'game_name': 'Epic Portal',
+          'steam_app_id': 620,
+          'price': 9.99,
+        });
+        final unlinkedNonSteamId = await db.insert('steam_purchases', {
+          'purchase_date': DateTime(2026, 5, 2).toIso8601String(),
+          'purchase_type': SteamPurchaseType.game.storageValue,
+          'launcher': PurchaseLauncher.gog.storageValue,
+          'game_name': 'GOG Portal',
+          'price': 9.99,
+        });
+
+        final playtimeUpdates = await repository
+            .updatePlaytimeHoursBySteamAppId({620: 2.5});
+        final appIdUpdates = await repository.updateSteamAppIds({
+          unlinkedNonSteamId: 400,
+        });
+        final rows = await db.query(
+          'steam_purchases',
+          where: 'id IN (?, ?)',
+          whereArgs: [nonSteamId, unlinkedNonSteamId],
+          orderBy: 'id ASC',
+        );
+
+        expect(playtimeUpdates, 0);
+        expect(appIdUpdates, 0);
+        expect(rows.first['playtime_hours'], isNull);
+        expect(rows.last['steam_app_id'], isNull);
+      },
+    );
+
     test('skips duplicate imports that only differ in synced fields', () async {
       await repository.addPurchase(
         SteamPurchase(
@@ -157,6 +196,30 @@ void main() {
         purchases.singleWhere((purchase) => purchase.gameName == 'Hades').price,
         19.99,
       );
+    });
+
+    test('does not treat different launchers as duplicate imports', () async {
+      await repository.addPurchase(
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          gameName: 'Hades',
+          price: 19.99,
+        ),
+      );
+
+      final result = await repository.importPurchases([
+        SteamPurchase(
+          purchaseDate: DateTime(2026, 5, 1),
+          launcher: PurchaseLauncher.epicGames,
+          gameName: 'Hades',
+          price: 19.99,
+        ),
+      ]);
+      final purchases = await repository.getAllPurchases();
+
+      expect(result.importedCount, 1);
+      expect(result.skippedDuplicateCount, 0);
+      expect(purchases, hasLength(2));
     });
 
     test('persists backlog priority snooze changes', () async {

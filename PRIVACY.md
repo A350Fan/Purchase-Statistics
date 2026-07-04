@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: June 6, 2026
+Last updated: July 4, 2026
 
 This Privacy Policy applies to **Purchase Statistics**. The app is an independent project and is not affiliated with, sponsored by, or endorsed by Valve or Steam.
 
@@ -10,8 +10,8 @@ The app is built as a local desktop/mobile app without a project-operated backen
 
 - The app does not provide or require an app account.
 - The app does not use analytics, tracking, advertising, or telemetry for the project maintainer.
-- Purchases, reusable game length estimates, non-secret settings, Steam links, goals, collections, recommendation snoozes, metadata, and caches are stored locally in a SQLite database.
-- Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync.
+- Purchases, launcher/platform labels, reusable game length estimates, non-secret settings, Steam links, goals, collections, recommendation snoozes, metadata, and caches are stored locally in a SQLite database.
+- Steam data is requested only when you use Steam search, Steam app linking, metadata refresh, or Steam playtime sync for Steam launcher purchases.
 - The Steam Web API key is stored locally in the platform secure store where available and is used only for Steam Web API requests to Valve.
 
 ## Locally Entered and Stored Data
@@ -20,9 +20,9 @@ The app may store the following data locally:
 
 | Data type | Examples | Purpose |
 | --- | --- | --- |
-| Purchase data | Purchase date, game name, DLC name, edition, paid price, list price, status, notes | Purchase tracking, statistics, filters, and charts |
-| Steam links | Steam App ID per purchase | Linking local purchases to Steam games or DLCs |
-| Playtime data | `playtime_hours` per linked Steam App ID | Price-per-hour statistics and playtime analysis |
+| Purchase data | Purchase date, launcher/platform, game name, DLC name, edition, paid price, list price, status, notes | Purchase tracking, statistics, filters, and charts |
+| Steam links | Steam App ID per Steam launcher purchase | Linking local purchases to Steam games or DLCs |
+| Playtime data | `playtime_hours` per linked Steam App ID | Price-per-hour statistics and playtime analysis for matching Steam launcher purchases |
 | Game length estimate data | Game name, optional Steam App ID, main story hours, main + extras hours, completionist hours | Reusable background estimates for purchase editing and the shareable length-estimate CSV import/export |
 | Game metadata | Name, release date, genres, tags/categories, developers, publishers, unavailable metadata refresh markers | Collections, filters, previews, metadata display, and avoiding repeated requests for unavailable Steam metadata |
 | Recommendation state | Optional `backlog_priority_snoozed_until` timestamp per game | Temporarily hiding a game from the local **Play next** backlog recommendation list |
@@ -35,7 +35,7 @@ The app may store the following data locally:
 
 ### Steam Store Search and App Linking
 
-The app uses Steam Store search when you search for a game or DLC in the purchase editor, when autocomplete loads Steam results after at least three characters, when you open the dialog for linking a Steam App, or when you run automatic Steam app linking.
+The app uses Steam Store search when you search for a game or DLC in the purchase editor for a Steam launcher purchase, when autocomplete loads Steam results after at least three characters, when you open the dialog for linking a Steam App, or when you run automatic Steam app linking. Non-Steam launcher purchases do not use Steam Store search or automatic Steam app linking.
 
 The app sends the following data to `store.steampowered.com/api/storesearch/`:
 
@@ -53,7 +53,7 @@ The app stores a local search cache containing the normalized search term, langu
 
 ### Steam Game Metadata
 
-The app requests Steam game metadata when you save or edit a purchase with a Steam App ID, when the purchase editor loads a metadata preview, or when you run a refresh for missing or all metadata.
+The app requests Steam game metadata when you save or edit a Steam launcher purchase with a Steam App ID, when the purchase editor loads a metadata preview for a Steam launcher purchase, or when you run a refresh for missing or all metadata.
 
 The app sends the following data to `store.steampowered.com/api/appdetails`:
 
@@ -75,7 +75,7 @@ If Steam does not return metadata for a linked Steam App ID, for example because
 
 ### Steam Web API Playtime Sync
 
-Playtime sync does not run automatically. It runs only when you start the **Steam playtime sync** action in the app and have previously saved a Steam account identifier and Steam Web API key in the settings.
+Playtime sync does not run automatically. It runs only when you start the **Steam playtime sync** action in the app and have previously saved a Steam account identifier and Steam Web API key in the settings. The app applies synced playtime only to local Steam launcher purchases with linked Steam App IDs.
 
 If you enter a SteamID64, the app uses it directly. If you enter a Steam profile name or profile URL, the app first calls `api.steampowered.com/ISteamUser/ResolveVanityURL/v1/` to resolve it to a SteamID64.
 
@@ -100,7 +100,7 @@ The app receives the following data from Steam:
 - Game names
 - Total playtime in minutes
 
-The app processes this response locally in memory, matches it against purchases that already have a Steam App ID, and stores only the calculated `playtime_hours` for matching local purchases. Games from the Steam response that are not linked to a local purchase are not stored permanently. Purchase history, order history, payment data, and Steam passwords are not requested.
+The app processes this response locally in memory, matches it against Steam launcher purchases that already have a Steam App ID, and stores only the calculated `playtime_hours` for matching local purchases. Games from the Steam response that are not linked to a local Steam launcher purchase are not stored permanently. Purchase history, order history, payment data, and Steam passwords are not requested.
 
 ## Storage Location and Storage Countries
 
@@ -118,7 +118,7 @@ The project does not store app data on project-operated servers. Locally stored 
 
 ## Sharing With Third Parties
 
-The app transmits data only to Valve/Steam when you use one of the Steam features described above. Valve processes those requests under Valve's applicable terms and privacy rules. Through those requests, Valve may receive data such as your IP address, request timestamps, API parameters, and the requested Steam data.
+The app transmits data only to Valve/Steam when you use one of the Steam features described above for Steam launcher purchases. Valve processes those requests under Valve's applicable terms and privacy rules. Through those requests, Valve may receive data such as your IP address, request timestamps, API parameters, and the requested Steam data.
 
 The app does not send local purchase prices, notes, collections, goals, or CSV contents to the project maintainer.
 
@@ -126,7 +126,7 @@ When you import the separate length-estimate CSV, the app stores those estimates
 
 ## Retention and Deletion
 
-- Purchase data, game length estimate data, collections, goals, settings, recommendation snoozes, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
+- Purchase data, launcher/platform labels, game length estimate data, collections, goals, settings, recommendation snoozes, Steam App IDs, stored playtime, metadata, and unavailable metadata refresh markers remain stored locally until you change or delete them in the app or remove the app data.
 - You can remove Steam sync credentials by saving the Steam settings fields as empty values.
 - You can fully remove the local search cache by deleting the local app database or app data.
 - Full and length-estimate CSV exports are created only at the location you choose during export.

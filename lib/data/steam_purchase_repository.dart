@@ -158,12 +158,13 @@ class SteamPurchaseRepository {
 
       for (final entry in steamAppIdsByPurchaseId.entries) {
         // Nur noch unverknuepfte Kaeufe werden gesetzt, damit manuelle Links
-        // nicht versehentlich ueberschrieben werden.
+        // nicht versehentlich ueberschrieben werden. Nicht-Steam-Launcher
+        // bleiben von Steam-App-IDs getrennt.
         batch.update(
           _tableName,
           {'steam_app_id': entry.value},
-          where: 'id = ? AND steam_app_id IS NULL',
-          whereArgs: [entry.key],
+          where: 'id = ? AND steam_app_id IS NULL AND launcher = ?',
+          whereArgs: [entry.key, PurchaseLauncher.steam.storageValue],
         );
       }
 
@@ -199,9 +200,13 @@ class SteamPurchaseRepository {
           _tableName,
           {'playtime_hours': entry.value},
           where:
-              'steam_app_id = ? AND '
+              'steam_app_id = ? AND launcher = ? AND '
               '(playtime_hours IS NULL OR ABS(playtime_hours - ?) > 0.0001)',
-          whereArgs: [entry.key, entry.value],
+          whereArgs: [
+            entry.key,
+            PurchaseLauncher.steam.storageValue,
+            entry.value,
+          ],
         );
       }
 
@@ -238,6 +243,7 @@ class SteamPurchaseRepository {
 class _PurchaseImportSignature {
   final String purchaseDate;
   final SteamPurchaseType purchaseType;
+  final PurchaseLauncher launcher;
   final String gameName;
   final String edition;
   final String dlcName;
@@ -246,6 +252,7 @@ class _PurchaseImportSignature {
   const _PurchaseImportSignature({
     required this.purchaseDate,
     required this.purchaseType,
+    required this.launcher,
     required this.gameName,
     required this.edition,
     required this.dlcName,
@@ -256,6 +263,7 @@ class _PurchaseImportSignature {
     return _PurchaseImportSignature(
       purchaseDate: _dateKey(purchase.purchaseDate),
       purchaseType: purchase.purchaseType,
+      launcher: purchase.launcher,
       gameName: _textKey(purchase.gameName),
       edition: _textKey(purchase.edition),
       dlcName: purchase.purchaseType == SteamPurchaseType.dlc
@@ -270,6 +278,7 @@ class _PurchaseImportSignature {
     return other is _PurchaseImportSignature &&
         purchaseDate == other.purchaseDate &&
         purchaseType == other.purchaseType &&
+        launcher == other.launcher &&
         gameName == other.gameName &&
         edition == other.edition &&
         dlcName == other.dlcName &&
@@ -281,6 +290,7 @@ class _PurchaseImportSignature {
     return Object.hash(
       purchaseDate,
       purchaseType,
+      launcher,
       gameName,
       edition,
       dlcName,

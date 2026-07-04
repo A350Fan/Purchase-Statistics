@@ -38,7 +38,7 @@ class AppDatabase {
       path,
       // Jede Schema-Aenderung muss die Version erhoehen und unten in
       // `_upgradeDatabase` eine idempotente Migration ergaenzen.
-      version: 19,
+      version: 20,
       onConfigure: _configureDatabase,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
@@ -177,6 +177,7 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         purchase_date TEXT NOT NULL,
         purchase_type TEXT NOT NULL DEFAULT 'game',
+        launcher TEXT NOT NULL DEFAULT 'steam',
         game_name TEXT NOT NULL,
         edition TEXT,
         dlc_name TEXT,
@@ -314,6 +315,12 @@ class AppDatabase {
     if (oldVersion < 19) {
       await db.execute(
         'ALTER TABLE steam_purchases ADD COLUMN backlog_priority_snoozed_until TEXT',
+      );
+    }
+
+    if (oldVersion < 20) {
+      await db.execute(
+        "ALTER TABLE steam_purchases ADD COLUMN launcher TEXT NOT NULL DEFAULT 'steam'",
       );
     }
   }

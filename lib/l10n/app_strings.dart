@@ -46,6 +46,8 @@ class AppStrings {
   String get dlcs => isEnglish ? 'DLCs' : 'DLCs';
   String get allPurchaseTypes => isEnglish ? 'All' : 'Alle';
   String get totalSpent => isEnglish ? 'Total spent' : 'Gesamtausgaben';
+  String get filteredSpending =>
+      isEnglish ? 'Filtered spending' : 'Gefilterte Ausgaben';
   String get averageDiscount => isEnglish ? 'Avg. discount' : 'Ø Rabatt';
   String get playtime => isEnglish ? 'Playtime' : 'Spielzeit';
   String averagePricePerHour(String currencySymbol) {
@@ -599,6 +601,14 @@ class AppStrings {
   String get sortPurchasesBy =>
       isEnglish ? 'Sort purchases by' : 'Käufe sortieren nach';
   String get purchaseTypeFilter => isEnglish ? 'Purchase type' : 'Kaufart';
+  String get launcherFilter =>
+      isEnglish ? 'Launcher / platform' : 'Launcher / Plattform';
+  String launcherFilterCount(int count) {
+    return isEnglish
+        ? 'Launcher: $count selected'
+        : 'Launcher: $count ausgewählt';
+  }
+
   String get sortByName => isEnglish ? 'Name' : 'Name';
   String get sortByNewest => isEnglish ? 'Newest first' : 'Neueste zuerst';
   String get sortByOldest => isEnglish ? 'Oldest first' : 'Älteste zuerst';
@@ -738,6 +748,20 @@ class AppStrings {
   String get editPurchaseTitle =>
       isEnglish ? 'Edit purchase' : 'Kauf bearbeiten';
   String get purchaseDataTab => isEnglish ? 'Purchase data' : 'Kaufdaten';
+  String get launcher =>
+      isEnglish ? 'Launcher / platform' : 'Launcher / Plattform';
+  String launcherLabel(PurchaseLauncher launcher) {
+    if (launcher == PurchaseLauncher.other) {
+      return isEnglish ? 'Other' : 'Andere';
+    }
+
+    return launcher.label;
+  }
+
+  String get customLauncherOptional =>
+      isEnglish ? 'Custom launcher optional' : 'Eigener Launcher optional';
+  String get enterLauncher =>
+      isEnglish ? 'Enter a launcher' : 'Bitte Launcher eingeben';
   String get associatedGame =>
       isEnglish ? 'Associated game' : 'Zugehöriges Spiel';
   String get steamApp => isEnglish ? 'Steam app' : 'Steam-App';
